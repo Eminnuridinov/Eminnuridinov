@@ -57,7 +57,6 @@
       font-weight: 600;
     }
 
-    /* Preview */
     #preview-wrap { display: none; margin-bottom: 14px; text-align: center; }
     #preview-img {
       max-width: 100%;
@@ -67,7 +66,6 @@
       border: 1px solid #e2e8f0;
     }
 
-    /* Drop zone */
     .drop-zone {
       border: 2px dashed #93c5fd;
       border-radius: 12px;
@@ -85,7 +83,6 @@
     .drop-label { font-size: .9rem; color: #1a73e8; font-weight: 600; }
     .drop-hint  { font-size: .75rem; color: #94a3b8; margin-top: 4px; }
 
-    /* Buttons */
     .btn {
       display: flex; align-items: center; justify-content: center; gap: 8px;
       padding: 13px 20px; border: none; border-radius: 10px;
@@ -100,7 +97,6 @@
 
     .btn-col { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
 
-    /* Progress */
     #progress-wrap { display: none; }
     .progress-bar-bg {
       background: #e2e8f0; border-radius: 99px; height: 8px; overflow: hidden; margin-bottom: 8px;
@@ -111,13 +107,11 @@
     }
     .progress-label { font-size: .8rem; color: #64748b; text-align: center; }
 
-    /* Error */
     .error-box {
       background: #fef2f2; color: #dc2626; border-radius: 10px;
       padding: 12px 14px; font-size: .88rem; display: none;
     }
 
-    /* Result fields */
     .field {
       padding: 10px 0;
       border-bottom: 1px solid #f1f5f9;
@@ -213,7 +207,6 @@
 
 </main>
 
-<!-- Tesseract.js — работи изцяло в браузъра, без сървър -->
 <script src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
   const fileInput   = document.getElementById('file-input');
@@ -308,10 +301,8 @@
   function showError(msg) { errorBox.textContent = msg; errorBox.style.display = 'block'; }
   function hideError()    { errorBox.style.display = 'none'; }
 
-  /* ── Парсване на поръчката ── */
   function parseOrder(text) {
     const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-
     const order = {
       raw_text: text,
       customer_name: null,
@@ -320,37 +311,25 @@
       items: [],
       total: null,
     };
-
     const phoneRe = /(?:\+359|0)[\s\-]?\d{2,3}[\s\-]?\d{3,4}[\s\-]?\d{3,4}/;
     const priceRe = /\b\d+[.,]\d{2}\s*(?:лв|BGN|lv\.?)?\b/i;
-    const itemRe  = /^(\d+)\s*[xхXХ]\s*(.+)|^(.+?)\s*[-–]\s*(\d+)\s*(?:бр|бройки|pcs)?\.?\s*$/i;
-
+    const itemRe  = /^(\d+)\s*[xхXХ]\s*(.+)|^(.+?)\s*[-–]\s*(\d+)\s*(?:бр|бройки|pcs)?\.[\s*$]/i;
     for (const line of lines) {
       const low = line.toLowerCase();
-
-      if (!order.phone) {
-        const m = line.match(phoneRe);
-        if (m) order.phone = m[0].trim();
-      }
-
+      if (!order.phone) { const m = line.match(phoneRe); if (m) order.phone = m[0].trim(); }
       if (!order.total && /общо|total|сума|amount|за плащане/.test(low)) {
-        const m = line.match(priceRe);
-        if (m) order.total = m[0].trim();
+        const m = line.match(priceRe); if (m) order.total = m[0].trim();
       }
-
-      if (!order.customer_name && /клиент|получател|^(ime|name)\b/.test(low)) {
-        const v = line.replace(/(?:клиент|получател|name|ime)\s*[:\-]?\s*/i, '').trim();
+      if (!order.customer_name && /клиент|получател/.test(low)) {
+        const v = line.replace(/(?:клиент|получател)\s*[:\-]?\s*/i, '').trim();
         if (v) order.customer_name = v;
       }
-
-      if (!order.address && /адрес|address|ул\.|бул\./.test(low)) {
-        const v = line.replace(/(?:адрес|address)\s*[:\-]?\s*/i, '').trim();
+      if (!order.address && /адрес|ул\.|бул\./.test(low)) {
+        const v = line.replace(/(?:адрес)\s*[:\-]?\s*/i, '').trim();
         if (v) order.address = v;
       }
-
       if (itemRe.test(line)) order.items.push(line);
     }
-
     return order;
   }
 
@@ -359,24 +338,17 @@
     document.getElementById('r-phone').innerHTML   = fmt(d.phone);
     document.getElementById('r-address').innerHTML = fmt(d.address);
     document.getElementById('r-total').innerHTML   = fmt(d.total);
-
     const list = document.getElementById('r-items');
     list.innerHTML = d.items.length
       ? d.items.map(i => `<li>${esc(i)}</li>`).join('')
       : '<li class="field-value none">не е разпознато</li>';
-
     document.getElementById('r-raw').textContent = d.raw_text;
     resultCard.style.display = 'block';
     resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  function fmt(v) {
-    return v ? esc(v) : '<span class="none">не е разпознато</span>';
-  }
-
-  function esc(s) {
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
+  function fmt(v) { return v ? esc(v) : '<span class="none">не е разпознато</span>'; }
+  function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 </script>
 
 </body>
