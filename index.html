@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="theme-color" content="#1a73e8" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>OCR Поръчки</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f0f4f8;
+      color: #1e293b;
+      min-height: 100dvh;
+    }
+
+    header {
+      background: #1a73e8;
+      color: #fff;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,.25);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    header h1 { font-size: 1.1rem; font-weight: 600; }
+
+    main {
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 18px 14px 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    }
+
+    .card-title {
+      font-size: .78rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: #64748b;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    /* Preview */
+    #preview-wrap { display: none; margin-bottom: 14px; text-align: center; }
+    #preview-img {
+      max-width: 100%;
+      max-height: 240px;
+      border-radius: 10px;
+      object-fit: contain;
+      border: 1px solid #e2e8f0;
+    }
+
+    /* Drop zone */
+    .drop-zone {
+      border: 2px dashed #93c5fd;
+      border-radius: 12px;
+      padding: 28px 12px;
+      text-align: center;
+      cursor: pointer;
+      position: relative;
+      transition: background .2s, border-color .2s;
+    }
+    .drop-zone:hover { background: #eff6ff; border-color: #3b82f6; }
+    .drop-zone input {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .drop-icon { font-size: 2rem; display: block; margin-bottom: 6px; }
+    .drop-label { font-size: .9rem; color: #1a73e8; font-weight: 600; }
+    .drop-hint  { font-size: .75rem; color: #94a3b8; margin-top: 4px; }
+
+    /* Buttons */
+    .btn {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 13px 20px; border: none; border-radius: 10px;
+      font-size: .95rem; font-weight: 600; cursor: pointer; width: 100%;
+      transition: opacity .2s, transform .1s;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .btn-camera  { background: #0f766e; color: #fff; }
+    .btn-primary { background: #1a73e8; color: #fff; }
+    .btn-clear   { background: #f1f5f9; color: #475569; font-size: .85rem; padding: 10px; }
+
+    .btn-col { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+
+    /* Progress */
+    #progress-wrap { display: none; }
+    .progress-bar-bg {
+      background: #e2e8f0; border-radius: 99px; height: 8px; overflow: hidden; margin-bottom: 8px;
+    }
+    .progress-bar-fg {
+      background: #1a73e8; height: 100%; border-radius: 99px;
+      transition: width .3s; width: 0%;
+    }
+    .progress-label { font-size: .8rem; color: #64748b; text-align: center; }
+
+    /* Error */
+    .error-box {
+      background: #fef2f2; color: #dc2626; border-radius: 10px;
+      padding: 12px 14px; font-size: .88rem; display: none;
+    }
+
+    /* Result fields */
+    .field {
+      padding: 10px 0;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .field:last-child { border-bottom: none; }
+    .field-label { font-size: .72rem; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 3px; }
+    .field-value { font-size: .93rem; color: #1e293b; word-break: break-word; }
+    .field-value.none { color: #cbd5e1; font-style: italic; }
+
+    .items-list { list-style: none; display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+    .items-list li { background: #f8fafc; border-radius: 6px; padding: 5px 9px; font-size: .88rem; }
+
+    details { margin-top: 12px; }
+    summary { font-size: .8rem; color: #1a73e8; cursor: pointer; user-select: none; }
+    .raw-box {
+      font-family: monospace; font-size: .76rem; background: #f8fafc;
+      border-radius: 8px; padding: 10px; margin-top: 8px;
+      white-space: pre-wrap; word-break: break-word; color: #475569;
+      max-height: 180px; overflow-y: auto;
+    }
+
+    #result-card { display: none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <span>📋</span>
+  <h1>OCR Поръчки</h1>
+</header>
+
+<main>
+
+  <div class="card">
+    <div class="card-title">Снимка на поръчка</div>
+
+    <div id="preview-wrap">
+      <img id="preview-img" src="" alt="Преглед" />
+    </div>
+
+    <div class="drop-zone" id="drop-zone">
+      <input type="file" id="file-input" accept="image/*" />
+      <span class="drop-icon">🖼️</span>
+      <div class="drop-label">Избери от галерията</div>
+      <div class="drop-hint">JPG · PNG · WEBP</div>
+    </div>
+
+    <div class="btn-col">
+      <button class="btn btn-camera" id="camera-btn">📷 Снимай сега</button>
+      <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none" />
+
+      <div id="progress-wrap">
+        <div class="progress-bar-bg"><div class="progress-bar-fg" id="progress-bar"></div></div>
+        <div class="progress-label" id="progress-label">Зареждане…</div>
+      </div>
+
+      <button class="btn btn-primary" id="process-btn" disabled>🔍 Разпознай поръчка</button>
+      <button class="btn btn-clear"   id="clear-btn"   style="display:none">✕ Изчисти</button>
+    </div>
+  </div>
+
+  <div class="error-box" id="error-box"></div>
+
+  <div class="card" id="result-card">
+    <div class="card-title">Разпозната поръчка</div>
+
+    <div class="field">
+      <div class="field-label">Клиент</div>
+      <div class="field-value" id="r-name">—</div>
+    </div>
+    <div class="field">
+      <div class="field-label">Телефон</div>
+      <div class="field-value" id="r-phone">—</div>
+    </div>
+    <div class="field">
+      <div class="field-label">Адрес</div>
+      <div class="field-value" id="r-address">—</div>
+    </div>
+    <div class="field">
+      <div class="field-label">Артикули</div>
+      <ul class="items-list" id="r-items"><li class="field-value none">—</li></ul>
+    </div>
+    <div class="field">
+      <div class="field-label">Обща сума</div>
+      <div class="field-value" id="r-total">—</div>
+    </div>
+
+    <details>
+      <summary>Целият разпознат текст</summary>
+      <pre class="raw-box" id="r-raw"></pre>
+    </details>
+  </div>
+
+</main>
+
+<!-- Tesseract.js — работи изцяло в браузъра, без сървър -->
+<script src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+  const fileInput   = document.getElementById('file-input');
+  const cameraInput = document.getElementById('camera-input');
+  const processBtn  = document.getElementById('process-btn');
+  const clearBtn    = document.getElementById('clear-btn');
+  const previewWrap = document.getElementById('preview-wrap');
+  const previewImg  = document.getElementById('preview-img');
+  const progressWrap= document.getElementById('progress-wrap');
+  const progressBar = document.getElementById('progress-bar');
+  const progressLbl = document.getElementById('progress-label');
+  const resultCard  = document.getElementById('result-card');
+  const errorBox    = document.getElementById('error-box');
+
+  let selectedFile = null;
+
+  document.getElementById('camera-btn').addEventListener('click', () => cameraInput.click());
+  fileInput.addEventListener('change',   e => setFile(e.target.files[0]));
+  cameraInput.addEventListener('change', e => setFile(e.target.files[0]));
+
+  function setFile(file) {
+    if (!file) return;
+    selectedFile = file;
+    previewImg.src = URL.createObjectURL(file);
+    previewWrap.style.display = 'block';
+    processBtn.disabled = false;
+    clearBtn.style.display = 'flex';
+    hideError();
+    resultCard.style.display = 'none';
+    progressWrap.style.display = 'none';
+  }
+
+  clearBtn.addEventListener('click', () => {
+    selectedFile = null;
+    fileInput.value = '';
+    cameraInput.value = '';
+    previewWrap.style.display = 'none';
+    processBtn.disabled = true;
+    clearBtn.style.display = 'none';
+    resultCard.style.display = 'none';
+    progressWrap.style.display = 'none';
+    hideError();
+  });
+
+  processBtn.addEventListener('click', async () => {
+    if (!selectedFile) return;
+    hideError();
+    resultCard.style.display = 'none';
+    processBtn.disabled = true;
+    progressWrap.style.display = 'block';
+    setProgress(0, 'Зареждане на OCR…');
+
+    try {
+      const result = await Tesseract.recognize(selectedFile, 'bul+eng', {
+        logger: m => {
+          if (m.status === 'recognizing text') {
+            setProgress(Math.round(m.progress * 100), 'Разпознаване…');
+          } else {
+            setProgress(0, statusLabel(m.status));
+          }
+        }
+      });
+
+      const text = result.data.text.trim();
+      if (!text) { showError('Не беше открит текст. Опитай с по-ясна снимка.'); return; }
+
+      renderResult(parseOrder(text));
+
+    } catch (err) {
+      showError('Грешка при разпознаване: ' + err.message);
+    } finally {
+      processBtn.disabled = false;
+      progressWrap.style.display = 'none';
+    }
+  });
+
+  function setProgress(pct, label) {
+    progressBar.style.width = pct + '%';
+    progressLbl.textContent = label;
+  }
+
+  function statusLabel(s) {
+    const map = {
+      'loading tesseract core': 'Зареждане на ядрото…',
+      'initializing tesseract': 'Инициализиране…',
+      'loading language traineddata': 'Зареждане на езика…',
+      'initializing api': 'Подготовка…',
+    };
+    return map[s] || s;
+  }
+
+  function showError(msg) { errorBox.textContent = msg; errorBox.style.display = 'block'; }
+  function hideError()    { errorBox.style.display = 'none'; }
+
+  /* ── Парсване на поръчката ── */
+  function parseOrder(text) {
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+
+    const order = {
+      raw_text: text,
+      customer_name: null,
+      phone: null,
+      address: null,
+      items: [],
+      total: null,
+    };
+
+    const phoneRe = /(?:\+359|0)[\s\-]?\d{2,3}[\s\-]?\d{3,4}[\s\-]?\d{3,4}/;
+    const priceRe = /\b\d+[.,]\d{2}\s*(?:лв|BGN|lv\.?)?\b/i;
+    const itemRe  = /^(\d+)\s*[xхXХ]\s*(.+)|^(.+?)\s*[-–]\s*(\d+)\s*(?:бр|бройки|pcs)?\.?\s*$/i;
+
+    for (const line of lines) {
+      const low = line.toLowerCase();
+
+      if (!order.phone) {
+        const m = line.match(phoneRe);
+        if (m) order.phone = m[0].trim();
+      }
+
+      if (!order.total && /общо|total|сума|amount|за плащане/.test(low)) {
+        const m = line.match(priceRe);
+        if (m) order.total = m[0].trim();
+      }
+
+      if (!order.customer_name && /клиент|получател|^(ime|name)\b/.test(low)) {
+        const v = line.replace(/(?:клиент|получател|name|ime)\s*[:\-]?\s*/i, '').trim();
+        if (v) order.customer_name = v;
+      }
+
+      if (!order.address && /адрес|address|ул\.|бул\./.test(low)) {
+        const v = line.replace(/(?:адрес|address)\s*[:\-]?\s*/i, '').trim();
+        if (v) order.address = v;
+      }
+
+      if (itemRe.test(line)) order.items.push(line);
+    }
+
+    return order;
+  }
+
+  function renderResult(d) {
+    document.getElementById('r-name').innerHTML    = fmt(d.customer_name);
+    document.getElementById('r-phone').innerHTML   = fmt(d.phone);
+    document.getElementById('r-address').innerHTML = fmt(d.address);
+    document.getElementById('r-total').innerHTML   = fmt(d.total);
+
+    const list = document.getElementById('r-items');
+    list.innerHTML = d.items.length
+      ? d.items.map(i => `<li>${esc(i)}</li>`).join('')
+      : '<li class="field-value none">не е разпознато</li>';
+
+    document.getElementById('r-raw').textContent = d.raw_text;
+    resultCard.style.display = 'block';
+    resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function fmt(v) {
+    return v ? esc(v) : '<span class="none">не е разпознато</span>';
+  }
+
+  function esc(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+</script>
+
+</body>
+</html>
