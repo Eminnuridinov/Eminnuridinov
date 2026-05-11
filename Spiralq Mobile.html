@@ -1,0 +1,1586 @@
+<!doctype html>
+<html lang="bg">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0b0f14" />
+<title>Spiralq — Mobile</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ========== DESIGN TOKENS (theme.css) ========== */
+:root {
+  --bg-0: #0b0f14;
+  --bg-1: #0f141b;
+  --bg-2: #141a23;
+  --bg-3: #1a2230;
+  --bg-canvas: #0a0e13;
+  --line-1: #1f2937;
+  --line-2: #2a3647;
+  --line-3: #3a4a62;
+  --text-1: #e6edf5;
+  --text-2: #a6b4c6;
+  --text-3: #6b7a90;
+  --text-4: #4a5668;
+  --accent: #3a8fff;
+  --accent-2: #5dc0ff;
+  --accent-soft: rgba(58,143,255,.14);
+  --accent-line: rgba(58,143,255,.35);
+  --ok: #3ddc97;
+  --warn: #f5b547;
+  --err: #ff5d6c;
+  --grid-1: rgba(255,255,255,.03);
+  --grid-2: rgba(255,255,255,.06);
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans: 'Inter', system-ui, -apple-system, Segoe UI, sans-serif;
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --h-topbar: 52px;
+  --h-tabbar: 62px;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: var(--bg-0); }
+body {
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--text-1);
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.005em;
+}
+button { font-family: inherit; font-size: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+input, select { font-family: inherit; color: inherit; }
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 4px; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+@keyframes spinSlow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.spin-slow { animation: spinSlow 360s linear infinite; transform-origin: center; }
+@keyframes pulseDot { 0%,100% { opacity:.4; } 50% { opacity:1; } }
+.pulse { animation: pulseDot 1.6s ease-in-out infinite; }
+@keyframes calcFlash { 0% { box-shadow: 0 4px 14px rgba(45,127,234,.4); } 50% { box-shadow: 0 0 28px rgba(93,192,255,.7); } 100% { box-shadow: 0 4px 14px rgba(45,127,234,.4); } }
+.fab-calc { animation: calcFlash 0.5s ease; }
+
+/* ========== APP LAYOUT ========== */
+.app {
+  position: fixed; inset: 0;
+  display: grid;
+  grid-template-rows: calc(var(--h-topbar) + var(--sat)) 1fr calc(var(--h-tabbar) + var(--sab));
+}
+
+/* ========== TOP BAR ========== */
+.topbar {
+  padding-top: var(--sat);
+  background: rgba(15,20,27,.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--line-1);
+  display: flex; align-items: center;
+  padding-left: 14px; padding-right: 14px;
+  gap: 10px;
+  position: relative; z-index: 10;
+}
+.logo {
+  width: 32px; height: 32px;
+  display: grid; place-items: center;
+  background: linear-gradient(135deg, #1b3a66, #0e1e36);
+  border: 1px solid var(--accent-line);
+  border-radius: 8px;
+  color: var(--accent-2);
+  flex-shrink: 0;
+}
+.title-wrap { flex: 1; min-width: 0; }
+.title-name {
+  font-weight: 700; font-size: 15px; letter-spacing: -0.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: flex; align-items: center; gap: 6px;
+}
+.title-name .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--ok); box-shadow: 0 0 6px var(--ok);
+  flex-shrink: 0; animation: pulseDot 1.6s ease-in-out infinite;
+}
+.title-sub { font: 500 11px var(--mono); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top-btn {
+  width: 36px; height: 36px;
+  display: grid; place-items: center;
+  border-radius: 8px; color: var(--text-2);
+}
+.top-btn:active { background: var(--bg-2); }
+.top-btn svg { width: 18px; height: 18px; }
+.lang-mini {
+  font: 600 11px var(--mono);
+  padding: 6px 9px;
+  background: var(--bg-2);
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  color: var(--text-1);
+  letter-spacing: 0.04em;
+}
+
+/* ========== STAGE ========== */
+.stage {
+  position: relative; overflow: hidden;
+  background: radial-gradient(ellipse at center, #11181f 0%, var(--bg-canvas) 60%, #06090d 100%);
+}
+.tab-panel {
+  position: absolute; inset: 0;
+  display: none;
+  overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+.tab-panel.active { display: block; }
+
+/* ========== CANVAS TAB ========== */
+.canvas-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(var(--grid-1) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-1) 1px, transparent 1px),
+    linear-gradient(var(--grid-2) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-2) 1px, transparent 1px);
+  background-size: 14px 14px, 14px 14px, 112px 112px, 112px 112px;
+  background-position: center;
+  mask-image: radial-gradient(ellipse at center, #000 50%, transparent 95%);
+  pointer-events: none;
+}
+.canvas-svg {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+}
+.canvas-chips {
+  position: absolute; top: 10px; left: 10px; right: 10px;
+  display: flex; justify-content: space-between; gap: 8px;
+  pointer-events: none;
+}
+.canvas-chips > * { pointer-events: auto; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 10px;
+  background: rgba(15,20,27,.88);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--line-2);
+  border-radius: 14px;
+  font: 500 11px var(--mono); color: var(--text-2);
+}
+.chip svg { width: 11px; height: 11px; }
+.chip .v { color: var(--text-1); }
+.chip.ok { border-color: rgba(61,220,151,.35); color: var(--ok); }
+.chip.ok .v { color: var(--ok); }
+.view-seg {
+  position: absolute; top: 52px; left: 50%; transform: translateX(-50%);
+  display: flex;
+  background: rgba(15,20,27,.88);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--line-2);
+  border-radius: 8px; padding: 3px; gap: 2px;
+  pointer-events: auto; z-index: 2;
+}
+.view-seg button {
+  display: flex; align-items: center; gap: 5px;
+  padding: 6px 12px; border-radius: 6px;
+  color: var(--text-3); font-size: 12px;
+}
+.view-seg button.active { background: var(--accent-soft); color: var(--accent-2); }
+.view-seg button svg { width: 13px; height: 13px; }
+.canvas-tools {
+  position: absolute; right: 10px; top: 60px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.ct-btn {
+  width: 40px; height: 40px;
+  display: grid; place-items: center;
+  background: rgba(15,20,27,.88);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--line-2);
+  border-radius: 10px; color: var(--text-2);
+}
+.ct-btn:active { background: var(--bg-3); }
+.ct-btn.active { color: var(--accent-2); border-color: var(--accent-line); background: rgba(58,143,255,.08); }
+.ct-btn svg { width: 16px; height: 16px; }
+.canvas-foot {
+  position: absolute; left: 10px; right: 10px; bottom: 10px;
+  display: flex; gap: 8px; align-items: stretch;
+}
+.stats-pill {
+  flex: 1;
+  display: flex;
+  background: rgba(15,20,27,.92);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--line-2);
+  border-radius: 12px; padding: 8px 4px;
+  min-width: 0;
+}
+.sp-item {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 0 4px;
+  border-right: 1px solid var(--line-1);
+}
+.sp-item:last-child { border-right: 0; }
+.sp-item .k { font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
+.sp-item .v { font: 600 13px var(--mono); color: var(--text-1); margin-top: 1px; white-space: nowrap; }
+.sp-item .v.ok { color: var(--ok); }
+.sp-item .v .u { font-size: 9px; color: var(--text-4); font-weight: 500; }
+.fab {
+  width: 48px; height: 48px;
+  align-self: center; flex-shrink: 0;
+  display: grid; place-items: center;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #4a9dff, #2d7fea);
+  color: #fff;
+  border: 1px solid #2d7fea;
+  box-shadow: 0 4px 14px rgba(45,127,234,.4), 0 1px 0 rgba(255,255,255,.18) inset;
+}
+.fab:active { opacity: 0.85; transform: scale(0.96); }
+.fab svg { width: 20px; height: 20px; }
+.zoom-ctrl {
+  position: absolute; left: 10px; top: 60px;
+  display: flex; flex-direction: column;
+  background: rgba(15,20,27,.88);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--line-2);
+  border-radius: 10px; overflow: hidden;
+}
+.zoom-ctrl button { width: 40px; height: 36px; display: grid; place-items: center; color: var(--text-2); }
+.zoom-ctrl button:active { background: var(--bg-3); }
+.zoom-ctrl .val {
+  font: 500 10px var(--mono); color: var(--text-1);
+  text-align: center; padding: 4px 0;
+  border-top: 1px solid var(--line-2);
+  border-bottom: 1px solid var(--line-2);
+}
+.zoom-ctrl button svg { width: 14px; height: 14px; }
+
+/* ========== PITCH CARD ========== */
+.pitch-row {
+  display: flex; align-items: flex-end; gap: 8px;
+  padding: 4px 0 12px;
+}
+.pitch-zone { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.zone-label {
+  font: 600 10px var(--mono); letter-spacing: .06em; text-transform: uppercase;
+  display: flex; align-items: center; gap: 5px;
+}
+.zone-label .zone-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.zone-label.inner .zone-dot { background: var(--accent-2); box-shadow: 0 0 5px rgba(93,192,255,.5); }
+.zone-label.outer .zone-dot { background: var(--ok);       box-shadow: 0 0 5px rgba(61,220,151,.5); }
+.zone-label.inner { color: var(--accent-2); }
+.zone-label.outer { color: var(--ok); }
+.swap-btn {
+  flex-shrink: 0; width: 36px; height: 36px;
+  display: grid; place-items: center;
+  background: var(--bg-3); border: 1px solid var(--line-2);
+  border-radius: 10px; color: var(--text-2);
+  font-size: 16px; margin-bottom: 0;
+  transition: background .15s, color .15s, transform .2s;
+}
+.swap-btn:active { background: var(--accent-soft); color: var(--accent-2); transform: rotate(180deg); }
+.pitch-bar-wrap {
+  margin: 4px 0 8px;
+  border-radius: 8px; overflow: hidden;
+  height: 10px; display: flex; gap: 2px;
+  background: var(--bg-0); padding: 2px; box-sizing: border-box;
+}
+.pitch-bar-inner {
+  background: var(--accent); border-radius: 4px;
+  transition: width .2s ease;
+  height: 100%;
+}
+.pitch-bar-outer {
+  background: var(--ok); border-radius: 4px;
+  transition: width .2s ease;
+  height: 100%; flex: 1;
+}
+
+/* ========== PARAMS / NESTING / FIGURES / MORE ========== */
+.panel-content { padding: 12px 14px calc(20px + var(--h-tabbar) + var(--sab)); }
+.panel-title-big { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; margin: 4px 0 14px; }
+.panel-title-big span { color: var(--text-3); font-weight: 500; font-size: 14px; }
+
+.card { background: var(--bg-1); border: 1px solid var(--line-1); border-radius: 14px; margin-bottom: 12px; overflow: hidden; }
+.card-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 14px 10px;
+  user-select: none; cursor: pointer;
+}
+.card-head .icon-box {
+  width: 28px; height: 28px;
+  display: grid; place-items: center;
+  background: var(--accent-soft); color: var(--accent-2);
+  border-radius: 8px;
+}
+.card-head .icon-box svg { width: 15px; height: 15px; }
+.card-head .title { font-weight: 600; font-size: 14px; flex: 1; }
+.card-head .chev { width: 14px; height: 14px; color: var(--text-3); transition: transform .18s; }
+.card.collapsed .chev { transform: rotate(-90deg); }
+.card-body { padding: 0 14px 14px; }
+.card.collapsed .card-body { display: none; }
+
+.field-m {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 0; border-top: 1px solid var(--line-1); gap: 12px;
+}
+.field-m:first-child { border-top: 0; }
+.field-m label { font-size: 13px; color: var(--text-2); flex: 1; min-width: 0; }
+.field-m label .sub { display: block; font: 500 10.5px var(--mono); color: var(--text-4); margin-top: 2px; }
+.input-wrap-m {
+  display: flex; align-items: center;
+  background: var(--bg-0); border: 1px solid var(--line-2);
+  border-radius: 8px; height: 36px; min-width: 120px;
+  transition: border-color .15s;
+}
+.input-wrap-m:focus-within { border-color: var(--accent-line); }
+.input-wrap-m input {
+  flex: 1; min-width: 0; height: 100%;
+  background: transparent; border: 0; outline: 0;
+  padding: 0 10px;
+  font: 600 14px var(--mono); color: var(--text-1); text-align: right;
+}
+.input-wrap-m .unit { padding-right: 10px; font: 500 11px var(--mono); color: var(--text-4); }
+
+.slider-m .top { display: flex; justify-content: space-between; margin-bottom: 8px; }
+.slider-m label { font-size: 13px; color: var(--text-2); }
+.slider-m .val { font: 600 13px var(--mono); color: var(--text-1); }
+.slider-m input[type=range] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 28px; background: transparent; outline: none;
+}
+.slider-m input[type=range]::-webkit-slider-runnable-track { height: 4px; background: var(--line-2); border-radius: 4px; }
+.slider-m input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--text-1); border: 3px solid var(--accent);
+  box-shadow: 0 0 0 4px rgba(58,143,255,.08);
+  margin-top: -9px; cursor: pointer;
+}
+.slider-m input[type=range]::-moz-range-track { height: 4px; background: var(--line-2); border-radius: 4px; }
+.slider-m input[type=range]::-moz-range-thumb {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--text-1); border: 3px solid var(--accent); cursor: pointer;
+}
+
+.select-m {
+  height: 36px; padding: 0 30px 0 10px;
+  background: var(--bg-0) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' stroke='%236b7a90' stroke-width='1.4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 10px center;
+  border: 1px solid var(--line-2); border-radius: 8px;
+  font: 500 13px var(--sans); color: var(--text-1);
+  -webkit-appearance: none; appearance: none;
+  min-width: 150px;
+}
+
+.seg-m {
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+  background: var(--bg-0); border: 1px solid var(--line-2);
+  border-radius: 10px; padding: 3px; gap: 3px; margin: 8px 0;
+}
+.seg-m button { padding: 9px 6px; border-radius: 7px; color: var(--text-3); font-size: 12.5px; font-weight: 500; }
+.seg-m button.active { background: var(--accent-soft); color: var(--accent-2); box-shadow: 0 0 0 1px var(--accent-line) inset; }
+
+.chk-m {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 0; border-top: 1px solid var(--line-1);
+  font-size: 13px; color: var(--text-2); cursor: pointer;
+}
+.chk-m:first-child { border-top: 0; }
+.chk-m input { display: none; }
+.chk-m .box {
+  width: 22px; height: 22px; border-radius: 6px;
+  background: var(--bg-0); border: 1.5px solid var(--line-3);
+  display: grid; place-items: center; flex-shrink: 0;
+  transition: background .15s, border-color .15s;
+}
+.chk-m input:checked + .box { background: var(--accent); border-color: var(--accent); }
+.chk-m input:checked + .box::after {
+  content: ""; width: 10px; height: 5px;
+  border-left: 2px solid #fff; border-bottom: 2px solid #fff;
+  transform: rotate(-45deg) translate(1px,-1px);
+}
+
+.btn-primary-m {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; height: 48px; border-radius: 12px;
+  background: linear-gradient(180deg, #4a9dff, #2d7fea);
+  color: #fff; font-weight: 600; font-size: 15px;
+  box-shadow: 0 4px 12px rgba(45,127,234,.3);
+  margin-top: 8px; transition: opacity .15s, transform .1s;
+}
+.btn-primary-m:active { opacity: .85; transform: scale(0.99); }
+.btn-primary-m svg { width: 16px; height: 16px; }
+
+/* ========== NESTING ========== */
+.eff-card-m {
+  display: flex; align-items: center; gap: 16px;
+  padding: 18px;
+  background: linear-gradient(135deg, rgba(61,220,151,.10), rgba(58,143,255,.04));
+  border: 1px solid rgba(61,220,151,.25); border-radius: 16px; margin-bottom: 12px;
+}
+.eff-ring-m { width: 88px; height: 88px; position: relative; flex-shrink: 0; }
+.eff-ring-m svg { transform: rotate(-90deg); }
+.eff-ring-m .ring-bg { stroke: var(--line-2); }
+.eff-ring-m .ring-fg { stroke: var(--ok); }
+.eff-ring-m .pct { position: absolute; inset: 0; display: grid; place-items: center; font: 700 22px var(--mono); color: var(--ok); }
+.eff-ring-m .pct .sym { font-size: 13px; opacity: .8; }
+.eff-info-m .k { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-3); }
+.eff-info-m .v { font-size: 16px; color: var(--text-1); font-weight: 600; margin-top: 4px; }
+.eff-info-m .sub { font: 500 12px var(--mono); color: var(--text-2); margin-top: 2px; }
+.stats-4 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.stat-m { background: var(--bg-1); border: 1px solid var(--line-1); border-radius: 12px; padding: 12px; }
+.stat-m .k { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-3); }
+.stat-m .v { font: 600 18px var(--mono); color: var(--text-1); margin-top: 4px; }
+.stat-m .v .u { font-size: 11px; color: var(--text-4); font-weight: 500; }
+
+/* ========== FIGURES ========== */
+.figure-m {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px; background: var(--bg-1);
+  border: 1px solid var(--line-1); border-radius: 12px;
+  margin-bottom: 8px; position: relative; cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.figure-m.selected { border-color: var(--accent-line); background: linear-gradient(90deg, rgba(58,143,255,.10), transparent 60%); }
+.figure-thumb-m {
+  width: 44px; height: 44px; background: var(--bg-0);
+  border: 1px solid var(--line-2); border-radius: 10px;
+  display: grid; place-items: center; color: var(--text-2); flex-shrink: 0;
+}
+.figure-thumb-m svg { width: 24px; height: 24px; }
+.figure-m.selected .figure-thumb-m { border-color: var(--accent-line); color: var(--accent-2); }
+.figure-body-m { flex: 1; min-width: 0; }
+.figure-name-m { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 6px; }
+.figure-name-m .badge { font: 500 9px var(--mono); padding: 2px 5px; background: var(--bg-3); border-radius: 3px; color: var(--text-3); }
+.figure-dim-m { font: 500 11.5px var(--mono); color: var(--text-3); margin-top: 3px; }
+.figure-qty-m {
+  font: 700 14px var(--mono); color: var(--text-1);
+  background: var(--bg-2); padding: 4px 10px;
+  border-radius: 10px; min-width: 40px; text-align: center;
+  border: 1px solid var(--line-2);
+}
+.drop-m {
+  padding: 20px; background: var(--bg-1);
+  border: 1.5px dashed var(--line-3); border-radius: 12px;
+  text-align: center; color: var(--text-3); font-size: 13px; margin-top: 8px;
+}
+.drop-m svg { width: 28px; height: 28px; margin-bottom: 8px; color: var(--text-3); }
+.drop-m .types { font: 500 10.5px var(--mono); color: var(--text-4); margin-top: 4px; }
+
+/* ========== HISTORY ========== */
+.hist-m { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; position: relative; }
+.hist-m::before { content: ""; position: absolute; left: 20px; top: 0; bottom: 0; width: 1.5px; background: var(--line-2); }
+.hist-m:first-child::before { top: 50%; }
+.hist-m:last-child::before { bottom: 50%; }
+.hist-m .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line-3); flex-shrink: 0; z-index: 1; margin-top: 4px; border: 2px solid var(--bg-0); box-shadow: 0 0 0 2px var(--line-3); }
+.hist-m.current .dot { background: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.hist-m .txt { font-size: 13px; color: var(--text-2); flex: 1; }
+.hist-m.current .txt { color: var(--text-1); font-weight: 500; }
+.hist-m .time { font: 500 11px var(--mono); color: var(--text-4); }
+
+/* ========== BOTTOM TAB BAR ========== */
+.tabbar {
+  padding-bottom: var(--sab);
+  background: rgba(15,20,27,.96);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--line-1);
+  display: grid; grid-template-columns: repeat(5,1fr);
+  position: relative; z-index: 10;
+}
+.tab {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; padding: 8px 4px;
+  color: var(--text-3); font-size: 10.5px; font-weight: 500;
+  position: relative; transition: color .15s;
+}
+.tab svg { width: 20px; height: 20px; }
+.tab.active { color: var(--accent-2); }
+.tab.active::before {
+  content: ""; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 32px; height: 2px; background: var(--accent); border-radius: 0 0 3px 3px;
+}
+</style>
+</head>
+<body>
+
+<!-- ===== SVG ICON LIBRARY ===== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-spiral" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 12m-1 0a1 1 0 1 0 2 0 1 1 0 1 0 -2 0"/>
+      <path d="M14 12a2 2 0 1 0 -4 0 2 2 0 1 0 4 0"/>
+      <path d="M10 12a4 4 0 1 0 8 0 4 4 0 1 0 -8 0" opacity=".8"/>
+      <path d="M6 12a6 6 0 1 0 12 0 6 6 0 0 0 -12 0" opacity=".6"/>
+      <path d="M3 12a9 9 0 1 0 18 0 9 9 0 0 0 -18 0" opacity=".35"/>
+    </symbol>
+    <symbol id="i-params" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+      <circle cx="7" cy="7" r="2"/><path d="M3 7h2M9 7h12"/>
+      <circle cx="15" cy="13" r="2"/><path d="M3 13h10M17 13h4"/>
+      <circle cx="9" cy="19" r="2"/><path d="M3 19h4M11 19h10"/>
+    </symbol>
+    <symbol id="i-nest" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <rect x="3" y="4" width="18" height="16" rx="1"/>
+      <rect x="5" y="6" width="5" height="5"/>
+      <rect x="11" y="6" width="4" height="4"/>
+      <rect x="16" y="6" width="3" height="3"/>
+      <rect x="5" y="13" width="4" height="5"/>
+      <rect x="10" y="11" width="5" height="7"/>
+    </symbol>
+    <symbol id="i-ring" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>
+    </symbol>
+    <symbol id="i-order" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+      <path d="M5 3h11l3 3v15H5z"/><path d="M9 8h6M9 12h6M9 16h4"/>
+    </symbol>
+    <symbol id="i-history" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+      <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+    </symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 9l6 6 6-6"/>
+    </symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <path d="M12 5v14M5 12h14"/>
+    </symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <path d="M5 12h14"/>
+    </symbol>
+    <symbol id="i-save" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round">
+      <path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h8V3M8 14h8v7H8z"/>
+    </symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-4"/>
+    </symbol>
+    <symbol id="i-play" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M8 5v14l11-7z"/>
+    </symbol>
+    <symbol id="i-reset" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/>
+    </symbol>
+    <symbol id="i-zoom-fit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+      <path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4"/><circle cx="12" cy="12" r="3"/>
+    </symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>
+    </symbol>
+    <symbol id="i-cube" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+      <path d="M12 3l9 5v8l-9 5-9-5V8z"/><path d="M3 8l9 5 9-5M12 13v10"/>
+    </symbol>
+    <symbol id="i-square" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+      <rect x="4" y="4" width="16" height="16" rx="1"/>
+    </symbol>
+    <symbol id="i-frame" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <rect x="3" y="3" width="18" height="18" rx="1"/><rect x="7" y="7" width="10" height="10"/>
+    </symbol>
+    <symbol id="i-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <circle cx="12" cy="12" r="9"/>
+    </symbol>
+    <symbol id="i-dxf" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+      <path d="M4 3h10l6 6v12H4z"/><path d="M14 3v6h6"/>
+    </symbol>
+    <symbol id="i-cnc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+      <rect x="4" y="4" width="16" height="11" rx="1"/>
+      <path d="M12 15v3M8 20h8M10 8l2-2 2 2M12 6v5"/>
+    </symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+      <path d="M12 3l9 5-9 5-9-5z"/><path d="M3 12l9 5 9-5M3 17l9 5 9-5"/>
+    </symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1-.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>
+    </symbol>
+    <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 4v12M7 11l5 5 5-5M4 20h16"/>
+    </symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 12l5 5 9-10"/>
+    </symbol>
+    <symbol id="i-more" viewBox="0 0 24 24" fill="currentColor">
+      <circle cx="6" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18" cy="12" r="1.8"/>
+    </symbol>
+    <symbol id="i-ruler" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+      <path d="M3 16l13-13 5 5L8 21z"/>
+      <path d="M7 12l2 2M10 9l2 2M13 6l2 2M5 14l2 2M16 3l2 2"/>
+    </symbol>
+    <symbol id="i-dim" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+      <path d="M4 8v8M20 8v8M4 12h16"/>
+    </symbol>
+  </defs>
+</svg>
+
+
+<div class="app" id="app">
+
+  <!-- ===== TOP BAR ===== -->
+  <div class="topbar">
+    <div class="logo">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <path d="M12 12.5a1 1 0 1 1 0-2"/>
+        <path d="M12 14a2.5 2.5 0 1 0 0-5"/>
+        <path d="M12 17a5.5 5.5 0 1 0 0-11"/>
+        <path d="M12 21a9.5 9.5 0 1 0 0-19" opacity=".7"/>
+      </svg>
+    </div>
+    <div class="title-wrap">
+      <div class="title-name"><span class="dot"></span><span id="projectName">ePTFE-Seal-Ø420</span></div>
+      <div class="title-sub" id="projectSub">v28 ULTRA · запазено преди 12 с</div>
+    </div>
+    <button class="lang-mini" id="langBtn">BG</button>
+    <button class="top-btn"><svg><use href="#i-settings"/></svg></button>
+  </div>
+
+  <!-- ===== STAGE ===== -->
+  <div class="stage">
+
+    <!-- CANVAS TAB -->
+    <div class="tab-panel active" data-tab="canvas">
+      <div class="canvas-grid"></div>
+
+      <svg class="canvas-svg" id="mainSvg" viewBox="-240 -240 480 480" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <radialGradient id="spiralGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#3a8fff" stop-opacity="0"/>
+            <stop offset="70%" stop-color="#3a8fff" stop-opacity="0.05"/>
+            <stop offset="100%" stop-color="#3a8fff" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <circle cx="0" cy="0" r="220" fill="url(#spiralGlow)"/>
+
+        <!-- Bounding box + dim lines -->
+        <rect id="boundRect" x="-210" y="-210" width="420" height="420"
+              fill="none" stroke="#3a8fff" stroke-width="0.6" stroke-dasharray="2 3" opacity=".5"/>
+        <g id="dimGroup" stroke="#5dc0ff" stroke-width="0.5" opacity=".55" font-family="JetBrains Mono" font-size="10" fill="#5dc0ff">
+          <line id="dimLine" x1="-210" y1="-226" x2="210" y2="-226"/>
+          <line x1="-210" y1="-231" x2="-210" y2="-221"/>
+          <line x1="210" y1="-231" x2="210" y2="-221"/>
+          <rect x="-22" y="-238" width="44" height="16" fill="#0a0e13" stroke="none"/>
+          <text id="dimText" x="0" y="-226" text-anchor="middle">420.00</text>
+        </g>
+
+        <!-- Spiral -->
+        <g class="spin-slow" style="animation-duration:360s;">
+          <g id="spiralPath"></g>
+        </g>
+
+        <!-- Center marker -->
+        <circle cx="0" cy="0" r="3" fill="#3a8fff"/>
+        <circle cx="0" cy="0" r="9" fill="none" stroke="#3a8fff" stroke-width="0.6" opacity=".5"/>
+      </svg>
+
+      <!-- Chips -->
+      <div class="canvas-chips">
+        <span class="chip">
+          <svg><use href="#i-spiral"/></svg>
+          <span class="v" id="chipLabel">Ø420 · N24</span>
+        </span>
+        <span class="chip ok">
+          <svg><use href="#i-check"/></svg>
+          <span class="v" data-i18n="valid">Валидна</span>
+        </span>
+      </div>
+
+      <!-- 2D / 3D switch -->
+      <div class="view-seg" id="viewSeg">
+        <button class="active"><svg><use href="#i-grid"/></svg>2D</button>
+        <button><svg><use href="#i-cube"/></svg>3D</button>
+        <button><svg><use href="#i-play"/></svg><span data-i18n="anim">Анимация</span></button>
+      </div>
+
+      <!-- Right tools -->
+      <div class="canvas-tools">
+        <button class="ct-btn active" id="btnZoomFit" title="Zoom to fit"><svg><use href="#i-zoom-fit"/></svg></button>
+        <button class="ct-btn" id="btnDim" title="Размерни линии"><svg><use href="#i-dim"/></svg></button>
+        <button class="ct-btn" id="btnReset" title="Нулирай изглед"><svg><use href="#i-reset"/></svg></button>
+      </div>
+
+      <!-- Zoom -->
+      <div class="zoom-ctrl">
+        <button id="zoomIn"><svg><use href="#i-plus"/></svg></button>
+        <div class="val" id="zoomVal">100%</div>
+        <button id="zoomOut"><svg><use href="#i-minus"/></svg></button>
+      </div>
+
+      <!-- Bottom HUD -->
+      <div class="canvas-foot">
+        <div class="stats-pill">
+          <div class="sp-item">
+            <div class="k" data-i18n="gabarit">Габарит</div>
+            <div class="v" id="statDiam">420<span class="u">мм</span></div>
+          </div>
+          <div class="sp-item">
+            <div class="k" data-i18n="figures">Фигури</div>
+            <div class="v" id="statFigs">47</div>
+          </div>
+          <div class="sp-item">
+            <div class="k" data-i18n="eff">Ефект.</div>
+            <div class="v ok">85%</div>
+          </div>
+          <div class="sp-item">
+            <div class="k" data-i18n="time">Време</div>
+            <div class="v" id="statTime">5:42</div>
+          </div>
+        </div>
+        <button class="fab" id="fabCalc" title="Изчисли"><svg><use href="#i-play"/></svg></button>
+      </div>
+    </div>
+
+    <!-- PARAMS TAB -->
+    <div class="tab-panel" data-tab="params">
+      <div class="panel-content">
+        <div class="panel-title-big" data-i18n-html="paramsTitle">Параметри <span>· ePTFE Спирала</span></div>
+
+        <div class="card">
+          <div class="card-head">
+            <div class="icon-box"><svg><use href="#i-spiral"/></svg></div>
+            <div class="title" data-i18n="geom">Геометрия</div>
+            <svg class="chev"><use href="#i-chev"/></svg>
+          </div>
+          <div class="card-body">
+            <div class="field-m">
+              <label>
+                <span data-i18n="diameter">Габарит</span>
+                <span class="sub">⌀ външен диаметър</span>
+              </label>
+              <div class="input-wrap-m">
+                <input type="number" id="inDiameter" value="420" min="10" max="2000" data-param="diameter" />
+                <span class="unit">мм</span>
+              </div>
+            </div>
+            <div class="field-m">
+              <label><span data-i18n="cornerR">Ъглов радиус</span></label>
+              <div class="input-wrap-m">
+                <input type="number" id="inCornerR" value="8" min="0" max="50" data-param="cornerR" />
+                <span class="unit">мм</span>
+              </div>
+            </div>
+            <div class="field-m slider-m" style="flex-direction:column;align-items:stretch">
+              <div class="top">
+                <label data-i18n="turns">Навивки (N)</label>
+                <span class="val" id="valTurns">24</span>
+              </div>
+              <input type="range" id="inTurns" min="4" max="64" value="24" data-param="turns" />
+            </div>
+            <div class="field-m slider-m" style="flex-direction:column;align-items:stretch">
+              <div class="top">
+                <label data-i18n="bandWidth">Ширина на лентата</label>
+                <span class="val" id="valBand">6.5 мм</span>
+              </div>
+              <input type="range" id="inBand" min="1" max="20" step="0.5" value="6.5" data-param="bandWidth" />
+            </div>
+          </div>
+        </div>
+
+        <!-- PITCH CARD -->
+        <div class="card" id="pitchCard">
+          <div class="card-head">
+            <div class="icon-box"><svg><use href="#i-ruler"/></svg></div>
+            <div class="title" data-i18n="pitchTitle">Стъпка (питч)</div>
+            <svg class="chev"><use href="#i-chev"/></svg>
+          </div>
+          <div class="card-body">
+            <!-- Inner / Outer inputs with swap -->
+            <div class="pitch-row">
+              <div class="pitch-zone">
+                <span class="zone-label inner"><span class="zone-dot"></span><span data-i18n="inner">Вътрешна</span></span>
+                <div class="input-wrap-m">
+                  <input type="number" id="inPitch1" value="15" min="0.5" max="100" step="0.5" />
+                  <span class="unit">мм</span>
+                </div>
+              </div>
+              <button class="swap-btn" id="btnSwapPitch" title="Размени">⇄</button>
+              <div class="pitch-zone">
+                <span class="zone-label outer"><span class="zone-dot"></span><span data-i18n="outer">Външна</span></span>
+                <div class="input-wrap-m">
+                  <input type="number" id="inPitch2" value="20" min="0.5" max="100" step="0.5" />
+                  <span class="unit">мм</span>
+                </div>
+              </div>
+            </div>
+            <!-- Visual bar showing the two zones -->
+            <div class="pitch-bar-wrap" id="pitchBar">
+              <div class="pitch-bar-inner" id="pitchBarInner" style="width:33%"></div>
+              <div class="pitch-bar-outer" id="pitchBarOuter"></div>
+            </div>
+            <!-- Transition slider -->
+            <div class="field-m slider-m" style="flex-direction:column;align-items:stretch">
+              <div class="top">
+                <label data-i18n="transition">Преход при навивка</label>
+                <span class="val" id="valTransition">N=8</span>
+              </div>
+              <input type="range" id="inTransition" min="1" max="23" value="8" />
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div class="icon-box"><svg><use href="#i-layers"/></svg></div>
+            <div class="title" data-i18n="blank">Заготовка</div>
+            <svg class="chev"><use href="#i-chev"/></svg>
+          </div>
+          <div class="card-body">
+            <div class="field-m">
+              <label data-i18n="sheet">Лист Ш × Д</label>
+              <div style="display:flex;gap:6px;align-items:center">
+                <div class="input-wrap-m" style="min-width:72px"><input type="number" value="1000" id="inSheetW" /></div>
+                <span style="color:var(--text-4);font:500 11px var(--mono)">×</span>
+                <div class="input-wrap-m" style="min-width:72px"><input type="number" value="2000" id="inSheetH" /></div>
+              </div>
+            </div>
+            <div class="field-m">
+              <label data-i18n="thick">Дебелина</label>
+              <div class="input-wrap-m">
+                <input type="number" value="1.50" step="0.05" id="inThick" />
+                <span class="unit">мм</span>
+              </div>
+            </div>
+            <div class="field-m">
+              <label data-i18n="material">Материал</label>
+              <select class="select-m" id="selMaterial">
+                <option>ePTFE — premium</option>
+                <option>ePTFE — standard</option>
+                <option>PTFE virgin</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div class="icon-box"><svg><use href="#i-cnc"/></svg></div>
+            <div class="title" data-i18n="cutting">Рязане</div>
+            <svg class="chev"><use href="#i-chev"/></svg>
+          </div>
+          <div class="card-body">
+            <div class="field-m slider-m" style="flex-direction:column;align-items:stretch">
+              <div class="top">
+                <label data-i18n="speed">Скорост</label>
+                <span class="val" id="valSpeed">1250 мм/с</span>
+              </div>
+              <input type="range" id="inSpeed" min="100" max="3000" value="1250" />
+            </div>
+            <div class="field-m">
+              <label>Kerf</label>
+              <div class="input-wrap-m">
+                <input type="number" value="0.15" step="0.01" id="inKerf" />
+                <span class="unit">мм</span>
+              </div>
+            </div>
+            <div class="field-m">
+              <label data-i18n="machine">Машина</label>
+              <select class="select-m" id="selMachine">
+                <option>Trotec Speedy 400</option>
+                <option>Zünd G3</option>
+                <option>Maxiem Waterjet</option>
+              </select>
+            </div>
+            <label class="chk-m">
+              <input type="checkbox" checked /><span class="box"></span>
+              <span data-i18n="leadIn">Lead-in / Lead-out оптимизация</span>
+            </label>
+            <label class="chk-m">
+              <input type="checkbox" checked /><span class="box"></span>
+              <span data-i18n="autoRot">Авто-завъртане (мин. квадрат)</span>
+            </label>
+          </div>
+        </div>
+
+        <button class="btn-primary-m" id="btnCalcParams">
+          <svg><use href="#i-play"/></svg> <span data-i18n="calc">Изчисли</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- NESTING TAB -->
+    <div class="tab-panel" data-tab="nest">
+      <div class="panel-content">
+        <div class="panel-title-big"><span data-i18n="nesting">Нестинг</span> <span id="nestSubtitle">· 3 листа</span></div>
+
+        <div class="eff-card-m">
+          <div class="eff-ring-m">
+            <svg width="88" height="88">
+              <circle class="ring-bg" cx="44" cy="44" r="36" fill="none" stroke-width="6"/>
+              <circle class="ring-fg" cx="44" cy="44" r="36" fill="none" stroke-width="6"
+                      stroke-dasharray="226" stroke-dashoffset="34" stroke-linecap="round"/>
+            </svg>
+            <div class="pct">85<span class="sym">%</span></div>
+          </div>
+          <div class="eff-info-m">
+            <div class="k" data-i18n="efficiency">Ефективност</div>
+            <div class="v" data-i18n="excellentOrder">Отлично нареждане</div>
+            <div class="sub">1.7 м² от 2.0 м²</div>
+          </div>
+        </div>
+
+        <div class="stats-4">
+          <div class="stat-m"><div class="k" data-i18n="figures">Фигури</div><div class="v">47</div></div>
+          <div class="stat-m"><div class="k" data-i18n="sheets">Листа</div><div class="v">3</div></div>
+          <div class="stat-m"><div class="k" data-i18n="perimeter">Периметър</div><div class="v" id="nestPerim">412.8<span class="u"> м</span></div></div>
+          <div class="stat-m"><div class="k" data-i18n="time">Време</div><div class="v" id="nestTime">5:42<span class="u"> мин</span></div></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head" style="cursor:default">
+            <div class="icon-box"><svg><use href="#i-nest"/></svg></div>
+            <div class="title" data-i18n="algorithm">Алгоритъм</div>
+          </div>
+          <div class="card-body">
+            <div class="seg-m" id="algSeg1">
+              <button class="active">Skyline BLF</button>
+              <button>Зигзаг</button>
+            </div>
+            <div class="seg-m" id="algSeg2">
+              <button>Рафтове</button>
+              <button>По тип</button>
+              <button>FFD</button>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn-primary-m">
+          <svg><use href="#i-download"/></svg> <span data-i18n="exportDxf">Експорт DXF · NC</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- FIGURES TAB -->
+    <div class="tab-panel" data-tab="figs">
+      <div class="panel-content">
+        <div class="panel-title-big"><span data-i18n="figuresTitle">Фигури</span> <span>· 4 елемента</span></div>
+
+        <div class="figure-m selected">
+          <div class="figure-thumb-m"><svg><use href="#i-spiral"/></svg></div>
+          <div class="figure-body-m">
+            <div class="figure-name-m">Спирала A <span class="badge">ePTFE</span></div>
+            <div class="figure-dim-m" id="figSpiral1Dim">Ø420 · N24 · 6.5мм</div>
+          </div>
+          <div class="figure-qty-m">×2</div>
+        </div>
+        <div class="figure-m">
+          <div class="figure-thumb-m"><svg><use href="#i-ring"/></svg></div>
+          <div class="figure-body-m">
+            <div class="figure-name-m" data-i18n="ringCap">Пръстен капак</div>
+            <div class="figure-dim-m">Ø310 / Ø260</div>
+          </div>
+          <div class="figure-qty-m">×4</div>
+        </div>
+        <div class="figure-m">
+          <div class="figure-thumb-m"><svg><use href="#i-frame"/></svg></div>
+          <div class="figure-body-m">
+            <div class="figure-name-m" data-i18n="frameSeal">Рамка уплътнител</div>
+            <div class="figure-dim-m">180×120 · 140×80</div>
+          </div>
+          <div class="figure-qty-m">×6</div>
+        </div>
+        <div class="figure-m">
+          <div class="figure-thumb-m"><svg><use href="#i-dxf"/></svg></div>
+          <div class="figure-body-m">
+            <div class="figure-name-m">Custom-profile.dxf <span class="badge">DXF</span></div>
+            <div class="figure-dim-m">245×180 · 14 примитива</div>
+          </div>
+          <div class="figure-qty-m">×1</div>
+        </div>
+
+        <div class="drop-m" id="dropZone">
+          <svg><use href="#i-dxf"/></svg>
+          <div data-i18n="tapImport">Тапни, за да импортираш DXF</div>
+          <div class="types">LINE · ARC · LWPOLYLINE · SPLINE</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MORE TAB -->
+    <div class="tab-panel" data-tab="more">
+      <div class="panel-content">
+        <div class="panel-title-big" data-i18n="more">Още</div>
+
+        <div class="card">
+          <div class="card-head">
+            <div class="icon-box"><svg><use href="#i-history"/></svg></div>
+            <div class="title" data-i18n="history">История</div>
+            <svg class="chev"><use href="#i-chev"/></svg>
+          </div>
+          <div class="card-body" style="padding:0 4px 8px">
+            <div class="hist-m current">
+              <span class="dot"></span>
+              <span class="txt">Нестинг преизчислен · Skyline BLF</span>
+              <span class="time">14:32</span>
+            </div>
+            <div class="hist-m">
+              <span class="dot"></span>
+              <span class="txt">Добавена рамка уплътнител</span>
+              <span class="time">14:28</span>
+            </div>
+            <div class="hist-m">
+              <span class="dot"></span>
+              <span class="txt">Импорт: custom-profile.dxf</span>
+              <span class="time">14:24</span>
+            </div>
+            <div class="hist-m">
+              <span class="dot"></span>
+              <span class="txt">Спирала A · N 20 → 24</span>
+              <span class="time">14:21</span>
+            </div>
+            <div class="hist-m">
+              <span class="dot"></span>
+              <span class="txt">Създаден проект</span>
+              <span class="time">14:12</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div class="icon-box"><svg><use href="#i-order"/></svg></div>
+            <div class="title" data-i18n="order">Поръчка</div>
+            <svg class="chev"><use href="#i-chev"/></svg>
+          </div>
+          <div class="card-body">
+            <div class="field-m">
+              <label data-i18n="client">Клиент</label>
+              <div class="input-wrap-m" style="min-width:180px"><input type="text" value="Хидроком ЕООД"/></div>
+            </div>
+            <div class="field-m">
+              <label data-i18n="orderNum">№ поръчка</label>
+              <div class="input-wrap-m" style="min-width:140px"><input type="text" value="SP-2026-0142"/></div>
+            </div>
+            <div class="field-m">
+              <label data-i18n="deadline">Срок</label>
+              <div class="input-wrap-m" style="min-width:140px"><input type="text" value="27.04.2026"/></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div class="icon-box"><svg><use href="#i-settings"/></svg></div>
+            <div class="title" data-i18n="settings">Настройки</div>
+            <svg class="chev"><use href="#i-chev"/></svg>
+          </div>
+          <div class="card-body">
+            <label class="chk-m" id="chkDimLines">
+              <input type="checkbox" checked/><span class="box"></span>
+              <span data-i18n="dimLines">Размерни линии</span>
+            </label>
+            <label class="chk-m">
+              <input type="checkbox" checked/><span class="box"></span>
+              <span data-i18n="centerAxis">Центрова ос</span>
+            </label>
+            <label class="chk-m">
+              <input type="checkbox"/><span class="box"></span>
+              <span data-i18n="toolPath">Път на инструмента</span>
+            </label>
+            <label class="chk-m">
+              <input type="checkbox" checked/><span class="box"></span>
+              <span data-i18n="pulseStatus">Пулсиращ статус</span>
+            </label>
+          </div>
+        </div>
+
+        <button class="btn-primary-m" style="background:var(--bg-1);color:var(--text-1);border:1px solid var(--line-2);box-shadow:none">
+          <svg><use href="#i-save"/></svg> <span data-i18n="saveProject">Запази проект</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== BOTTOM TAB BAR ===== -->
+  <nav class="tabbar">
+    <button class="tab active" data-go="canvas">
+      <svg><use href="#i-spiral"/></svg>
+      <span data-i18n="tabDesign">Дизайн</span>
+    </button>
+    <button class="tab" data-go="params">
+      <svg><use href="#i-params"/></svg>
+      <span data-i18n="tabParams">Параметри</span>
+    </button>
+    <button class="tab" data-go="nest">
+      <svg><use href="#i-nest"/></svg>
+      <span data-i18n="tabNest">Нестинг</span>
+    </button>
+    <button class="tab" data-go="figs">
+      <svg><use href="#i-layers"/></svg>
+      <span data-i18n="tabFigs">Фигури</span>
+    </button>
+    <button class="tab" data-go="more">
+      <svg><use href="#i-more"/></svg>
+      <span data-i18n="tabMore">Още</span>
+    </button>
+  </nav>
+</div>
+
+
+<script>
+// ============================================================
+// SPIRAL MATH (inlined from core/spiral.js)
+// ============================================================
+const SpiralqCore = {
+  // Uniform pitch spiral (Archimedean)
+  buildSpiralD({ turns = 24, rInner = 30, rOuter = 205, samplesPerTurn = 160 } = {}) {
+    const b = (rOuter - rInner) / (turns * 2 * Math.PI);
+    const thetaMax = turns * 2 * Math.PI;
+    let d = '', cmd = 'M';
+    for (let i = 0; i <= turns * samplesPerTurn; i++) {
+      const t = (i / (turns * samplesPerTurn)) * thetaMax;
+      const r = rInner + b * t;
+      d += `${cmd}${(r * Math.cos(t)).toFixed(2)} ${(r * Math.sin(t)).toFixed(2)} `;
+      cmd = 'L';
+    }
+    return d;
+  },
+
+  // Variable pitch — two zones, returns { dInner, dOuter, rOuter }
+  buildVariablePitchD({ turns = 24, rStart = 25, pitch1Svg = 15, pitch2Svg = 20, transitionTurn = 8, samplesPerTurn = 140 } = {}) {
+    const b1 = pitch1Svg / (2 * Math.PI);
+    const b2 = pitch2Svg / (2 * Math.PI);
+    const thetaT = transitionTurn * 2 * Math.PI;
+    const thetaMax = turns * 2 * Math.PI;
+    const rT = rStart + b1 * thetaT; // radius at transition
+
+    const totalSamples = turns * samplesPerTurn;
+    const splitIdx = Math.round((thetaT / thetaMax) * totalSamples);
+
+    let dIn = '', dOut = '', cmd = 'M';
+    for (let i = 0; i <= totalSamples; i++) {
+      const t = (i / totalSamples) * thetaMax;
+      const r = t <= thetaT ? rStart + b1 * t : rT + b2 * (t - thetaT);
+      const x = (r * Math.cos(t)).toFixed(2);
+      const y = (r * Math.sin(t)).toFixed(2);
+      if (i <= splitIdx) {
+        dIn += `${cmd}${x} ${y} `;
+        if (i === splitIdx) dOut += `M${x} ${y} `;
+      } else {
+        dOut += `L${x} ${y} `;
+      }
+      cmd = 'L';
+    }
+    const rOuter = rT + b2 * (thetaMax - thetaT);
+    return { dInner: dIn, dOuter: dOut, rOuter };
+  },
+
+  // Render uniform spiral
+  renderSpiralInto(container, { turns = 24, rOuter = 205, rInner, strokeWidth = 1.6 } = {}) {
+    if (rInner === undefined) rInner = Math.min(rOuter - 10, Math.max(5, rOuter * 0.12));
+    const d = this.buildSpiralD({ turns, rOuter, rInner });
+    const makePath = (stroke, sw, op) => {
+      const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      p.setAttribute('d', d); p.setAttribute('fill', 'none');
+      p.setAttribute('stroke', stroke); p.setAttribute('stroke-width', String(sw));
+      p.setAttribute('opacity', String(op)); p.setAttribute('stroke-linecap', 'round');
+      return p;
+    };
+    container.appendChild(makePath('#3a8fff', strokeWidth * 3, 0.12));
+    container.appendChild(makePath('#5dc0ff', strokeWidth, 0.95));
+  },
+
+  // Render variable-pitch spiral with two-color zones
+  renderVariablePitchInto(container, opts) {
+    const { dInner, dOuter } = this.buildVariablePitchD(opts);
+    const sw = opts.strokeWidth || 1.6;
+    const makePath = (d, stroke, sw, op) => {
+      const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      p.setAttribute('d', d); p.setAttribute('fill', 'none');
+      p.setAttribute('stroke', stroke); p.setAttribute('stroke-width', String(sw));
+      p.setAttribute('opacity', String(op)); p.setAttribute('stroke-linecap', 'round');
+      return p;
+    };
+    // ghost glow (full path)
+    const dFull = dInner + ' ' + dOuter;
+    container.appendChild(makePath(dFull, '#3a8fff', sw * 3, 0.10));
+    // inner zone: blue
+    container.appendChild(makePath(dInner, '#5dc0ff', sw, 0.95));
+    // outer zone: green
+    container.appendChild(makePath(dOuter, '#3ddc97', sw, 0.95));
+    // transition marker circle
+    // (rendered in rerender separately)
+  }
+};
+
+// ============================================================
+// APP STATE
+// ============================================================
+const params = { diameter: 420, cornerR: 8, turns: 24, bandWidth: 6.5, pitch1: 15, pitch2: 20, transitionAt: 8 };
+let zoomLevel = 100;
+let showDimLines = true;
+
+const sp       = document.getElementById('spiralPath');
+const mainSvg  = document.getElementById('mainSvg');
+const dimText  = document.getElementById('dimText');
+const dimGroup = document.getElementById('dimGroup');
+const boundRect = document.getElementById('boundRect');
+const dimLine  = document.getElementById('dimLine');
+const zoomValEl = document.getElementById('zoomVal');
+const chipLabel = document.getElementById('chipLabel');
+const statDiam  = document.getElementById('statDiam');
+const statTime  = document.getElementById('statTime');
+const nestPerim = document.getElementById('nestPerim');
+const nestTime  = document.getElementById('nestTime');
+const figSpiral1Dim = document.getElementById('figSpiral1Dim');
+
+// ============================================================
+// RERENDER — called whenever params change
+// ============================================================
+function rerender() {
+  // 1. Spiral path (variable pitch)
+  sp.innerHTML = '';
+  const transitionAt = Math.max(1, Math.min(params.turns - 1, params.transitionAt));
+
+  // Compute real outer radius in mm, then scale to fit SVG (max 210 SVG units)
+  const rStartMm_  = params.diameter * 0.06;
+  const rTransMm_  = rStartMm_ + params.pitch1 * transitionAt;
+  const rOuterMm_  = rTransMm_ + params.pitch2 * (params.turns - transitionAt);
+  const svgMax     = 210; // SVG units for outer radius
+  const scale      = svgMax / rOuterMm_;   // mm → SVG units
+  const rStart     = rStartMm_ * scale;
+  const pitch1Svg  = params.pitch1 * scale;
+  const pitch2Svg  = params.pitch2 * scale;
+  const strokeWidth = Math.max(0.4, Math.min(8, params.bandWidth * scale * 0.25));
+
+  SpiralqCore.renderVariablePitchInto(sp, {
+    turns: params.turns, rStart, pitch1Svg, pitch2Svg,
+    transitionTurn: transitionAt, strokeWidth
+  });
+  const { rOuter } = SpiralqCore.buildVariablePitchD({ turns: params.turns, rStart, pitch1Svg, pitch2Svg, transitionTurn: transitionAt });
+
+  // Transition marker ring
+  const markerR = rStart + (params.pitch1 * mmToSvg / (2*Math.PI)) * transitionAt * 2 * Math.PI;
+  const existingMarker = document.getElementById('transitionMarker');
+  if (existingMarker) existingMarker.remove();
+  const marker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  marker.setAttribute('id', 'transitionMarker');
+  marker.setAttribute('cx', '0'); marker.setAttribute('cy', '0');
+  marker.setAttribute('r', markerR.toFixed(1));
+  marker.setAttribute('fill', 'none');
+  marker.setAttribute('stroke', '#f5b547');
+  marker.setAttribute('stroke-width', '0.5');
+  marker.setAttribute('stroke-dasharray', '3 4');
+  marker.setAttribute('opacity', '0.6');
+  sp.appendChild(marker);
+
+  // Update pitch bar proportions
+  const pitchBarInner = document.getElementById('pitchBarInner');
+  if (pitchBarInner) {
+    const pct = Math.round((transitionAt / params.turns) * 100);
+    pitchBarInner.style.width = pct + '%';
+  }
+  // Update transition slider max
+  const inTransition = document.getElementById('inTransition');
+  if (inTransition) {
+    inTransition.max = params.turns - 1;
+    if (params.transitionAt >= params.turns) {
+      params.transitionAt = Math.floor(params.turns / 2);
+      inTransition.value = params.transitionAt;
+    }
+  }
+
+  // Clamp rOuter for display
+  const rOuterClamped = Math.min(220, rOuter);
+
+  // 2. Update bounding rect and dim lines in SVG
+  const half = rOuterClamped + 5;
+  boundRect.setAttribute('x', -half); boundRect.setAttribute('y', -half);
+  boundRect.setAttribute('width', half * 2); boundRect.setAttribute('height', half * 2);
+
+  const dimY = -(half + 16);
+  dimLine.setAttribute('x1', -half); dimLine.setAttribute('y1', dimY);
+  dimLine.setAttribute('x2',  half); dimLine.setAttribute('y2', dimY);
+  document.querySelectorAll('#dimGroup line:not(#dimLine)').forEach((l, i) => {
+    const x = i === 0 ? -half : half;
+    l.setAttribute('x1', x); l.setAttribute('x2', x);
+    l.setAttribute('y1', dimY - 5); l.setAttribute('y2', dimY + 5);
+  });
+  const dimBg = document.querySelector('#dimGroup rect');
+  dimBg.setAttribute('y', dimY - 12);
+  dimText.setAttribute('y', dimY);
+  dimText.textContent = params.diameter.toFixed(2);
+
+  // 3. Chip label
+  if (chipLabel) chipLabel.textContent = `Ø${params.diameter} · N${params.turns}`;
+
+  // 4. Stats pill
+  if (statDiam) statDiam.innerHTML = `${params.diameter}<span class="u">мм</span>`;
+
+  // 5. Perimeter — average of inner and outer circumference × turns
+  const rStartMm   = params.diameter * 0.06;           // inner core radius (mm)
+  const rTransMm   = rStartMm + params.pitch1 * Math.min(params.transitionAt, params.turns);
+  const rOuterMm   = rTransMm + params.pitch2 * Math.max(0, params.turns - params.transitionAt);
+  // arc length ≈ N × π × (r_start + r_end) for each zone
+  const lenInner   = params.transitionAt * Math.PI * (rStartMm + rTransMm);
+  const lenOuter   = Math.max(0, params.turns - params.transitionAt) * Math.PI * (rTransMm + rOuterMm);
+  const perimM     = Math.round((lenInner + lenOuter) / 1000 * 10) / 10;
+  const speed = parseInt(document.getElementById('inSpeed')?.value || 1250);
+  const timeS = Math.round(perimM * 1000 / speed);
+  const tMin = String(Math.floor(timeS / 60));
+  const tSec = String(timeS % 60).padStart(2, '0');
+  if (statTime) statTime.textContent = `${tMin}:${tSec}`;
+  if (nestPerim) nestPerim.innerHTML = `${perimM}<span class="u"> м</span>`;
+  if (nestTime)  nestTime.innerHTML  = `${tMin}:${tSec}<span class="u"> мин</span>`;
+
+  // 6. Figures tab dim line for spiral
+  if (figSpiral1Dim) figSpiral1Dim.textContent = `Ø${params.diameter} · N${params.turns} · ${params.bandWidth}мм`;
+
+  // 7. Project name in topbar
+  const pName = document.getElementById('projectName');
+  if (pName) pName.textContent = `ePTFE-Seal-Ø${params.diameter}`;
+}
+
+// ============================================================
+// ZOOM
+// ============================================================
+function applyZoom() {
+  const size = 480 / (zoomLevel / 100);
+  const half = size / 2;
+  mainSvg.setAttribute('viewBox', `${-half} ${-half} ${size} ${size}`);
+  zoomValEl.textContent = `${zoomLevel}%`;
+}
+
+document.getElementById('zoomIn').addEventListener('click', () => {
+  zoomLevel = Math.min(400, zoomLevel + 25);
+  applyZoom();
+});
+document.getElementById('zoomOut').addEventListener('click', () => {
+  zoomLevel = Math.max(25, zoomLevel - 25);
+  applyZoom();
+});
+document.getElementById('btnZoomFit').addEventListener('click', () => {
+  zoomLevel = 100;
+  applyZoom();
+  document.getElementById('btnZoomFit').classList.add('active');
+});
+document.getElementById('btnReset').addEventListener('click', () => {
+  zoomLevel = 100;
+  applyZoom();
+});
+
+// ============================================================
+// PARAM INPUTS — live update on every change
+// ============================================================
+document.querySelectorAll('[data-param]').forEach(el => {
+  const key = el.dataset.param;
+  const update = () => {
+    const v = parseFloat(el.value);
+    if (!isNaN(v)) { params[key] = v; rerender(); }
+  };
+  el.addEventListener('input', update);
+  el.addEventListener('change', update);
+});
+
+// Slider display labels
+const sliderDisplays = {
+  inTurns: { el: document.getElementById('valTurns'), suffix: '' },
+  inBand:  { el: document.getElementById('valBand'),  suffix: ' мм' },
+  inSpeed: { el: document.getElementById('valSpeed'), suffix: ' мм/с' },
+};
+Object.entries(sliderDisplays).forEach(([id, { el, suffix }]) => {
+  const slider = document.getElementById(id);
+  if (!slider || !el) return;
+  slider.addEventListener('input', () => {
+    el.textContent = slider.value + suffix;
+  });
+});
+
+// ============================================================
+// PITCH CONTROLS
+// ============================================================
+const inPitch1      = document.getElementById('inPitch1');
+const inPitch2      = document.getElementById('inPitch2');
+const inTransition  = document.getElementById('inTransition');
+const valTransition = document.getElementById('valTransition');
+const btnSwapPitch  = document.getElementById('btnSwapPitch');
+
+function updatePitch() {
+  params.pitch1       = parseFloat(inPitch1.value)      || 15;
+  params.pitch2       = parseFloat(inPitch2.value)      || 20;
+  params.transitionAt = parseInt(inTransition.value)    || 8;
+  if (valTransition) valTransition.textContent = `N=${params.transitionAt}`;
+  rerender();
+}
+
+if (inPitch1)     { inPitch1.addEventListener('input', updatePitch); inPitch1.addEventListener('change', updatePitch); }
+if (inPitch2)     { inPitch2.addEventListener('input', updatePitch); inPitch2.addEventListener('change', updatePitch); }
+if (inTransition) { inTransition.addEventListener('input', updatePitch); }
+
+// Swap inner ↔ outer pitch
+if (btnSwapPitch) {
+  btnSwapPitch.addEventListener('click', () => {
+    const tmp = inPitch1.value;
+    inPitch1.value = inPitch2.value;
+    inPitch2.value = tmp;
+    updatePitch();
+  });
+}
+
+// ============================================================
+// CALCULATE BUTTONS — trigger rerender + switch to canvas
+// ============================================================
+function calcAndShow() {
+  rerender();
+  switchTab('canvas');
+  const fab = document.getElementById('fabCalc');
+  fab.classList.add('fab-calc');
+  setTimeout(() => fab.classList.remove('fab-calc'), 500);
+}
+
+document.getElementById('btnCalcParams').addEventListener('click', calcAndShow);
+document.getElementById('fabCalc').addEventListener('click', () => {
+  rerender();
+  const fab = document.getElementById('fabCalc');
+  fab.classList.add('fab-calc');
+  setTimeout(() => fab.classList.remove('fab-calc'), 500);
+});
+
+// ============================================================
+// DIM LINES TOGGLE
+// ============================================================
+document.getElementById('chkDimLines').querySelector('input').addEventListener('change', function() {
+  showDimLines = this.checked;
+  dimGroup.style.display = showDimLines ? '' : 'none';
+  boundRect.style.display = showDimLines ? '' : 'none';
+});
+document.getElementById('btnDim').addEventListener('click', function() {
+  showDimLines = !showDimLines;
+  this.classList.toggle('active', showDimLines);
+  dimGroup.style.display = showDimLines ? '' : 'none';
+  boundRect.style.display = showDimLines ? '' : 'none';
+  const chk = document.getElementById('chkDimLines').querySelector('input');
+  chk.checked = showDimLines;
+});
+
+// ============================================================
+// TAB SWITCHING
+// ============================================================
+const tabs   = document.querySelectorAll('.tab');
+const panels = document.querySelectorAll('.tab-panel');
+
+function switchTab(id) {
+  tabs.forEach(t => t.classList.toggle('active', t.dataset.go === id));
+  panels.forEach(p => p.classList.toggle('active', p.dataset.tab === id));
+}
+
+tabs.forEach(t => t.addEventListener('click', () => switchTab(t.dataset.go)));
+
+// ============================================================
+// COLLAPSIBLE CARDS
+// ============================================================
+document.querySelectorAll('.card .card-head').forEach(h => {
+  if (!h.querySelector('.chev')) return;
+  h.addEventListener('click', () => h.parentElement.classList.toggle('collapsed'));
+});
+
+// ============================================================
+// SEGMENTED CONTROLS
+// ============================================================
+document.querySelectorAll('.seg-m, #viewSeg').forEach(seg => {
+  seg.querySelectorAll('button').forEach(b => {
+    b.addEventListener('click', () => {
+      seg.querySelectorAll('button').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+    });
+  });
+});
+
+// ============================================================
+// FIGURE SELECTION
+// ============================================================
+document.querySelectorAll('.figure-m').forEach(r => {
+  r.addEventListener('click', () => {
+    document.querySelectorAll('.figure-m').forEach(x => x.classList.remove('selected'));
+    r.classList.add('selected');
+  });
+});
+
+// ============================================================
+// LANGUAGE TOGGLE (BG / EN)
+// ============================================================
+const langBtn = document.getElementById('langBtn');
+let lang = 'bg';
+
+const i18n = {
+  bg: {
+    tabDesign: 'Дизайн', tabParams: 'Параметри', tabNest: 'Нестинг',
+    tabFigs: 'Фигури', tabMore: 'Още',
+    valid: 'Валидна', anim: 'Анимация',
+    gabarit: 'Габарит', figures: 'Фигури', eff: 'Ефект.', time: 'Време',
+    paramsTitle: 'Параметри <span style="color:var(--text-3);font-weight:500;font-size:14px">· ePTFE Спирала</span>',
+    geom: 'Геометрия', diameter: 'Габарит', cornerR: 'Ъглов радиус',
+    turns: 'Навивки (N)', bandWidth: 'Ширина на лентата',
+    pitchTitle: 'Стъпка (питч)', inner: 'Вътрешна', outer: 'Външна', transition: 'Преход при навивка',
+    blank: 'Заготовка', sheet: 'Лист Ш × Д', thick: 'Дебелина',
+    material: 'Материал', cutting: 'Рязане', speed: 'Скорост',
+    machine: 'Машина', leadIn: 'Lead-in / Lead-out оптимизация',
+    autoRot: 'Авто-завъртане (мин. квадрат)', calc: 'Изчисли',
+    nesting: 'Нестинг', efficiency: 'Ефективност',
+    excellentOrder: 'Отлично нареждане', sheets: 'Листа',
+    perimeter: 'Периметър', algorithm: 'Алгоритъм',
+    exportDxf: 'Експорт DXF · NC', figuresTitle: 'Фигури',
+    tapImport: 'Тапни, за да импортираш DXF',
+    ringCap: 'Пръстен капак', frameSeal: 'Рамка уплътнител',
+    more: 'Още', history: 'История', order: 'Поръчка',
+    client: 'Клиент', orderNum: '№ поръчка', deadline: 'Срок',
+    settings: 'Настройки', dimLines: 'Размерни линии',
+    centerAxis: 'Центрова ос', toolPath: 'Път на инструмента',
+    pulseStatus: 'Пулсиращ статус', saveProject: 'Запази проект',
+  },
+  en: {
+    tabDesign: 'Design', tabParams: 'Parameters', tabNest: 'Nesting',
+    tabFigs: 'Figures', tabMore: 'More',
+    valid: 'Valid', anim: 'Animation',
+    gabarit: 'Diameter', figures: 'Figures', eff: 'Effic.', time: 'Time',
+    paramsTitle: 'Parameters <span style="color:var(--text-3);font-weight:500;font-size:14px">· ePTFE Spiral</span>',
+    geom: 'Geometry', diameter: 'Diameter', cornerR: 'Corner radius',
+    turns: 'Turns (N)', bandWidth: 'Band width',
+    pitchTitle: 'Pitch', inner: 'Inner', outer: 'Outer', transition: 'Transition at turn',
+    blank: 'Blank', sheet: 'Sheet W × H', thick: 'Thickness',
+    material: 'Material', cutting: 'Cutting', speed: 'Speed',
+    machine: 'Machine', leadIn: 'Lead-in / Lead-out optimization',
+    autoRot: 'Auto-rotate (min. square)', calc: 'Calculate',
+    nesting: 'Nesting', efficiency: 'Efficiency',
+    excellentOrder: 'Excellent layout', sheets: 'Sheets',
+    perimeter: 'Perimeter', algorithm: 'Algorithm',
+    exportDxf: 'Export DXF · NC', figuresTitle: 'Figures',
+    tapImport: 'Tap to import DXF',
+    ringCap: 'Ring cap', frameSeal: 'Frame seal',
+    more: 'More', history: 'History', order: 'Order',
+    client: 'Client', orderNum: 'Order #', deadline: 'Deadline',
+    settings: 'Settings', dimLines: 'Dimension lines',
+    centerAxis: 'Centre axis', toolPath: 'Tool path',
+    pulseStatus: 'Pulse status', saveProject: 'Save project',
+  }
+};
+
+function applyLang() {
+  const T = i18n[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const k = el.dataset.i18n;
+    if (T[k] !== undefined) el.textContent = T[k];
+  });
+  document.querySelectorAll('[data-i18n-html]').forEach(el => {
+    const k = el.dataset.i18nHtml;
+    if (T[k] !== undefined) el.innerHTML = T[k];
+  });
+  langBtn.textContent = lang.toUpperCase();
+}
+
+langBtn.addEventListener('click', () => {
+  lang = lang === 'bg' ? 'en' : 'bg';
+  applyLang();
+});
+
+// ============================================================
+// CANVAS TOOL TOGGLES
+// ============================================================
+document.querySelectorAll('.canvas-tools .ct-btn:not(#btnZoomFit):not(#btnDim):not(#btnReset)').forEach(b => {
+  b.addEventListener('click', () => b.classList.toggle('active'));
+});
+
+// ============================================================
+// INIT
+// ============================================================
+rerender();
+applyLang();
+</script>
+
+</body>
+</html>
