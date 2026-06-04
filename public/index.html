@@ -2100,6 +2100,12 @@ function attachCanvas(cvId, wrapId, vpKey, xyId, measId, redrawFn, getParamFn){
 
 /* ============ v6: РАЗКРОЙ (нестинг/КИМ) + ВРЕМЕ ============ */
 const $ = id => document.getElementById(id);
+// сваляне на генериран файл (един помощник вместо повтарящ се Blob+anchor код)
+function downloadFile(name, content, mime){
+  var blob=new Blob([content],{type:mime}), a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=name; a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);},2000);
+}
 const DN = [
   {n:'DN25',  ID:33.3,  OD:50.8,  N:8},
   {n:'DN50',  ID:60.3,  OD:88.9,  N:14},
@@ -2573,9 +2579,7 @@ function exportDXF(){
   var opts={ lead:Math.max(0,+$('dxfLead').value||0), kerf:+$('kerf').value||0,
              kerfComp:$('dxfKerf')?$('dxfKerf').checked:false, showOrder:$('dxfOrder')?$('dxfOrder').checked:false };
   var s=buildCutDXF(sheets[curSheet], lastMeta.A, lastMeta.B, lastMeta.margin, opts);
-  var blob=new Blob([s],{type:'application/dxf'}), a=document.createElement('a');
-  a.href=URL.createObjectURL(blob); a.download='nest_list'+(curSheet+1)+'.dxf'; a.click();
-  setTimeout(function(){URL.revokeObjectURL(a.href);},2000);
+  downloadFile('nest_list'+(curSheet+1)+'.dxf', s, 'application/dxf');
 }
 
 /* ===== Техническо нормиране (по типоразмери) ===== */
@@ -2616,9 +2620,7 @@ function exportNormCSV(){
   var csv='Размер;OD_mm;ID_mm;Брой;S_нето_mm2_бр;Разх_норма_mm2_бр;Маса_нето_g_бр;Разх_норма_g_бр\n';
   d.rows.forEach(function(r){ csv+='Ø'+r.OD+'x'+r.ID+';'+r.OD+';'+r.ID+';'+r.n+';'+r.sNet.toFixed(0)+';'+r.sGross.toFixed(0)+';'+r.gNet.toFixed(1)+';'+r.gGross.toFixed(1)+'\n'; });
   csv+=';;;;;;;\nКИМ_%;'+(d.kim*100).toFixed(1)+';;Листове;'+d.N+';Дебелина_mm;'+d.C+';ро_kg_m3;'+d.rho+'\n';
-  var blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}), a=document.createElement('a');
-  a.href=URL.createObjectURL(blob); a.download='nest_normirane.csv'; a.click();
-  setTimeout(function(){URL.revokeObjectURL(a.href);},2000);
+  downloadFile('nest_normirane.csv', '\ufeff'+csv, 'text/csv;charset=utf-8');
 }
 
 /* ===== Техническо нормиране на времето (по типоразмери) ===== */
@@ -2666,9 +2668,7 @@ function exportTimeCSV(){
   var csv='Машина;'+d.par.name+'\nРазмер;OD_mm;ID_mm;Брой;N_канали;tm_min_бр;tt_min_бр;Общо_min\n';
   d.rows.forEach(function(r){ csv+='Ø'+r.OD+'x'+r.ID+';'+r.OD+';'+r.ID+';'+r.n+';'+r.Nest+';'+r.tm.toFixed(3)+';'+r.tt.toFixed(3)+';'+r.batch.toFixed(2)+'\n'; });
   csv+=';;;;;;;\nОбщо_бр;'+d.totQty+';;Общо_време_min;'+d.totTime.toFixed(1)+';Общо_време_h;'+(d.totTime/60).toFixed(2)+'\n';
-  var blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}), a=document.createElement('a');
-  a.href=URL.createObjectURL(blob); a.download='nest_vreme.csv'; a.click();
-  setTimeout(function(){URL.revokeObjectURL(a.href);},2000);
+  downloadFile('nest_vreme.csv', '﻿'+csv, 'text/csv;charset=utf-8');
 }
 
 /* ===== Производителност AKM01 vs AKM03 (по типоразмери) ===== */
@@ -2737,9 +2737,7 @@ function exportProdCSV(){
   var csv='Размер;OD_mm;ID_mm;N;AKM01_tt_min;AKM01_бр_час;AKM01_бр_смяна;AKM03_tt_min;AKM03_бр_час;AKM03_бр_смяна;AKM03_огр_vmax\n';
   rows.forEach(function(r){ csv+=r.name+';'+r.OD+';'+r.ID+';'+r.N+';'+r.tt1.toFixed(3)+';'+r.hr1.toFixed(1)+';'+Math.floor(r.sh1)
     +';'+r.tt3.toFixed(3)+';'+r.hr3.toFixed(1)+';'+Math.floor(r.sh3)+';'+(r.lim3?'да':'не')+'\n'; });
-  var blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}), a=document.createElement('a');
-  a.href=URL.createObjectURL(blob); a.download='proizvoditelnost.csv'; a.click();
-  setTimeout(function(){URL.revokeObjectURL(a.href);},2000);
+  downloadFile('proizvoditelnost.csv', '﻿'+csv, 'text/csv;charset=utf-8');
 }
 function initProductivity(){
   function selMetric(k){ prodMetric=k; $('prHr').classList.toggle('on',k==='hr'); $('prSh').classList.toggle('on',k==='sh'); renderProductivity(); }
@@ -2950,9 +2948,7 @@ function exportJawCSV(){
   var csv='Размер_OD;'+OD+';Размер_ID;'+ID+'\nИзбор_Ø;'+sel.d+';Сегменти_N;'+sel.N+';Резба;'+sel.thr+';Хлабина_mm;'+sel.gap.toFixed(1)+';Z_offset_mm;'+z.mm+';Клас;'+z.cls+'\n\n';
   csv+='Ø_mm;N_отвора;резба;годна_за_ID\n';
   JAW_BC.forEach(function(b){ csv+=b.d+';'+b.N+';'+b.thr+';'+(b.d<=ID?'да':'не')+'\n'; });
-  var blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}), a=document.createElement('a');
-  a.href=URL.createObjectURL(blob); a.download='chelyustna_ekipirovka.csv'; a.click();
-  setTimeout(function(){URL.revokeObjectURL(a.href);},2000);
+  downloadFile('chelyustna_ekipirovka.csv', '﻿'+csv, 'text/csv;charset=utf-8');
 }
 function initJaw(){
   var sel=$('jw_dn');
@@ -2991,9 +2987,7 @@ function saveProject(){
     prodMetric:prodMetric,
     timeNormMachine:timeNormMachine
   };
-  var blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}), a=document.createElement('a');
-  a.href=URL.createObjectURL(blob); a.download='exa_akm_proekt.json'; a.click();
-  setTimeout(function(){URL.revokeObjectURL(a.href);},2000);
+  downloadFile('exa_akm_proekt.json', JSON.stringify(data,null,2), 'application/json');
 }
 function refreshAll(){
   // пресмятане/пре-рендиране на всички табове от възстановеното състояние
