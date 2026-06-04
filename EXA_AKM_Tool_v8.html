@@ -311,6 +311,7 @@ svg.hidemoves .moves{opacity:0}
   <button class="tab" data-pg="prod"><span class="dot"></span>Производителност</button>
   <button class="tab" data-pg="wizard"><span class="dot"></span>Стандартна програма</button>
   <button class="tab" data-pg="custom"><span class="dot"></span>Нестандартен профил</button>
+  <button class="tab" data-pg="profil"><span class="dot"></span>Профил</button>
   <button class="tab" data-pg="codes"><span class="dot"></span>Кодове</button>
 </div>
 <div class="page on" id="pg-razkroi">
@@ -786,6 +787,39 @@ svg.hidemoves .moves{opacity:0}
       </div>
     </div>
   </div>
+</div>
+<div class="page" id="pg-profil">
+ <div class="grid">
+  <div>
+   <div class="card">
+    <h2>Параметри на профила</h2>
+    <div class="note" style="margin-bottom:12px">Универсални за всички DN (ASME B16.20 + EN 1514-6). Промяната тук е само за проверка/визуализация — не се връзва с DN.</div>
+    <div class="field"><div class="row">
+      <div style="flex:1"><label>p — стъпка (mm)</label><input type="number" id="pf_p" value="1.000" step="0.001"></div>
+      <div style="flex:1"><label>h — дълбочина (mm)</label><input type="number" id="pf_h" value="0.270" step="0.001"></div>
+    </div></div>
+    <div class="field"><div class="row">
+      <div style="flex:1"><label>ъгъл (°, на фланк)</label><input type="number" id="pf_ang" value="45" step="0.5"></div>
+      <div style="flex:1"><label>r — радиус (mm)</label><input type="number" id="pf_r" value="0.400" step="0.001"></div>
+    </div></div>
+    <div class="field"><label>land — площадка при върха (mm)</label><input type="number" id="pf_land" value="0.129" step="0.001"></div>
+    <button class="btn-go" id="pf_btn">▶ ОБНОВИ ФИГУРАТА</button>
+    <button class="lnk" id="pf_reset">↺ Възстанови стандартните</button>
+   </div>
+  </div>
+  <div>
+   <div class="card schem-card">
+    <h2>Оразмерена фигура — камрофилен профил</h2>
+    <div class="schem"><svg id="pf_svg" viewBox="0 0 720 360" xmlns="http://www.w3.org/2000/svg" font-family="'JetBrains Mono',monospace"></svg></div>
+    <div class="schem-cap"><b>Камрофилен (серирован) профил.</b> Триъгълни канали с фланки под зададения ъгъл, площадка <i>land</i> при върха и радиус <i>r</i>. Фигурата е в истински пропорции. Терминът е „канал".</div>
+   </div>
+   <div class="card">
+    <h2>Геометрична проверка</h2>
+    <div class="stats" id="pf_stats"></div>
+    <div id="pf_warn"></div>
+   </div>
+  </div>
+ </div>
 </div>
 <div class="page" id="pg-codes">
   <div class="ct" style="margin-bottom:12px">Програмни кодове — AKM01 / AKM03</div>
@@ -2220,6 +2254,7 @@ function initApp(){
       if(pg==='custom'){ if(cuSegs.length===0) cuExample(); requestAnimationFrame(cuDraw); }
       if(pg==='codes'){ renderCodes(); }
       if(pg==='prod'){ renderProductivity(); }
+      if(pg==='profil'){ renderProfile(); }
     };
   });
   attachCanvas('w-cv','w-wrap','w','w-xy','w-meas-out',wDraw,wP);
@@ -2229,6 +2264,7 @@ function initApp(){
   cuExample();
   initNesting();
   initProductivity();
+  initProfile();
   window.addEventListener('resize',()=>{ wDraw(); cuDraw(); if(typeof drawSheet==='function') drawSheet(); });
 }
 
@@ -2573,6 +2609,94 @@ function initProductivity(){
   $('prHr').onclick=function(){selMetric('hr');};
   $('prSh').onclick=function(){selMetric('sh');};
   $('prCsv').onclick=exportProdCSV;
+}
+
+/* ===== Параметричен профил (камрофилен) — оразмерена фигура ===== */
+function profileGeom(P){
+  var th=P.ang*Math.PI/180;
+  var run=(P.ang>0&&P.ang<90)?P.h/Math.tan(th):NaN;
+  var valley=P.p-P.land-2*run;
+  return {run:run, valley:valley, included:2*P.ang, feasible:isFinite(valley)&&valley>=-1e-9, contact:P.p>0?P.land/P.p:0};
+}
+function profilePoints(P,teeth){
+  var g=profileGeom(P);
+  var run=(isFinite(g.run)&&g.run>0)?g.run:0;
+  var valley=(isFinite(g.valley)&&g.valley>0)?g.valley:0;
+  var x=0, pts=[[0,0]];
+  for(var i=0;i<teeth;i++){
+    x+=P.land; pts.push([x,0]);
+    x+=run;    pts.push([x,P.h]);
+    if(valley>0){ x+=valley; pts.push([x,P.h]); }
+    x+=run;    pts.push([x,0]);
+  }
+  return {pts:pts,width:x,g:g,run:run};
+}
+function pfDimH(x1,x2,y,label){
+  return '<line x1="'+x1.toFixed(1)+'" y1="'+y+'" x2="'+x2.toFixed(1)+'" y2="'+y+'" stroke="#58a6ff" stroke-width="1" marker-start="url(#pfar)" marker-end="url(#pfar)"/>'
+    +'<text x="'+((x1+x2)/2).toFixed(1)+'" y="'+(y-5)+'" fill="#58a6ff" font-size="11" text-anchor="middle">'+label+'</text>';
+}
+function pfDimV(x,y1,y2,label){
+  return '<line x1="'+x.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x.toFixed(1)+'" y2="'+y2.toFixed(1)+'" stroke="#58a6ff" stroke-width="1" marker-start="url(#pfar)" marker-end="url(#pfar)"/>'
+    +'<text x="'+(x+6).toFixed(1)+'" y="'+((y1+y2)/2).toFixed(1)+'" fill="#58a6ff" font-size="11">'+label+'</text>';
+}
+function buildProfileSVG(P){
+  var teeth=3, ox=70, rightpad=120;
+  var pp=(P.p>0)?P.p:1, s=(720-ox-rightpad)/(teeth*pp);
+  var pr=profilePoints(P,teeth), g=pr.g, oy=130;
+  var X=function(xm){return ox+xm*s;}, Y=function(ym){return oy+ym*s;};
+  var valleyY=Y(P.h), baseY=valleyY+50;
+  var poly=pr.pts.map(function(p){return X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1);}).join(' ');
+  var d='<defs><marker id="pfar" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#58a6ff"/></marker></defs>';
+  d+='<polygon points="'+X(0).toFixed(1)+','+baseY.toFixed(1)+' '+poly+' '+X(pr.width).toFixed(1)+','+baseY.toFixed(1)+'" fill="rgba(120,150,200,0.10)"/>';
+  d+='<line x1="'+X(0).toFixed(1)+'" y1="'+oy+'" x2="'+X(pr.width).toFixed(1)+'" y2="'+oy+'" stroke="#3a4756" stroke-width="1" stroke-dasharray="5,4"/>';
+  d+='<line x1="'+X(0).toFixed(1)+'" y1="'+valleyY.toFixed(1)+'" x2="'+X(pr.width).toFixed(1)+'" y2="'+valleyY.toFixed(1)+'" stroke="#3a4756" stroke-width="1" stroke-dasharray="5,4"/>';
+  d+='<polyline points="'+poly+'" fill="none" stroke="#ff8c2b" stroke-width="2"/>';
+  // p (top, една стъпка)
+  var py=oy-50;
+  d+=pfDimH(X(0),X(P.p),py,'p = '+(+P.p).toFixed(3));
+  d+='<line x1="'+X(0).toFixed(1)+'" y1="'+py+'" x2="'+X(0).toFixed(1)+'" y2="'+oy+'" stroke="#5c6b7a" stroke-width="0.7"/>';
+  d+='<line x1="'+X(P.p).toFixed(1)+'" y1="'+py+'" x2="'+X(P.p).toFixed(1)+'" y2="'+oy+'" stroke="#5c6b7a" stroke-width="0.7"/>';
+  // land (първи връх)
+  d+=pfDimH(X(0),X(P.land),oy-20,'land = '+(+P.land).toFixed(3));
+  // h (вдясно)
+  var hx=X(pr.width)+26;
+  d+=pfDimV(hx,oy,valleyY,'h = '+(+P.h).toFixed(3));
+  d+='<line x1="'+X(pr.width).toFixed(1)+'" y1="'+oy+'" x2="'+hx.toFixed(1)+'" y2="'+oy+'" stroke="#5c6b7a" stroke-width="0.7"/>';
+  d+='<line x1="'+X(pr.width).toFixed(1)+'" y1="'+valleyY.toFixed(1)+'" x2="'+hx.toFixed(1)+'" y2="'+valleyY.toFixed(1)+'" stroke="#5c6b7a" stroke-width="0.7"/>';
+  // ъгъл (първи фланк)
+  if(P.ang>0&&P.ang<90){ var vx=X(P.land), vy=oy, a=P.ang*Math.PI/180;
+    d+='<path d="M'+(vx+24).toFixed(1)+','+vy+' A24,24 0 0 1 '+(vx+24*Math.cos(a)).toFixed(1)+','+(vy+24*Math.sin(a)).toFixed(1)+'" fill="none" stroke="#58a6ff" stroke-width="1"/>';
+    d+='<text x="'+(vx+30).toFixed(1)+'" y="'+(vy+20)+'" fill="#58a6ff" font-size="11">'+(+P.ang)+'°</text>';
+  }
+  // r (първо дъно)
+  var rx=X(P.land+pr.run), ry=valleyY;
+  d+='<line x1="'+rx.toFixed(1)+'" y1="'+ry.toFixed(1)+'" x2="'+(rx+30).toFixed(1)+'" y2="'+(ry+26).toFixed(1)+'" stroke="#8aa0c8" stroke-width="0.8"/>';
+  d+='<text x="'+(rx+34).toFixed(1)+'" y="'+(ry+30).toFixed(1)+'" fill="#c9d4e0" font-size="11">r = '+(+P.r).toFixed(3)+'</text>';
+  return d;
+}
+function renderProfile(){
+  var P={p:+$('pf_p').value,h:+$('pf_h').value,ang:+$('pf_ang').value,r:+$('pf_r').value,land:+$('pf_land').value};
+  var svg=$('pf_svg'); if(svg) svg.innerHTML=buildProfileSVG(P);
+  var g=profileGeom(P);
+  function stat(k,v,cls){ return '<div class="stat '+(cls||'')+'"><div class="k">'+k+'</div><div class="v" style="font-size:1rem">'+v+'</div></div>'; }
+  $('pf_stats').innerHTML =
+      stat('Хор. проекция фланк', (isFinite(g.run)?g.run.toFixed(3):'—')+'<small> mm</small>')
+    + stat('Дъно (valley)', (isFinite(g.valley)?g.valley.toFixed(3):'—')+'<small> mm</small>', (isFinite(g.valley)&&g.valley<0)?'bad':'')
+    + stat('Отваряне на канала', g.included.toFixed(0)+'°')
+    + stat('Заетост land/p', (g.contact*100).toFixed(1)+'<small> %</small>');
+  var msgs=[];
+  if(!(P.ang>0&&P.ang<90)) msgs.push(['d','Ъгълът трябва да е между 0 и 90°.']);
+  if(!(P.p>0)) msgs.push(['d','Стъпката p трябва да е положителна.']);
+  if(g.feasible===false && P.ang>0&&P.ang<90&&P.p>0) msgs.push(['d','Геометрията не затваря: land + 2·(h / tan θ) > p. Намали land/h или увеличи p/ъгъла.']);
+  if(isFinite(g.valley)&&g.valley>0&&P.r>g.valley/2) msgs.push(['c','r = '+(+P.r).toFixed(3)+' mm надхвърля половината от дъното ('+(g.valley/2).toFixed(3)+' mm) — закръглението не се побира геометрично точно.']);
+  $('pf_warn').innerHTML = msgs.length
+    ? msgs.map(function(m){return '<div class="warn '+m[0]+'">'+m[1]+'</div>';}).join('')
+    : '<div class="warn c" style="background:rgba(63,185,80,.09);border-color:rgba(63,185,80,.25);color:#3fb950">✓ Профилът е геометрично съгласуван.</div>';
+}
+function initProfile(){
+  ['pf_p','pf_h','pf_ang','pf_r','pf_land'].forEach(function(id){ $(id).addEventListener('input',renderProfile); });
+  $('pf_btn').onclick=renderProfile;
+  $('pf_reset').onclick=function(){ $('pf_p').value='1.000'; $('pf_h').value='0.270'; $('pf_ang').value='45'; $('pf_r').value='0.400'; $('pf_land').value='0.129'; renderProfile(); };
 }
 
 window.addEventListener('load',initApp);
