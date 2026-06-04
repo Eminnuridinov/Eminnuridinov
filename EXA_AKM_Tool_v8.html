@@ -460,49 +460,59 @@ svg.hidemoves .moves{opacity:0}
   <marker id="aho" markerWidth="10" markerHeight="10" refX="7" refY="3.2" orient="auto"><path d="M0,0 L8,3.2 L0,6.4 Z" fill="#ff8c2b"/></marker>
   <marker id="ahl" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#8aa0c8"/></marker>
  </defs>
- <!-- frame -->
- <rect x="170" y="40" width="520" height="20" fill="none" stroke="#c9d4e0" stroke-width="1.4"/>
- <line x1="184" y1="60" x2="184" y2="320" stroke="#c9d4e0" stroke-width="1.4"/>
- <line x1="676" y1="60" x2="676" y2="320" stroke="#c9d4e0" stroke-width="1.4"/>
- <rect x="150" y="320" width="560" height="16" fill="none" stroke="#c9d4e0" stroke-width="1.4"/>
- <!-- spindle axis centerline -->
- <line x1="430" y1="48" x2="430" y2="334" stroke="#6b7a8a" stroke-width="1" stroke-dasharray="10,4,2,4"/>
- <text x="436" y="34" fill="#6b7a8a">ос на въртене</text>
- <!-- face plate + spindle -->
- <rect x="234" y="266" width="392" height="18" fill="rgba(120,150,200,0.16)" stroke="#8aa0c8" stroke-width="1.4"/>
- <rect x="406" y="284" width="48" height="36" fill="rgba(120,150,200,0.16)" stroke="#8aa0c8" stroke-width="1.4"/>
- <!-- rotation arrow -->
- <path class="moves" d="M356,292 A80,16 0 0 0 504,292" fill="none" stroke="#58a6ff" stroke-width="1.6" marker-end="url(#ahb)"/>
- <text class="moves" x="392" y="312" fill="#58a6ff">ω въртене</text>
- <!-- ring walls (section through annulus) -->
- <rect x="312" y="240" width="48" height="26" fill="rgba(120,150,200,0.16)" stroke="#8aa0c8" stroke-width="1.4"/>
- <rect x="500" y="240" width="48" height="26" fill="rgba(120,150,200,0.16)" stroke="#8aa0c8" stroke-width="1.4"/>
- <polyline points="502,240 506,248 510,240 514,248 518,240 522,248 526,240 530,248 534,240 538,248 542,240 546,248" fill="none" stroke="#3fb950" stroke-width="1.6"/>
- <polyline points="314,240 318,248 322,240 326,248 330,240 334,248 338,240 342,248 346,240 350,248 354,240 358,248" fill="none" stroke="#3fb950" stroke-width="1.3" opacity="0.7"/>
- <!-- jaws grip by ID -->
- <rect x="366" y="242" width="16" height="22" fill="none" stroke="#ff8c2b" stroke-width="1.3"/>
- <rect x="478" y="242" width="16" height="22" fill="none" stroke="#ff8c2b" stroke-width="1.3"/>
- <line x1="366" y1="253" x2="358" y2="253" stroke="#ff8c2b" stroke-width="1.4" marker-end="url(#aho)"/>
- <line x1="494" y1="253" x2="502" y2="253" stroke="#ff8c2b" stroke-width="1.4" marker-end="url(#aho)"/>
- <!-- tool head over right ring wall -->
- <rect x="486" y="66" width="76" height="44" fill="rgba(120,150,200,0.16)" stroke="#c9d4e0" stroke-width="1.4"/>
- <rect x="520" y="110" width="8" height="122" fill="#c9d4e0"/>
- <path d="M514,232 L530,232 L524,242 Z" fill="#ff8c2b"/>
- <!-- Z infeed arrow -->
- <line class="moves" x1="586" y1="86" x2="586" y2="172" stroke="#58a6ff" stroke-width="1.6" marker-end="url(#ahb)"/>
- <text class="moves" x="592" y="134" fill="#58a6ff">Z — врязване</text>
- <!-- labels -->
- <text x="540" y="30" fill="#c9d4e0">режеща глава / инструмент</text>
- <line x1="588" y1="34" x2="528" y2="64" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
- <text x="40" y="278" fill="#c9d4e0">планшайба</text>
- <line x1="96" y1="274" x2="234" y2="277" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
- <text x="40" y="240" fill="#c9d4e0">пръстен (заготовка)</text>
- <line x1="158" y1="236" x2="312" y2="246" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
- <text x="296" y="366" fill="#c9d4e0">челюсти — захват по ID</text>
- <line x1="416" y1="354" x2="430" y2="268" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
+ <!-- ос на въртене (вертикална) -->
+ <line x1="430" y1="48" x2="430" y2="372" stroke="#6b7a8a" stroke-width="1" stroke-dasharray="10,4,2,4"/>
+ <text x="300" y="40" fill="#6b7a8a">ос на въртене</text>
+
+ <!-- спиндел + планшайба -->
+ <rect x="250" y="300" width="360" height="18" fill="rgba(120,150,200,0.16)" stroke="#8aa0c8" stroke-width="1.4"/>
+ <rect x="404" y="318" width="52" height="46" fill="rgba(120,150,200,0.16)" stroke="#8aa0c8" stroke-width="1.4"/>
+ <rect x="384" y="364" width="92" height="14" fill="rgba(120,150,200,0.10)" stroke="#8aa0c8" stroke-width="1.2"/>
+ <!-- въртене ω -->
+ <path class="moves" d="M372,330 A66,15 0 0 0 488,330" fill="none" stroke="#58a6ff" stroke-width="1.6" marker-end="url(#ahb)"/>
+ <text class="moves" x="392" y="350" fill="#58a6ff">ω — въртене на детайла</text>
+
+ <!-- пръстен в сечение (две стени, симетрични спрямо оста) -->
+ <rect x="300" y="256" width="40" height="44" fill="rgba(120,150,200,0.16)" stroke="#8aa0c8" stroke-width="1.4"/>
+ <rect x="520" y="256" width="40" height="44" fill="rgba(120,150,200,0.16)" stroke="#8aa0c8" stroke-width="1.4"/>
+ <!-- камрофилни канали по горната челна повърхност -->
+ <polyline points="300,256 304,261 308,256 312,261 316,256 320,261 324,256 328,261 332,256 336,261 340,256" fill="none" stroke="#3fb950" stroke-width="1.5"/>
+ <polyline points="520,256 524,261 528,256 532,261 536,256 540,261 544,256 548,261 552,256 556,261 560,256" fill="none" stroke="#3fb950" stroke-width="1.5"/>
+
+ <!-- 3 челюсти — захват отвътре по ID -->
+ <rect x="340" y="262" width="18" height="30" fill="rgba(255,140,43,0.18)" stroke="#ff8c2b" stroke-width="1.3"/>
+ <rect x="502" y="262" width="18" height="30" fill="rgba(255,140,43,0.18)" stroke="#ff8c2b" stroke-width="1.3"/>
+ <line x1="358" y1="277" x2="342" y2="277" stroke="#ff8c2b" stroke-width="1.4" marker-end="url(#aho)"/>
+ <line x1="502" y1="277" x2="518" y2="277" stroke="#ff8c2b" stroke-width="1.4" marker-end="url(#aho)"/>
+
+ <!-- режеща глава над дясната стена -->
+ <rect x="506" y="70" width="68" height="42" fill="rgba(120,150,200,0.16)" stroke="#c9d4e0" stroke-width="1.4"/>
+ <rect x="536" y="112" width="8" height="136" fill="#c9d4e0"/>
+ <path d="M531,248 L549,248 L540,258 Z" fill="#ff8c2b"/>
+
+ <!-- X — радиално позициониране (над главата) -->
+ <line class="moves" x1="470" y1="56" x2="610" y2="56" stroke="#58a6ff" stroke-width="1.6" marker-start="url(#ahb)" marker-end="url(#ahb)"/>
+ <text class="moves" x="476" y="50" fill="#58a6ff">X — радиално позициониране</text>
+ <line x1="540" y1="58" x2="540" y2="70" stroke="#5c6b7a" stroke-width="0.7"/>
+
+ <!-- Z — врязване (дълбочина) -->
+ <line class="moves" x1="600" y1="92" x2="600" y2="238" stroke="#58a6ff" stroke-width="1.6" marker-end="url(#ahb)"/>
+ <text class="moves" x="606" y="170" fill="#58a6ff">Z — дълбочина</text>
+
+ <!-- етикети -->
+ <text x="610" y="24" fill="#c9d4e0">режеща глава (инструмент)</text>
+ <line x1="650" y1="28" x2="556" y2="68" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
+ <text x="40" y="300" fill="#c9d4e0">планшайба</text>
+ <line x1="100" y1="296" x2="250" y2="306" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
+ <text x="40" y="250" fill="#c9d4e0">пръстен (заготовка)</text>
+ <line x1="150" y1="246" x2="300" y2="262" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
+ <text x="612" y="250" fill="#3fb950">канали (камрофил)</text>
+ <line x1="610" y1="246" x2="556" y2="258" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
+ <text x="300" y="404" fill="#ff8c2b">3 челюсти — захват отвътре по ID</text>
+ <line x1="372" y1="392" x2="350" y2="294" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
 </svg></div>
    <div class="schem-ctl"><label><input type="checkbox" checked onchange="toggleMoves('svgA1',this.checked)"> линии на движение</label></div>
-   <div class="schem-cap"><b>AKM01 — вертикална, PLC.</b> Пръстенът ляга плоско върху въртящата се планшайба и се захваща от челюсти-сегменти по вътрешния диаметър (ID). Режещата глава се спуска отгоре и врязва по ос Z, като оформя каналите по горната челна повърхност, докато планшайбата върти заготовката. Работен диапазон Ø14–580 mm.</div>
+   <div class="schem-cap"><b>AKM01 — вертикална, PLC.</b> Пръстенът ляга плоско върху въртящата се планшайба и се захваща отвътре от <b>3 челюсти</b> по вътрешния диаметър (ID). Режещата глава се позиционира радиално по ос <b>X</b> над зоната на канала и врязва по ос <b>Z</b> (дълбочина), докато вретеното върти заготовката (ω) — така се оформят концентричните канали по горната челна повърхност. Стъпка по X за всеки следващ канал. Работен диапазон Ø14–580 mm.</div>
  </div>
  <div class="grid">
   <div class="card">
@@ -843,6 +853,7 @@ svg.hidemoves .moves{opacity:0}
       <div style="flex:1"><label>r — радиус (mm)</label><input type="number" id="pf_r" value="0.400" step="0.001"></div>
     </div></div>
     <div class="field"><label>land — площадка при върха (mm)</label><input type="number" id="pf_land" value="0.129" step="0.001"></div>
+    <label class="toggle"><input type="checkbox" id="pf_tool" checked><span class="sw"></span><span>Ход на инструмента (Z + X)</span></label>
     <button class="btn-go" id="pf_btn">▶ ОБНОВИ ФИГУРАТА</button>
     <button class="lnk" id="pf_reset">↺ Възстанови стандартните</button>
    </div>
@@ -851,7 +862,7 @@ svg.hidemoves .moves{opacity:0}
    <div class="card schem-card">
     <h2>Оразмерена фигура — камрофилен профил</h2>
     <div class="schem"><svg id="pf_svg" viewBox="0 0 720 360" xmlns="http://www.w3.org/2000/svg" font-family="'JetBrains Mono',monospace"></svg></div>
-    <div class="schem-cap"><b>Камрофилен (серирован) профил.</b> Триъгълни канали с фланки под зададения ъгъл, площадка <i>land</i> при върха и радиус <i>r</i>. Фигурата е в истински пропорции. Терминът е „канал".</div>
+    <div class="schem-cap"><b>Камрофилен (серирован) профил.</b> Канали с фланки под зададения ъгъл, площадка <i>land</i> при върха и заоблено дъно <i>r</i>. Геометрията е обща за AKM01 и AKM03. „Ход на инструмента" показва врязването по <b>Z</b> и стъпката по <b>X</b> (= p) — може да се скрие за чиста оразмерена фигура. Истински пропорции. Терминът е „канал".</div>
    </div>
    <div class="card">
     <h2>Геометрична проверка</h2>
@@ -2732,7 +2743,7 @@ function pfDimV(x,y1,y2,label){
   return '<line x1="'+x.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x.toFixed(1)+'" y2="'+y2.toFixed(1)+'" stroke="#58a6ff" stroke-width="1" marker-start="url(#pfar)" marker-end="url(#pfar)"/>'
     +'<text x="'+(x+6).toFixed(1)+'" y="'+((y1+y2)/2).toFixed(1)+'" fill="#58a6ff" font-size="11">'+label+'</text>';
 }
-function buildProfileSVG(P){
+function buildProfileSVG(P,showTool){
   var teeth=3, ox=70, rightpad=120;
   var pp=(P.p>0)?P.p:1, s=(720-ox-rightpad)/(teeth*pp);
   var pr=profilePoints(P,teeth), g=pr.g, oy=130;
@@ -2753,7 +2764,8 @@ function buildProfileSVG(P){
     x+=run;    segs.push('L '+X(x).toFixed(1)+' '+Y(0).toFixed(1));
   }
   var pathD=segs.join(' ');
-  var d='<defs><marker id="pfar" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#58a6ff"/></marker></defs>';
+  var d='<defs><marker id="pfar" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#58a6ff"/></marker>'
+    +'<marker id="pfar2" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#ff8c2b"/></marker></defs>';
   d+='<path d="'+pathD+' L '+X(pr.width).toFixed(1)+' '+baseY.toFixed(1)+' L '+X(0).toFixed(1)+' '+baseY.toFixed(1)+' Z" fill="rgba(120,150,200,0.10)" stroke="none"/>';
   d+='<line x1="'+X(0).toFixed(1)+'" y1="'+oy+'" x2="'+X(pr.width).toFixed(1)+'" y2="'+oy+'" stroke="#3a4756" stroke-width="1" stroke-dasharray="5,4"/>';
   d+='<line x1="'+X(0).toFixed(1)+'" y1="'+valleyY.toFixed(1)+'" x2="'+X(pr.width).toFixed(1)+'" y2="'+valleyY.toFixed(1)+'" stroke="#3a4756" stroke-width="1" stroke-dasharray="5,4"/>';
@@ -2780,11 +2792,23 @@ function buildProfileSVG(P){
   var rx=X(P.land+run+valley/2), ry=valleyY+sagPx;
   d+='<line x1="'+rx.toFixed(1)+'" y1="'+ry.toFixed(1)+'" x2="'+(rx+30).toFixed(1)+'" y2="'+(ry+30).toFixed(1)+'" stroke="#8aa0c8" stroke-width="0.8" marker-start="url(#pfar)"/>';
   d+='<text x="'+(rx+34).toFixed(1)+'" y="'+(ry+34).toFixed(1)+'" fill="#c9d4e0" font-size="11">r = '+(+P.r).toFixed(3)+'</text>';
+  // ход на инструмента: Z врязване в канала + X стъпка (= p) до следващия
+  if(showTool && valley>0){
+    var rc=P.land+run+valley/2+P.p, cxr=X(rc), cxr2=X(rc+P.p), rbY=valleyY+sagPx, xy=oy-92;
+    d+='<text x="'+cxr.toFixed(1)+'" y="'+(oy-104)+'" fill="#ff8c2b" font-size="11" text-anchor="middle">ход на инструмента</text>';
+    d+='<rect x="'+(cxr-9).toFixed(1)+'" y="'+(oy-78)+'" width="18" height="30" rx="2" fill="#9aa6b3" stroke="#5c6b7a" stroke-width="1"/>';
+    d+='<path d="M'+(cxr-7).toFixed(1)+','+(oy-48)+' L'+(cxr+7).toFixed(1)+','+(oy-48)+' L'+cxr.toFixed(1)+','+(oy-34)+' Z" fill="#ff8c2b"/>';
+    d+='<line x1="'+cxr.toFixed(1)+'" y1="'+(oy-32)+'" x2="'+cxr.toFixed(1)+'" y2="'+(rbY-2).toFixed(1)+'" stroke="#ff8c2b" stroke-width="1.4" stroke-dasharray="4,3" marker-end="url(#pfar2)"/>';
+    d+='<text x="'+(cxr+7).toFixed(1)+'" y="'+((oy-30+rbY)/2).toFixed(1)+'" fill="#ff8c2b" font-size="11">Z</text>';
+    d+='<line x1="'+cxr.toFixed(1)+'" y1="'+(oy-78)+'" x2="'+cxr.toFixed(1)+'" y2="'+xy+'" stroke="#5c6b7a" stroke-width="0.6"/>';
+    d+='<line x1="'+cxr.toFixed(1)+'" y1="'+xy+'" x2="'+cxr2.toFixed(1)+'" y2="'+xy+'" stroke="#ff8c2b" stroke-width="1.4" marker-end="url(#pfar2)"/>';
+    d+='<text x="'+((cxr+cxr2)/2).toFixed(1)+'" y="'+(xy-5)+'" fill="#ff8c2b" font-size="11" text-anchor="middle">X = p</text>';
+  }
   return d;
 }
 function renderProfile(){
   var P={p:+$('pf_p').value,h:+$('pf_h').value,ang:+$('pf_ang').value,r:+$('pf_r').value,land:+$('pf_land').value};
-  var svg=$('pf_svg'); if(svg) svg.innerHTML=buildProfileSVG(P);
+  var svg=$('pf_svg'); if(svg) svg.innerHTML=buildProfileSVG(P, $('pf_tool')?$('pf_tool').checked:false);
   var g=profileGeom(P);
   function stat(k,v,cls){ return '<div class="stat '+(cls||'')+'"><div class="k">'+k+'</div><div class="v" style="font-size:1rem">'+v+'</div></div>'; }
   $('pf_stats').innerHTML =
@@ -2803,6 +2827,7 @@ function renderProfile(){
 }
 function initProfile(){
   ['pf_p','pf_h','pf_ang','pf_r','pf_land'].forEach(function(id){ $(id).addEventListener('input',renderProfile); });
+  $('pf_tool').addEventListener('change',renderProfile);
   $('pf_btn').onclick=renderProfile;
   $('pf_reset').onclick=function(){ $('pf_p').value='1.000'; $('pf_h').value='0.270'; $('pf_ang').value='45'; $('pf_r').value='0.400'; $('pf_land').value='0.129'; renderProfile(); };
 }

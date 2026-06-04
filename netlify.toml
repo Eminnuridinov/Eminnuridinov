@@ -1,2 +1,8 @@
 [build]
-  publish = "public"
+  publish = "."
+
+# Коренът на сайта показва EXA AKM инструмента (rewrite, без дублиране на файла)
+[[redirects]]
+  from = "/"
+  to = "/EXA_AKM_Tool_v8.html"
+  status = 200
