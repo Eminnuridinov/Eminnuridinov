@@ -891,7 +891,7 @@ svg.hidemoves .moves{opacity:0}
    <div class="card schem-card">
     <h2>Планшайба — болтови окръжности</h2>
     <div class="schem"><svg id="jw_svg" viewBox="0 0 460 460" xmlns="http://www.w3.org/2000/svg" font-family="'JetBrains Mono',monospace"></svg></div>
-    <div class="schem-cap"><b>Supporto griffe G02217233003</b> · 38NiCrMo4. Концентрични болтови окръжности; маркирани са избраната окръжност и сегментите за захват по ID. Пръстенът (ID/OD) е наслаган. Ъгловото разпределение на отворите е <b>схематично</b> (равномерно), не от чертежа.</div>
+    <div class="schem-cap"><b>Supporto griffe G02217233003</b> · 38NiCrMo4. Показани са <b>3-те челюстни сегмента</b> (на 120°, с междини), монтирани на избраната болтова окръжност и захващащи пръстена по <b>ID</b>. Жълтите точки са болтовете на всеки сегмент. Пръстенът OD/ID е наслаган. Ъгловите позиции са <b>схематични</b>, не от чертежа.</div>
    </div>
    <div class="card">
     <h2>Болтови окръжности (Supporto griffe)</h2>
@@ -2738,12 +2738,26 @@ function buildProfileSVG(P){
   var pr=profilePoints(P,teeth), g=pr.g, oy=130;
   var X=function(xm){return ox+xm*s;}, Y=function(ym){return oy+ym*s;};
   var valleyY=Y(P.h), baseY=valleyY+50;
-  var poly=pr.pts.map(function(p){return X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1);}).join(' ');
+  // профил като path: плосък връх (land) + 45° фланкове + заоблено дъно R (дъга)
+  var run=pr.run, valley=(g.valley>0)?g.valley:0, rArc=P.r*s;
+  var canArc=valley>0 && P.r>=valley/2-1e-9;
+  var segs=['M '+X(0).toFixed(1)+' '+Y(0).toFixed(1)], x=0;
+  for(var ti=0;ti<teeth;ti++){
+    x+=P.land; segs.push('L '+X(x).toFixed(1)+' '+Y(0).toFixed(1));
+    x+=run;    segs.push('L '+X(x).toFixed(1)+' '+Y(P.h).toFixed(1));
+    if(valley>0){ var xr=x+valley;
+      if(canArc) segs.push('A '+rArc.toFixed(1)+' '+rArc.toFixed(1)+' 0 0 0 '+X(xr).toFixed(1)+' '+Y(P.h).toFixed(1));
+      else       segs.push('L '+X(xr).toFixed(1)+' '+Y(P.h).toFixed(1));
+      x=xr;
+    }
+    x+=run;    segs.push('L '+X(x).toFixed(1)+' '+Y(0).toFixed(1));
+  }
+  var pathD=segs.join(' ');
   var d='<defs><marker id="pfar" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#58a6ff"/></marker></defs>';
-  d+='<polygon points="'+X(0).toFixed(1)+','+baseY.toFixed(1)+' '+poly+' '+X(pr.width).toFixed(1)+','+baseY.toFixed(1)+'" fill="rgba(120,150,200,0.10)"/>';
+  d+='<path d="'+pathD+' L '+X(pr.width).toFixed(1)+' '+baseY.toFixed(1)+' L '+X(0).toFixed(1)+' '+baseY.toFixed(1)+' Z" fill="rgba(120,150,200,0.10)" stroke="none"/>';
   d+='<line x1="'+X(0).toFixed(1)+'" y1="'+oy+'" x2="'+X(pr.width).toFixed(1)+'" y2="'+oy+'" stroke="#3a4756" stroke-width="1" stroke-dasharray="5,4"/>';
   d+='<line x1="'+X(0).toFixed(1)+'" y1="'+valleyY.toFixed(1)+'" x2="'+X(pr.width).toFixed(1)+'" y2="'+valleyY.toFixed(1)+'" stroke="#3a4756" stroke-width="1" stroke-dasharray="5,4"/>';
-  d+='<polyline points="'+poly+'" fill="none" stroke="#ff8c2b" stroke-width="2"/>';
+  d+='<path d="'+pathD+'" fill="none" stroke="#ff8c2b" stroke-width="2"/>';
   // p (top, една стъпка)
   var py=oy-50;
   d+=pfDimH(X(0),X(P.p),py,'p = '+(+P.p).toFixed(3));
@@ -2761,10 +2775,11 @@ function buildProfileSVG(P){
     d+='<path d="M'+(vx+24).toFixed(1)+','+vy+' A24,24 0 0 1 '+(vx+24*Math.cos(a)).toFixed(1)+','+(vy+24*Math.sin(a)).toFixed(1)+'" fill="none" stroke="#58a6ff" stroke-width="1"/>';
     d+='<text x="'+(vx+30).toFixed(1)+'" y="'+(vy+20)+'" fill="#58a6ff" font-size="11">'+(+P.ang)+'°</text>';
   }
-  // r (първо дъно)
-  var rx=X(P.land+pr.run), ry=valleyY;
-  d+='<line x1="'+rx.toFixed(1)+'" y1="'+ry.toFixed(1)+'" x2="'+(rx+30).toFixed(1)+'" y2="'+(ry+26).toFixed(1)+'" stroke="#8aa0c8" stroke-width="0.8"/>';
-  d+='<text x="'+(rx+34).toFixed(1)+'" y="'+(ry+30).toFixed(1)+'" fill="#c9d4e0" font-size="11">r = '+(+P.r).toFixed(3)+'</text>';
+  // r (заоблено дъно — сочи към най-ниската точка на дъгата)
+  var sagPx=canArc?(P.r-Math.sqrt(Math.max(0,P.r*P.r-(valley/2)*(valley/2))))*s:0;
+  var rx=X(P.land+run+valley/2), ry=valleyY+sagPx;
+  d+='<line x1="'+rx.toFixed(1)+'" y1="'+ry.toFixed(1)+'" x2="'+(rx+30).toFixed(1)+'" y2="'+(ry+30).toFixed(1)+'" stroke="#8aa0c8" stroke-width="0.8" marker-start="url(#pfar)"/>';
+  d+='<text x="'+(rx+34).toFixed(1)+'" y="'+(ry+34).toFixed(1)+'" fill="#c9d4e0" font-size="11">r = '+(+P.r).toFixed(3)+'</text>';
   return d;
 }
 function renderProfile(){
@@ -2809,31 +2824,36 @@ function jawZOffset(product, ODmm){
 }
 function buildJawSVG(OD,ID,sel){
   var V=460, cx=V/2, cy=V/2;
-  var trueMax=Math.max(OD/2, JAW_BC[JAW_BC.length-1].d/2);
-  // зум към релевантната зона (избор + пръстен + малко контекст), но не повече от цялата планшайба
-  var viewMax=Math.min(trueMax+10, Math.max(OD/2, sel.d/2)*1.6);
-  var s=(V/2-24)/viewMax; // mm→px
-  var R=function(rmm){return rmm*s;};
+  var rodmm=OD/2, ridmm=ID/2, rbmm=sel.d/2;
+  var viewMax=Math.max(rodmm,rbmm)+6;
+  var s=(V/2-30)/viewMax, R=function(mm){return mm*s;};
+  var rod=R(rodmm), rid=R(ridmm), rb=R(rbmm);
+  var inR=Math.min(rb,rid), outR=Math.max(rb,rid);
+  function pol(r,adeg){ var a=adeg*Math.PI/180; return [(cx+r*Math.cos(a)),(cy+r*Math.sin(a))]; }
+  function sector(rIn,rOut,a1,a2){
+    var laf=(a2-a1)>180?1:0, o1=pol(rOut,a1),o2=pol(rOut,a2),i2=pol(rIn,a2),i1=pol(rIn,a1);
+    return 'M'+o1[0].toFixed(1)+','+o1[1].toFixed(1)+' A'+rOut.toFixed(1)+','+rOut.toFixed(1)+' 0 '+laf+' 1 '+o2[0].toFixed(1)+','+o2[1].toFixed(1)
+         +' L'+i2[0].toFixed(1)+','+i2[1].toFixed(1)+' A'+rIn.toFixed(1)+','+rIn.toFixed(1)+' 0 '+laf+' 0 '+i1[0].toFixed(1)+','+i1[1].toFixed(1)+' Z';
+  }
+  var bps=Math.max(1,Math.round(sel.N/3)), span=100;
   var d='';
-  // планшайба контур (малко над най-голямата окръжност / OD; клипва се от изгледа при зум)
-  d+='<circle cx="'+cx+'" cy="'+cy+'" r="'+R(trueMax+10).toFixed(1)+'" fill="rgba(120,150,200,0.06)" stroke="#3a4756" stroke-width="1"/>';
+  // планшайба (фон) + център
+  d+='<circle cx="'+cx+'" cy="'+cy+'" r="'+R(viewMax).toFixed(1)+'" fill="rgba(120,150,200,0.06)" stroke="#3a4756" stroke-width="1"/>';
   d+='<circle cx="'+cx+'" cy="'+cy+'" r="2.5" fill="#8aa0c8"/>';
-  // всички болтови окръжности
-  JAW_BC.forEach(function(b,i){
-    var on=(i===sel.idx);
-    d+='<circle cx="'+cx+'" cy="'+cy+'" r="'+R(b.d/2).toFixed(1)+'" fill="none" stroke="'+(on?'#ff8c2b':'#2c3744')+'" stroke-width="'+(on?'1.6':'0.8')+'"'+(on?'':' stroke-dasharray="3,3"')+'/>';
-    if(on){ // отвори/сегменти на избраната окръжност (схематично равномерно)
-      for(var k=0;k<b.N;k++){ var a=-Math.PI/2 + k*2*Math.PI/b.N;
-        var px=cx+R(b.d/2)*Math.cos(a), py=cy+R(b.d/2)*Math.sin(a);
-        d+='<circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="4" fill="#ff8c2b"/>';
-      }
-    }
-  });
-  // наслаган пръстен ID/OD
-  d+='<circle cx="'+cx+'" cy="'+cy+'" r="'+R(OD/2).toFixed(1)+'" fill="none" stroke="#3fb950" stroke-width="1.6"/>';
-  d+='<circle cx="'+cx+'" cy="'+cy+'" r="'+R(ID/2).toFixed(1)+'" fill="none" stroke="#3fb950" stroke-width="1.6" stroke-dasharray="6,3"/>';
-  d+='<text x="'+cx+'" y="18" fill="#3fb950" font-size="11" text-anchor="middle">пръстен OD '+OD+' / ID '+ID+'</text>';
-  d+='<text x="'+cx+'" y="'+(V-8)+'" fill="#ff8c2b" font-size="11" text-anchor="middle">избор Ø '+sel.d+' · '+sel.N+' сегмента ('+sel.thr+')</text>';
+  // избрана болтова окръжност (пунктир)
+  d+='<circle cx="'+cx+'" cy="'+cy+'" r="'+rb.toFixed(1)+'" fill="none" stroke="#ff8c2b" stroke-width="1" stroke-dasharray="4,3"/>';
+  // 3 челюстни сегмента на 120°, всеки с bps болта
+  for(var g=0;g<3;g++){ var ac=-90+g*120, a1=ac-span/2, a2=ac+span/2;
+    d+='<path d="'+sector(inR,outR,a1,a2)+'" fill="rgba(255,140,43,0.18)" stroke="#ff8c2b" stroke-width="1.6"/>';
+    for(var k=0;k<bps;k++){ var aa=(bps===1)?ac:(a1+10+k*(span-20)/(bps-1)); var p=pol(rb,aa);
+      d+='<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="3.2" fill="#ffd33d" stroke="#7a4a10" stroke-width="0.6"/>'; }
+    var pm=pol((inR+outR)/2,ac); d+='<text x="'+pm[0].toFixed(1)+'" y="'+(pm[1]+5).toFixed(1)+'" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">'+(g+1)+'</text>';
+  }
+  // наслаган пръстен OD/ID
+  d+='<circle cx="'+cx+'" cy="'+cy+'" r="'+rod.toFixed(1)+'" fill="none" stroke="#3fb950" stroke-width="1.8"/>';
+  d+='<circle cx="'+cx+'" cy="'+cy+'" r="'+rid.toFixed(1)+'" fill="none" stroke="#3fb950" stroke-width="1.8" stroke-dasharray="6,3"/>';
+  d+='<text x="'+cx+'" y="18" fill="#3fb950" font-size="11" text-anchor="middle">пръстен OD '+OD+' / ID '+ID+' — захват по ID</text>';
+  d+='<text x="'+cx+'" y="'+(V-8)+'" fill="#ff8c2b" font-size="11" text-anchor="middle">3 сегмента · болтова окръжност Ø'+sel.d+' · '+bps+' болта/сегмент ('+sel.thr+')</text>';
   return d;
 }
 function renderJaw(){
@@ -2841,10 +2861,12 @@ function renderJaw(){
   var sel=pickJawCircle(ID), z=jawZOffset(prod,OD);
   var svg=$('jw_svg'); if(svg) svg.innerHTML=buildJawSVG(OD,ID,sel);
   function stat(k,v,cls){ return '<div class="stat '+(cls||'')+'"><div class="k">'+k+'</div><div class="v" style="font-size:1.05rem">'+v+'</div></div>'; }
+  var bps=Math.max(1,Math.round(sel.N/3));
   $('jw_stats').innerHTML =
-      stat('Болтова окръжност','Ø '+sel.d+'<small> mm</small>','hi')
-    + stat('Сегменти (N)', sel.N+'<small> бр</small>')
-    + stat('Резба', sel.thr)
+      stat('Челюстни сегмента','3<small> бр</small>','hi')
+    + stat('Болтова окръжност','Ø '+sel.d+'<small> mm</small>')
+    + stat('Болтове общо / сегмент', sel.N+' / '+bps)
+    + stat('Резба отвори', sel.thr)
     + stat('Радиална хлабина', sel.gap.toFixed(1)+'<small> mm</small>', sel.gap<0?'bad':'')
     + stat('Реф. Z-ниво', z.mm+'<small> mm</small>')
     + stat('Клас', '<span style="font-size:.7rem">'+z.cls+'</span>');
@@ -2855,11 +2877,12 @@ function renderJaw(){
   if(sel.gap>25) msgs.push(['c','Голяма радиална хлабина ('+sel.gap.toFixed(1)+' mm) между Ø'+sel.d+' и ID — вероятно са нужни по-дълги челюсти/друг сегмент.']);
   $('jw_warn').innerHTML = msgs.length
     ? msgs.map(function(m){return '<div class="warn '+m[0]+'">'+m[1]+'</div>';}).join('')
-    : '<div class="warn c" style="background:rgba(63,185,80,.09);border-color:rgba(63,185,80,.25);color:#3fb950">✓ Захватът по ID е съгласуван с болтова окръжност Ø'+sel.d+'.</div>';
+    : '<div class="warn c" style="background:rgba(63,185,80,.09);border-color:rgba(63,185,80,.25);color:#3fb950">✓ Захват по ID: 3 челюстни сегмента на болтова окръжност Ø'+sel.d+' ('+bps+' болта/сегмент).</div>';
+  $('jw_warn').innerHTML += '<div class="note" style="margin-top:8px">Челюстите (3 сегмента, 120°) се закрепват за челюстодържачите с винтове <b>M6×12</b>, а сменяемите сегменти — с <b>M5×12</b> (AKM01, 3-челюстен самоцентриращ патронник, държачи 1–3). N е броят отвори по окръжността = 3 × болта на сегмент.</div>';
   // таблица на всички окръжности
-  var html='<table class="norm-tbl"><thead><tr><th>Ø mm</th><th>N отвора</th><th>резба</th><th>годна за ID</th></tr></thead><tbody>';
+  var html='<table class="norm-tbl"><thead><tr><th>Ø mm</th><th>N отвора</th><th>болта/сегм.</th><th>резба</th><th>годна за ID</th></tr></thead><tbody>';
   JAW_BC.forEach(function(b,i){ var fit=b.d<=ID;
-    html+='<tr'+(i===sel.idx?' style="background:rgba(255,140,43,.12)"':'')+'><td>'+b.d+'</td><td>'+b.N+'</td><td>'+b.thr+'</td><td>'+(fit?'✓':'—')+(i===sel.idx?' ◀':'')+'</td></tr>'; });
+    html+='<tr'+(i===sel.idx?' style="background:rgba(255,140,43,.12)"':'')+'><td>'+b.d+'</td><td>'+b.N+'</td><td>'+Math.round(b.N/3)+'</td><td>'+b.thr+'</td><td>'+(fit?'✓':'—')+(i===sel.idx?' ◀':'')+'</td></tr>'; });
   html+='</tbody></table>';
   $('jw_tbl').innerHTML=html;
 }
