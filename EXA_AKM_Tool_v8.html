@@ -308,6 +308,7 @@ svg.hidemoves .moves{opacity:0}
   <button class="tab on" data-pg="razkroi"><span class="dot"></span>Разкрой</button>
   <button class="tab" data-pg="akm01"><span class="dot"></span>AKM01 · време</button>
   <button class="tab" data-pg="akm03"><span class="dot"></span>AKM03 · време</button>
+  <button class="tab" data-pg="prod"><span class="dot"></span>Производителност</button>
   <button class="tab" data-pg="wizard"><span class="dot"></span>Стандартна програма</button>
   <button class="tab" data-pg="custom"><span class="dot"></span>Нестандартен профил</button>
   <button class="tab" data-pg="codes"><span class="dot"></span>Кодове</button>
@@ -644,6 +645,24 @@ svg.hidemoves .moves{opacity:0}
 <dt><i>t</i><sub>общо</sub></dt><dd>общо производително време за един детайл <span class="uu">min</span></dd>
 </dl></div></div>
   </div>
+ </div>
+</div>
+<div class="page" id="pg-prod">
+ <div class="card">
+   <h2>Производителност · AKM01 vs AKM03</h2>
+   <div class="note" style="margin-bottom:12px">Сравнение по стандартни типоразмери. За всеки размер: щучно време <i>t</i><sub>щ</sub>, производителност <b>бр/час</b> = 60 / <i>t</i><sub>щ</sub> и <b>бр/смяна</b> = 480 / <i>t</i><sub>щ</sub> (8 h). Броят канали <i>N</i> е по мануалните стойности от таблицата DN. Параметрите (v, h, Δz, n<sub>ф</sub>, t<sub>пом</sub>, c; за AKM03 и v<sub>max</sub>) се четат от съответните машинни табове. AKM03 спазва ограничението v<sub>max</sub> при малките диаметри.</div>
+   <div class="mselbar" style="margin-bottom:12px">
+     <span class="mlbl">Показател:</span>
+     <button class="msel on" id="prHr" data-k="hr">бр/час</button>
+     <button class="msel" id="prSh" data-k="sh">бр/смяна</button>
+     <button class="addbtn" id="prCsv">⬇ CSV</button>
+   </div>
+   <div class="schem" style="margin-bottom:14px"><svg id="prChart" viewBox="0 0 720 340" xmlns="http://www.w3.org/2000/svg" font-family="'JetBrains Mono',monospace"></svg></div>
+   <div class="legend" style="margin-bottom:12px">
+     <span class="li"><span class="sw2" style="background:#3fb950"></span><b>AKM01</b> · вертикална</span>
+     <span class="li"><span class="sw2" style="background:#ff8c2b"></span><b>AKM03</b> · ролкова</span>
+   </div>
+   <div id="prodWrap"></div>
  </div>
 </div>
 <div class="page" id="pg-wizard">
@@ -2200,6 +2219,7 @@ function initApp(){
       if(pg==='wizard'){ renderWTypes(); requestAnimationFrame(()=>{ if(wType) wDraw(); }); }
       if(pg==='custom'){ if(cuSegs.length===0) cuExample(); requestAnimationFrame(cuDraw); }
       if(pg==='codes'){ renderCodes(); }
+      if(pg==='prod'){ renderProductivity(); }
     };
   });
   attachCanvas('w-cv','w-wrap','w','w-xy','w-meas-out',wDraw,wP);
@@ -2208,6 +2228,7 @@ function initApp(){
   renderCodes();
   cuExample();
   initNesting();
+  initProductivity();
   window.addEventListener('resize',()=>{ wDraw(); cuDraw(); if(typeof drawSheet==='function') drawSheet(); });
 }
 
@@ -2475,6 +2496,83 @@ function exportTimeCSV(){
   var blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}), a=document.createElement('a');
   a.href=URL.createObjectURL(blob); a.download='nest_vreme.csv'; a.click();
   setTimeout(function(){URL.revokeObjectURL(a.href);},2000);
+}
+
+/* ===== Производителност AKM01 vs AKM03 (по типоразмери) ===== */
+var prodMetric='hr'; // 'hr' = бр/час, 'sh' = бр/смяна
+function buildProductivity(){
+  var a1={v:+$('a1_v').value,h:+$('a1_h').value,dz:+$('a1_dz').value,nf:+$('a1_nf').value,tp:+$('a1_tp').value,kf:+$('a1_kf').value};
+  var a3={v:+$('a3_v').value,vmax:+$('a3_vmax').value,h:+$('a3_h').value,dz:+$('a3_dz').value,nf:+$('a3_nf').value,tp:+$('a3_tp').value,kf:+$('a3_kf').value};
+  return DN.map(function(d){
+    var r1=timeCalc({OD:d.OD,ID:d.ID,N:d.N,v:a1.v,h:a1.h,dz:a1.dz,nf:a1.nf,tp:a1.tp,kf:a1.kf});
+    var r3=timeCalc({OD:d.OD,ID:d.ID,N:d.N,v:a3.v,vmax:a3.vmax,h:a3.h,dz:a3.dz,nf:a3.nf,tp:a3.tp,kf:a3.kf});
+    return {name:d.n,OD:d.OD,ID:d.ID,N:d.N,
+      tt1:r1.tt,hr1:60/r1.tt,sh1:480/r1.tt,
+      tt3:r3.tt,hr3:60/r3.tt,sh3:480/r3.tt,lim3:r3.limited};
+  });
+}
+function prodChartSVG(rows,metric){
+  var W=720,H=340,L=46,R=12,T=18,Bm=46, plotW=W-L-R, plotH=H-T-Bm, baseY=T+plotH;
+  var val=function(r){ return metric==='hr'?[r.hr1,r.hr3]:[r.sh1,r.sh3]; };
+  var unit=metric==='hr'?'бр/час':'бр/смяна';
+  var maxV=0; rows.forEach(function(r){ var v=val(r); maxV=Math.max(maxV,v[0],v[1]); });
+  if(maxV<=0) maxV=1;
+  var niceMax=Math.ceil(maxV/ (metric==='hr'?5:50)) * (metric==='hr'?5:50); if(niceMax<=0)niceMax=maxV;
+  var sc=plotH/niceMax, gW=plotW/rows.length, bW=gW*0.30;
+  var s='';
+  // y grid + ticks (4)
+  for(var t=0;t<=4;t++){ var yv=niceMax*t/4, y=baseY-yv*sc;
+    s+='<line x1="'+L+'" y1="'+y.toFixed(1)+'" x2="'+(W-R)+'" y2="'+y.toFixed(1)+'" stroke="#2c3744" stroke-width="1"/>';
+    s+='<text x="'+(L-6)+'" y="'+(y+3).toFixed(1)+'" fill="#8b98a9" font-size="10" text-anchor="end">'+(metric==='hr'?yv.toFixed(0):Math.round(yv))+'</text>';
+  }
+  s+='<text x="12" y="'+(T+plotH/2)+'" fill="#8b98a9" font-size="10" transform="rotate(-90 12 '+(T+plotH/2)+')" text-anchor="middle">'+unit+'</text>';
+  rows.forEach(function(r,i){ var v=val(r); var gx=L+i*gW, cx=gx+gW/2;
+    var x1=cx-bW-2, x3=cx+2;
+    var h1=v[0]*sc, h3=v[1]*sc;
+    s+='<rect x="'+x1.toFixed(1)+'" y="'+(baseY-h1).toFixed(1)+'" width="'+bW.toFixed(1)+'" height="'+h1.toFixed(1)+'" fill="#3fb950"/>';
+    s+='<rect x="'+x3.toFixed(1)+'" y="'+(baseY-h3).toFixed(1)+'" width="'+bW.toFixed(1)+'" height="'+h3.toFixed(1)+'" fill="#ff8c2b"/>';
+    var f=function(x){return metric==='hr'?x.toFixed(1):String(Math.round(x));};
+    s+='<text x="'+(x1+bW/2).toFixed(1)+'" y="'+(baseY-h1-3).toFixed(1)+'" fill="#3fb950" font-size="9" text-anchor="middle">'+f(v[0])+'</text>';
+    s+='<text x="'+(x3+bW/2).toFixed(1)+'" y="'+(baseY-h3-3).toFixed(1)+'" fill="#ff8c2b" font-size="9" text-anchor="middle">'+f(v[1])+'</text>';
+    s+='<text x="'+cx.toFixed(1)+'" y="'+(baseY+14)+'" fill="#e6edf3" font-size="10" text-anchor="middle">'+r.name+'</text>';
+  });
+  s+='<line x1="'+L+'" y1="'+baseY+'" x2="'+(W-R)+'" y2="'+baseY+'" stroke="#3a4756" stroke-width="1.4"/>';
+  return s;
+}
+function renderProductivity(){
+  var wrap=$('prodWrap'); if(!wrap) return;
+  var rows=buildProductivity();
+  var chart=$('prChart'); if(chart) chart.innerHTML=prodChartSVG(rows,prodMetric);
+  var f2=function(x){return x.toLocaleString('bg-BG',{minimumFractionDigits:2,maximumFractionDigits:2});};
+  var f1=function(x){return x.toLocaleString('bg-BG',{maximumFractionDigits:1});};
+  var anyLim=false;
+  var html='<table class="norm-tbl"><thead>'
+    +'<tr><th rowspan="2">Размер</th><th rowspan="2">N</th><th colspan="3">AKM01</th><th colspan="3">AKM03</th></tr>'
+    +'<tr><th>t<sub>щ</sub><br>min</th><th>бр/час</th><th>бр/см</th><th>t<sub>щ</sub><br>min</th><th>бр/час</th><th>бр/см</th></tr>'
+    +'</thead><tbody>';
+  rows.forEach(function(r){ if(r.lim3) anyLim=true;
+    html+='<tr><td>'+r.name+'</td><td>'+r.N+'</td>'
+      +'<td>'+f2(r.tt1)+'</td><td>'+f1(r.hr1)+'</td><td>'+Math.floor(r.sh1)+'</td>'
+      +'<td>'+f2(r.tt3)+(r.lim3?' *':'')+'</td><td>'+f1(r.hr3)+'</td><td>'+Math.floor(r.sh3)+'</td></tr>';
+  });
+  html+='</tbody></table>';
+  if(anyLim) html+='<div class="note" style="margin-top:8px">* AKM03: скоростта е ограничена до v<sub>max</sub> при този диаметър.</div>';
+  wrap.innerHTML=html;
+}
+function exportProdCSV(){
+  var rows=buildProductivity();
+  var csv='Размер;OD_mm;ID_mm;N;AKM01_tt_min;AKM01_бр_час;AKM01_бр_смяна;AKM03_tt_min;AKM03_бр_час;AKM03_бр_смяна;AKM03_огр_vmax\n';
+  rows.forEach(function(r){ csv+=r.name+';'+r.OD+';'+r.ID+';'+r.N+';'+r.tt1.toFixed(3)+';'+r.hr1.toFixed(1)+';'+Math.floor(r.sh1)
+    +';'+r.tt3.toFixed(3)+';'+r.hr3.toFixed(1)+';'+Math.floor(r.sh3)+';'+(r.lim3?'да':'не')+'\n'; });
+  var blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}), a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='proizvoditelnost.csv'; a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);},2000);
+}
+function initProductivity(){
+  function selMetric(k){ prodMetric=k; $('prHr').classList.toggle('on',k==='hr'); $('prSh').classList.toggle('on',k==='sh'); renderProductivity(); }
+  $('prHr').onclick=function(){selMetric('hr');};
+  $('prSh').onclick=function(){selMetric('sh');};
+  $('prCsv').onclick=exportProdCSV;
 }
 
 window.addEventListener('load',initApp);
