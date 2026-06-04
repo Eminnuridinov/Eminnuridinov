@@ -2273,9 +2273,9 @@ function timeCalc(p){
   const C=Math.PI*Dsr;
   const veff=p.vmax?Math.min(p.v,p.vmax):p.v;
   const n=veff*1000/(Math.PI*Dsr);
-  const k=Math.ceil(p.h/p.dz);
+  const k=(p.dz>0)?Math.ceil(p.h/p.dz):0;
   const kf=(p.kf>0)?p.kf:1;
-  const tm=kf*p.N*(k+p.nf)/n;
+  const tm=(n>0&&isFinite(n))?kf*p.N*(k+p.nf)/n:0;
   const tt=tm+p.tp;
   return {Dsr,C,n,k,tm,tt,veff,limited:p.vmax&&p.v>p.vmax};
 }
@@ -2467,8 +2467,8 @@ function importDXF(file){
     conv.polys.forEach(function(p){ var m=polyMetrics(p.verts);
       var rectLike = m.w>0&&m.h>0 && Math.abs(m.area-m.w*m.h)/(m.w*m.h) < 0.03;
       if(p.closed && rectLike && m.w>200 && m.h>200){
-        if(!sheetCand){ sheetCand={w:m.w,h:m.h,area:m.area}; }
-        else if(m.area>sheetCand.area){ ringPolys.push(p); /* по-малкият остава като контур */ }
+        if(!sheetCand){ sheetCand={w:m.w,h:m.h,area:m.area,poly:p}; }
+        else if(m.area>sheetCand.area){ ringPolys.push(sheetCand.poly); sheetCand={w:m.w,h:m.h,area:m.area,poly:p}; } /* най-големият = лист */
         else ringPolys.push(p);
       } else ringPolys.push(p);
     });
@@ -2804,7 +2804,7 @@ function pickJawCircle(ID){
 // Реф. Z-ниво по продукт и клас размер (AKM01 мануал, разд. 3.2.2.5.2). OD в mm.
 function jawZOffset(product, ODmm){
   if(product==='inner') return ODmm<=73 ? {mm:12.5, cls:'вътрешен ½″–2½″'} : {mm:8, cls:'вътрешен 3″–20″'};
-  // камрофил: ½″–2″ → 5mm; 2½″–16″ → 0mm (граница ~DN50, OD≈60mm)
+  // камрофил: ½″–2″ → 5mm; 2½″–16″ → 0mm (граница между 2″ и 2½″, OD≈89–110mm)
   return ODmm<=100 ? {mm:5, cls:'камрофил ½″–2″'} : {mm:0, cls:'камрофил 2½″–16″'};
 }
 function buildJawSVG(OD,ID,sel){
