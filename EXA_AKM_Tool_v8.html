@@ -296,6 +296,41 @@ svg.hidemoves .moves{opacity:0}
 .norm-tbl td:first-child,.norm-tbl th:first-child{text-align:left}
 .norm-tbl tfoot td{color:var(--acc2);font-weight:700;border-top:2px solid var(--bdr2)}
 .norm-tbl .sw3{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:middle}
+
+/* ============ ПЕЧАТ / PDF — всеки таб като чиста фигура за дипломната ============ */
+@media print{
+  *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+  @page{ margin:12mm; }
+  html,body{ background:var(--bg) !important; }
+  body{ background-image:none !important; font-size:11px; }
+  .wrap{ max-width:none !important; margin:0 !important; padding:0 !important; }
+  /* само активният таб се отпечатва */
+  .page{ display:none !important; }
+  .page.on{ display:block !important; animation:none !important; }
+  /* скриване на интерактивния интерфейс */
+  .tabs, .ver, .btn-go, .addbtn, .lnk, .tbtn, .sheet-nav, .dxf-row, .add-row,
+  .busy, .schem-ctl, .part-row .rm, #dnToggle, #dnPresetWrap,
+  details.box>summary::before, .sc-del, #partRows .mini button{ display:none !important; }
+  /* машинни селектори: показвай само избрания като етикет */
+  .msel:not(.on){ display:none !important; }
+  .mselbar .addbtn{ display:none !important; }
+  /* полета → плосък текст, за да личат въведените параметри */
+  input, select{ border:none !important; background:transparent !important; color:var(--txt) !important;
+    padding:1px 0 !important; -webkit-appearance:none; appearance:none; box-shadow:none !important; font-weight:600; }
+  .toggle .sw{ display:none !important; }
+  /* разгъване: стак на колоните и отваряне на collapsible блокове */
+  .grid{ grid-template-columns:1fr !important; gap:10px !important; }
+  details.box{ border-color:var(--bdr) !important; }
+  details.box>summary{ pointer-events:none; }
+  details.box:not([open])>.bx-in{ display:block !important; }
+  /* фигурите и таблиците да не се разкъсват между страници */
+  .card, .schem, .canvas-wrap, .schem-card, details.box, table, .stats, .metrics{
+    break-inside:avoid; page-break-inside:avoid; }
+  .card{ box-shadow:none !important; }
+  header{ break-after:avoid; page-break-after:avoid; }
+  .rstrip{ position:static !important; backdrop-filter:none !important; }
+  svg, canvas, img{ max-width:100% !important; height:auto; }
+}
 </style>
 </head>
 <body>
