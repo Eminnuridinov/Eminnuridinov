@@ -396,6 +396,16 @@ svg.hidemoves .moves{opacity:0}
      <div id="normWrap"><div style="font-family:var(--mono);font-size:.72rem;color:var(--mut)">— изчисли разкрой —</div></div>
      <button class="addbtn" id="normCsv" style="margin-top:8px">⬇ CSV (нормиране)</button>
    </div></details>
+   <details class="box" open><summary>Техническо нормиране на времето</summary><div class="bx-in">
+     <div class="note" style="margin-bottom:8px">Норма на време по <b>типоразмери</b> от текущия разкрой, успоредно на материалната. Машинно <i>t</i><sub>м</sub> и щучно <i>t</i><sub>щ</sub> = <i>t</i><sub>м</sub> + <i>t</i><sub>пом</sub>. Броят канали <i>N</i> се оценява от ширината: <i>N</i> ≈ round(((OD−ID)/2) / p), p = 1.0 mm. Параметрите (v, h, Δz, n<sub>ф</sub>, t<sub>пом</sub>, c) се четат от избрания машинен таб.</div>
+     <div class="mselbar" style="margin-bottom:10px">
+       <span class="mlbl">Машина:</span>
+       <button class="msel on" id="tnA1" data-m="a1">AKM01</button>
+       <button class="msel" id="tnA3" data-m="a3">AKM03</button>
+     </div>
+     <div id="timeNormWrap"><div style="font-family:var(--mono);font-size:.72rem;color:var(--mut)">— изчисли разкрой —</div></div>
+     <button class="addbtn" id="timeCsv" style="margin-top:8px">⬇ CSV (време)</button>
+   </div></details>
   </div>
  </div>
 </div>
@@ -2039,7 +2049,7 @@ function calc(){
     $('barUsed').style.width=kim.toFixed(1)+'%'; $('barWaste').style.width=(100-kim).toFixed(1)+'%';
     $('legUsed').textContent=kim.toFixed(1)+'%'; $('legWaste').textContent=(100-kim).toFixed(1)+'%';
     lastMeta={A,B,margin};
-    curSheet=0; renderLegend(); drawSheet(); updateNav(); renderNorming();
+    curSheet=0; renderLegend(); drawSheet(); updateNav(); renderNorming(); renderTimeNorming();
     $('busy').classList.remove('on');
   },30);
 }
@@ -2125,7 +2135,7 @@ function timeCalc(p){
   const kf=(p.kf>0)?p.kf:1;
   const tm=kf*p.N*(k+p.nf)/n;
   const tt=tm+p.tp;
-  return {Dsr,C,n,k,tt,veff,limited:p.vmax&&p.v>p.vmax};
+  return {Dsr,C,n,k,tm,tt,veff,limited:p.vmax&&p.v>p.vmax};
 }
 
 function initNesting(){
@@ -2146,6 +2156,10 @@ function initNesting(){
   $('dxfIn').onchange=function(e){ if(e.target.files&&e.target.files[0]) importDXF(e.target.files[0]); e.target.value=''; };
   $('dxfOut').onclick=exportDXF;
   $('normCsv').onclick=exportNormCSV;
+  $('timeCsv').onclick=exportTimeCSV;
+  function selTimeMachine(m){ timeNormMachine=m; $('tnA1').classList.toggle('on',m==='a1'); $('tnA3').classList.toggle('on',m==='a3'); renderTimeNorming(); }
+  $('tnA1').onclick=()=>selTimeMachine('a1');
+  $('tnA3').onclick=()=>selTimeMachine('a3');
   $('a1_btn').onclick=()=>{
     const r=timeCalc({OD:+$('a1_OD').value,ID:+$('a1_ID').value,N:+$('a1_N').value,v:+$('a1_v').value,h:+$('a1_h').value,dz:+$('a1_dz').value,nf:+$('a1_nf').value,tp:+$('a1_tp').value,kf:+$('a1_kf').value});
     $('a1_C').textContent=r.Dsr.toFixed(0)+' / '+r.C.toFixed(0)+' mm';
@@ -2410,6 +2424,56 @@ function exportNormCSV(){
   csv+=';;;;;;;\nКИМ_%;'+(d.kim*100).toFixed(1)+';;Листове;'+d.N+';Дебелина_mm;'+d.C+';ро_kg_m3;'+d.rho+'\n';
   var blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}), a=document.createElement('a');
   a.href=URL.createObjectURL(blob); a.download='nest_normirane.csv'; a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);},2000);
+}
+
+/* ===== Техническо нормиране на времето (по типоразмери) ===== */
+var PROFILE_PITCH=1.0;      // mm — универсална стъпка на профила
+var timeNormMachine='a1';   // a1 = AKM01, a3 = AKM03
+function estChannels(OD,ID){ return Math.max(1,Math.round(((OD-ID)/2)/PROFILE_PITCH)); }
+function machineTimeParams(m){
+  if(m==='a3') return {name:'AKM03', v:+$('a3_v').value, vmax:+$('a3_vmax').value, h:+$('a3_h').value,
+    dz:+$('a3_dz').value, nf:+$('a3_nf').value, tp:+$('a3_tp').value, kf:+$('a3_kf').value};
+  return {name:'AKM01', v:+$('a1_v').value, h:+$('a1_h').value,
+    dz:+$('a1_dz').value, nf:+$('a1_nf').value, tp:+$('a1_tp').value, kf:+$('a1_kf').value};
+}
+function buildTimeNorming(m){
+  var base=buildNorming(); if(!base) return null;
+  var par=machineTimeParams(m);
+  var rows=base.rows.map(function(r){
+    var Nest=estChannels(r.OD,r.ID);
+    var tc=timeCalc({OD:r.OD,ID:r.ID,N:Nest,v:par.v,vmax:par.vmax,h:par.h,dz:par.dz,nf:par.nf,tp:par.tp,kf:par.kf});
+    return {OD:r.OD,ID:r.ID,n:r.n,color:r.color,Nest:Nest,tm:tc.tm,tt:tc.tt,batch:tc.tt*r.n};
+  });
+  var totQty=rows.reduce(function(t,r){return t+r.n;},0);
+  var totTime=rows.reduce(function(t,r){return t+r.batch;},0);
+  return {rows:rows,par:par,totQty:totQty,totTime:totTime};
+}
+function renderTimeNorming(){
+  var wrap=$('timeNormWrap'); if(!wrap) return;
+  var d=buildTimeNorming(timeNormMachine);
+  if(!d){ wrap.innerHTML='<div style="font-family:var(--mono);font-size:.72rem;color:var(--mut)">— изчисли разкрой —</div>'; return; }
+  var f1=function(x){return x.toLocaleString('bg-BG',{maximumFractionDigits:1});};
+  var f2=function(x){return x.toLocaleString('bg-BG',{minimumFractionDigits:2,maximumFractionDigits:2});};
+  var tts=d.rows.map(function(r){return r.tt;});
+  var mn=Math.min.apply(null,tts), mx=Math.max.apply(null,tts), av=tts.reduce(function(a,b){return a+b;},0)/tts.length;
+  var html='<table class="norm-tbl"><thead><tr>'
+    +'<th>Размер Ø</th><th>бр</th><th>N<br>канали</th><th>t<sub>м</sub><br>min/бр</th><th>t<sub>щ</sub><br>min/бр</th><th>общо<br>min</th></tr></thead><tbody>';
+  d.rows.forEach(function(r){ html+='<tr><td><span class="sw3" style="background:'+r.color+'"></span>'+r.OD+'×'+r.ID+'</td>'
+    +'<td>'+r.n+'</td><td>'+r.Nest+'</td><td>'+f2(r.tm)+'</td><td>'+f2(r.tt)+'</td><td>'+f1(r.batch)+'</td></tr>'; });
+  html+='</tbody><tfoot>'
+    +'<tr><td>'+d.par.name+' · '+d.totQty+' бр · общо '+f1(d.totTime)+' min ('+f1(d.totTime/60)+' h)</td><td></td><td></td>'
+    +'<td>min '+f2(mn)+'</td><td>ср '+f2(av)+'</td><td>max '+f2(mx)+'</td></tr>'
+    +'</tfoot></table>';
+  wrap.innerHTML=html;
+}
+function exportTimeCSV(){
+  var d=buildTimeNorming(timeNormMachine); if(!d){ alert('Първо изчисли разкрой.'); return; }
+  var csv='Машина;'+d.par.name+'\nРазмер;OD_mm;ID_mm;Брой;N_канали;tm_min_бр;tt_min_бр;Общо_min\n';
+  d.rows.forEach(function(r){ csv+='Ø'+r.OD+'x'+r.ID+';'+r.OD+';'+r.ID+';'+r.n+';'+r.Nest+';'+r.tm.toFixed(3)+';'+r.tt.toFixed(3)+';'+r.batch.toFixed(2)+'\n'; });
+  csv+=';;;;;;;\nОбщо_бр;'+d.totQty+';;Общо_време_min;'+d.totTime.toFixed(1)+';Общо_време_h;'+(d.totTime/60).toFixed(2)+'\n';
+  var blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}), a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='nest_vreme.csv'; a.click();
   setTimeout(function(){URL.revokeObjectURL(a.href);},2000);
 }
 
