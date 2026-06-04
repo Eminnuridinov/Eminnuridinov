@@ -2194,46 +2194,131 @@ function initApp(){
 /* ===== схеми: превключвател линии на движение ===== */
 function toggleMoves(id,show){ var el=document.getElementById(id); if(el) el.classList.toggle('hidemoves',!show); }
 
-/* ===== DXF импорт/експорт (нестинг) ===== */
-function parseDXFCircles(txt){
-  var t=txt.split(/\r?\n/), out=[], pairs=[];
+/* ===== DXF импорт (нестинг) — CIRCLE, ARC, LWPOLYLINE/POLYLINE ===== */
+// Толерантен парсер на ASCII DXF: връща списък от entities с прочетените полета.
+function parseDXFEntities(txt){
+  var t=txt.split(/\r?\n/), pairs=[];
   for(var k=0;k+1<t.length;k+=2) pairs.push([t[k].trim(), t[k+1]]);
-  var cur=null;
+  var ents=[], cur=null;
+  function flush(){ if(cur) ents.push(cur); cur=null; }
   for(var i=0;i<pairs.length;i++){ var c=pairs[i][0], v=pairs[i][1];
-    if(c==='0'){ if(cur&&cur.r>0) out.push(cur); cur=(String(v).trim().toUpperCase()==='CIRCLE')?{r:0,cx:0,cy:0}:null; }
-    else if(cur){ if(c==='10')cur.cx=+v; else if(c==='20')cur.cy=+v; else if(c==='40')cur.r=+v; }
+    if(c==='0'){ flush();
+      cur={type:String(v).trim().toUpperCase(), cx:0,cy:0,r:0,a1:0,a2:360, closed:false, verts:[], _x:null,_y:null};
+      continue;
+    }
+    if(!cur) continue;
+    var n=+v;
+    switch(c){
+      case '10': if(cur.type==='LWPOLYLINE'){ cur._x=n; } else { cur.cx=n; } break;
+      case '20': if(cur.type==='LWPOLYLINE'){ cur._y=n; if(cur._x!==null){ cur.verts.push([cur._x,cur._y]); cur._x=null; cur._y=null; } } else { cur.cy=n; } break;
+      case '40': cur.r=n; break;
+      case '50': cur.a1=n; break;
+      case '51': cur.a2=n; break;
+      case '70': cur.closed=(parseInt(v,10)&1)===1; break;
+    }
   }
-  if(cur&&cur.r>0) out.push(cur);
-  return out;
+  flush();
+  return ents;
 }
-function circlesToParts(circles){
+// Свежда entities до затворени „loops" (кръгове) + полилинии за контур на лист.
+function entsToLoops(ents){
+  // легаси POLYLINE + VERTEX → единна полилиния
+  var merged=[];
+  for(var i=0;i<ents.length;i++){ var e=ents[i];
+    if(e.type==='POLYLINE'){ var poly={type:'LWPOLYLINE',closed:e.closed,verts:[]};
+      var j=i+1; while(j<ents.length&&ents[j].type==='VERTEX'){ poly.verts.push([ents[j].cx,ents[j].cy]); j++; }
+      if(j<ents.length&&ents[j].type==='SEQEND') j++;
+      merged.push(poly); i=j-1; continue;
+    }
+    merged.push(e);
+  }
+  var loops=[], polys=[], arcGroups={};
+  merged.forEach(function(e){
+    if(e.type==='CIRCLE'&&e.r>0){ loops.push({cx:e.cx,cy:e.cy,r:e.r}); }
+    else if(e.type==='ARC'&&e.r>0){
+      var key=Math.round(e.cx*10)+'_'+Math.round(e.cy*10)+'_'+Math.round(e.r*10);
+      var span=((e.a2-e.a1)%360+360)%360; if(span===0) span=360;
+      if(!arcGroups[key]) arcGroups[key]={cx:e.cx,cy:e.cy,r:e.r,span:0};
+      arcGroups[key].span+=span;
+    }
+    else if(e.type==='LWPOLYLINE'&&e.verts.length>=3){ polys.push(e); }
+  });
+  // дъги се обединяват в окръжност само ако покриват ~цял кръг (филтрира фасети/филета)
+  Object.keys(arcGroups).forEach(function(k){ var a=arcGroups[k]; if(a.span>=300) loops.push({cx:a.cx,cy:a.cy,r:a.r}); });
+  return {loops:loops, polys:polys};
+}
+// Площ (shoelace), центроид и габарит на полилиния.
+function polyMetrics(verts){
+  var n=verts.length, A=0, cx=0, cy=0, minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
+  for(var i=0;i<n;i++){ var p=verts[i], q=verts[(i+1)%n];
+    var cr=p[0]*q[1]-q[0]*p[1]; A+=cr; cx+=(p[0]+q[0])*cr; cy+=(p[1]+q[1])*cr;
+    if(p[0]<minx)minx=p[0]; if(p[0]>maxx)maxx=p[0]; if(p[1]<miny)miny=p[1]; if(p[1]>maxy)maxy=p[1];
+  }
+  A/=2; var area=Math.abs(A);
+  if(area>1e-9){ cx/=(6*A); cy/=(6*A); } else { cx=(minx+maxx)/2; cy=(miny+maxy)/2; }
+  return {area:area, cx:cx, cy:cy, w:maxx-minx, h:maxy-miny};
+}
+// loops → типоразмери (OD/ID), с отделяне на болтови отвори и плътни дискове.
+function loopsToParts(loops){
   var groups=[];
-  circles.forEach(function(c){ var g=groups.find(function(g){return Math.abs(g.cx-c.cx)<0.5&&Math.abs(g.cy-c.cy)<0.5;});
-    if(!g){g={cx:c.cx,cy:c.cy,rs:[]};groups.push(g);} g.rs.push(c.r); });
-  var merged={};
-  groups.forEach(function(g){ g.rs.sort(function(a,b){return b-a;});
+  loops.forEach(function(l){
+    var g=groups.find(function(g){ var tol=Math.max(0.5,0.01*Math.max(g.r0,l.r)); return Math.abs(g.cx-l.cx)<tol&&Math.abs(g.cy-l.cy)<tol; });
+    if(!g){ g={cx:l.cx,cy:l.cy,r0:l.r,rs:[]}; groups.push(g); }
+    g.rs.push(l.r);
+  });
+  var maxR=0; groups.forEach(function(g){ g.rs.forEach(function(r){ if(r>maxR)maxR=r; }); });
+  // болтови отвори: ≥3 несвързани (единични) малки окръжности с еднакъв радиус
+  var bolts=0, clusters={};
+  groups.filter(function(g){return g.rs.length===1;}).forEach(function(g){ var key=Math.round(g.rs[0]*2); (clusters[key]=clusters[key]||[]).push(g); });
+  Object.keys(clusters).forEach(function(k){ var arr=clusters[k];
+    if(arr.length>=3 && arr[0].rs[0] < 0.5*maxR){ arr.forEach(function(g){ g._bolt=true; }); bolts+=arr.length; }
+  });
+  var merged={}, discs=0;
+  groups.forEach(function(g){ if(g._bolt) return;
+    g.rs.sort(function(a,b){return b-a;});
+    if(g.rs.length===1){ var ODs=+(g.rs[0]*2).toFixed(2); if(!(ODs>0)) return;
+      var dk='D'+ODs; if(!merged[dk]) merged[dk]={OD:ODs,ID:0,qty:0}; merged[dk].qty++; discs++; return; }
     for(var i=0;i<g.rs.length;i+=2){
       var OD=+(g.rs[i]*2).toFixed(2);
       var ID=(g.rs[i+1]!==undefined)?+(g.rs[i+1]*2).toFixed(2):0;
       if(!(OD>0)||ID>=OD) continue;
       var key=OD+'_'+ID; if(!merged[key]) merged[key]={OD:OD,ID:ID,qty:0}; merged[key].qty++;
-    } });
-  return Object.keys(merged).map(function(k){return merged[k];});
+    }
+  });
+  return {parts:Object.keys(merged).map(function(k){return merged[k];}), bolts:bolts, discs:discs};
 }
 function importDXF(file){
   var rd=new FileReader();
   rd.onload=function(e){
-    var circles=[]; try{ circles=parseDXFCircles(e.target.result); }catch(err){ alert('Грешка при четене на DXF.'); return; }
-    if(!circles.length){ alert('Не са намерени окръжности (CIRCLE) в DXF файла.'); return; }
-    var newp=circlesToParts(circles);
-    if(!newp.length){ alert('Намерени окръжности, но не образуват валидни пръстени (OD>ID).'); return; }
+    var ents; try{ ents=parseDXFEntities(e.target.result); }catch(err){ alert('Грешка при четене на DXF.'); return; }
+    var conv=entsToLoops(ents);
+    // контур на лист: най-голямата правоъгълна затворена полилиния
+    var sheetCand=null, ringPolys=[];
+    conv.polys.forEach(function(p){ var m=polyMetrics(p.verts);
+      var rectLike = m.w>0&&m.h>0 && Math.abs(m.area-m.w*m.h)/(m.w*m.h) < 0.03;
+      if(p.closed && rectLike && m.w>200 && m.h>200){
+        if(!sheetCand){ sheetCand={w:m.w,h:m.h,area:m.area}; }
+        else if(m.area>sheetCand.area){ ringPolys.push(p); /* по-малкият остава като контур */ }
+        else ringPolys.push(p);
+      } else ringPolys.push(p);
+    });
+    // останалите затворени полилинии → еквивалентна окръжност (r=√(S/π))
+    ringPolys.forEach(function(p){ var m=polyMetrics(p.verts); if(m.area>1e-6) conv.loops.push({cx:m.cx,cy:m.cy,r:Math.sqrt(m.area/Math.PI)}); });
+    var co=loopsToParts(conv.loops);
+    if(!co.parts.length && !sheetCand){ alert('В DXF не са открити окръжности/контури, образуващи пръстени.'); return; }
     var added=0;
-    newp.forEach(function(p){ var ex=parts.find(function(x){return x.OD===p.OD&&x.ID===p.ID;});
+    co.parts.forEach(function(p){ var ex=parts.find(function(x){return x.OD===p.OD&&x.ID===p.ID;});
       if(ex) ex.qty+=p.qty;
       else parts.push({dn:'Ø'+p.OD,OD:p.OD,ID:p.ID,qty:p.qty,color:NCOLORS[parts.length%NCOLORS.length]});
       added+=p.qty; });
     renderParts();
-    alert('DXF: '+circles.length+' окр. → '+newp.length+' типоразмера, '+added+' бр. добавени.');
+    var msg='DXF: '+ents.length+' обекта → '+co.parts.length+' типоразмера, '+added+' бр. добавени.';
+    if(co.bolts) msg+='\nПропуснати болтови отвори: '+co.bolts+'.';
+    if(co.discs) msg+='\nПлътни дискове (ID=0): '+co.discs+'.';
+    if(sheetCand && confirm('Открит габарит на лист: '+sheetCand.w.toFixed(0)+' × '+sheetCand.h.toFixed(0)+' mm.\nДа задам ли A/B на листа?')){
+      $('A').value=Math.round(sheetCand.w); $('B').value=Math.round(sheetCand.h); $('sheetPreset').value='custom';
+    }
+    alert(msg);
   };
   rd.readAsText(file);
 }
