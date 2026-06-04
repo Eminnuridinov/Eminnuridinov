@@ -337,7 +337,11 @@ svg.hidemoves .moves{opacity:0}
 <div class="wrap">
 <header>
   <div class="logo"><span class="mark">A</span><div>EXA AKM<small>ТЕХНОЛОГИЧЕН ИНСТРУМЕНТ · „АВКО" АД</small></div></div>
-  <span class="ver">v7.0 · обединен</span>
+  <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <span class="ver" style="margin:0">v8.0 · обединен</span>
+    <button class="addbtn" id="projSave" style="margin:0">⬇ Запази проект</button>
+    <label class="addbtn" id="projLoadLbl" style="margin:0;cursor:pointer">⬆ Зареди проект<input type="file" id="projLoad" accept=".json,.JSON,application/json" style="display:none"></label>
+  </div>
 </header>
 <div class="tabs">
   <button class="tab on" data-pg="razkroi"><span class="dot"></span>Разкрой</button>
@@ -2352,6 +2356,8 @@ function initApp(){
   initProductivity();
   initProfile();
   initJaw();
+  $('projSave').onclick=saveProject;
+  $('projLoad').onchange=function(e){ if(e.target.files&&e.target.files[0]) loadProject(e.target.files[0]); e.target.value=''; };
   window.addEventListener('resize',()=>{ wDraw(); cuDraw(); if(typeof drawSheet==='function') drawSheet(); });
 }
 
@@ -2877,6 +2883,65 @@ function initJaw(){
   $('jw_prod').onchange=renderJaw;
   $('jw_btn').onclick=renderJaw;
   $('jw_csv').onclick=exportJawCSV;
+}
+
+/* ===== Запис/зареждане на проект (JSON файл; без localStorage) ===== */
+function collectFields(){
+  var o={};
+  document.querySelectorAll('input[id],select[id]').forEach(function(el){
+    if(el.type==='file') return;
+    o[el.id]=(el.type==='checkbox')?el.checked:el.value;
+  });
+  return o;
+}
+function applyFields(o){
+  if(!o) return;
+  Object.keys(o).forEach(function(id){
+    var el=document.getElementById(id); if(!el||el.type==='file') return;
+    if(el.type==='checkbox') el.checked=!!o[id]; else el.value=o[id];
+  });
+}
+function saveProject(){
+  var data={ app:'EXA_AKM', ver:8, ts:new Date().toISOString(),
+    fields:collectFields(),
+    parts:parts,
+    cuSegs:cuSegs,
+    machine:machine,
+    prodMetric:prodMetric,
+    timeNormMachine:timeNormMachine
+  };
+  var blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}), a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='exa_akm_proekt.json'; a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);},2000);
+}
+function refreshAll(){
+  // пресмятане/пре-рендиране на всички табове от възстановеното състояние
+  try{ renderParts(); }catch(e){}
+  try{ calc(); }catch(e){}            // нестинг + материално + времево нормиране
+  try{ $('a1_btn').click(); }catch(e){}
+  try{ $('a3_btn').click(); }catch(e){}
+  try{ $('tnA1').classList.toggle('on',timeNormMachine==='a1'); $('tnA3').classList.toggle('on',timeNormMachine==='a3'); }catch(e){}
+  try{ $('prHr').classList.toggle('on',prodMetric==='hr'); $('prSh').classList.toggle('on',prodMetric==='sh'); }catch(e){}
+  try{ renderProductivity(); }catch(e){}
+  try{ renderProfile(); }catch(e){}
+  try{ renderJaw(); }catch(e){}
+  try{ cuSelS=-1; cuRenderList(); cuRenderProg(); cuRenderSpd(); cuDraw(); }catch(e){}
+}
+function loadProject(file){
+  var rd=new FileReader();
+  rd.onload=function(e){
+    var data; try{ data=JSON.parse(e.target.result); }catch(err){ alert('Невалиден JSON файл.'); return; }
+    if(!data||data.app!=='EXA_AKM'){ if(!confirm('Файлът не изглежда като проект на EXA AKM. Да продължа ли?')) return; }
+    applyFields(data.fields);
+    if(Array.isArray(data.parts)) parts=data.parts.map(function(p,i){ return {dn:p.dn||('Ø'+p.OD), OD:+p.OD, ID:+p.ID, qty:+p.qty||1, color:p.color||NCOLORS[i%NCOLORS.length]}; });
+    if(Array.isArray(data.cuSegs)) cuSegs=data.cuSegs;
+    if(data.machine){ try{ setMachine(data.machine); }catch(e){} }
+    if(data.prodMetric) prodMetric=data.prodMetric;
+    if(data.timeNormMachine) timeNormMachine=data.timeNormMachine;
+    refreshAll();
+    alert('Проектът е зареден.');
+  };
+  rd.readAsText(file);
 }
 
 window.addEventListener('load',initApp);
