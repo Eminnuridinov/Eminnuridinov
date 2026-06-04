@@ -2674,8 +2674,7 @@ function exportTimeCSV(){
 /* ===== Производителност AKM01 vs AKM03 (по типоразмери) ===== */
 var prodMetric='hr'; // 'hr' = бр/час, 'sh' = бр/смяна
 function buildProductivity(){
-  var a1={v:+$('a1_v').value,h:+$('a1_h').value,dz:+$('a1_dz').value,nf:+$('a1_nf').value,tp:+$('a1_tp').value,kf:+$('a1_kf').value};
-  var a3={v:+$('a3_v').value,vmax:+$('a3_vmax').value,h:+$('a3_h').value,dz:+$('a3_dz').value,nf:+$('a3_nf').value,tp:+$('a3_tp').value,kf:+$('a3_kf').value};
+  var a1=machineTimeParams('a1'), a3=machineTimeParams('a3');  // едно четене на параметрите
   return DN.map(function(d){
     var r1=timeCalc({OD:d.OD,ID:d.ID,N:d.N,v:a1.v,h:a1.h,dz:a1.dz,nf:a1.nf,tp:a1.tp,kf:a1.kf});
     var r3=timeCalc({OD:d.OD,ID:d.ID,N:d.N,v:a3.v,vmax:a3.vmax,h:a3.h,dz:a3.dz,nf:a3.nf,tp:a3.tp,kf:a3.kf});
