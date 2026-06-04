@@ -312,6 +312,7 @@ svg.hidemoves .moves{opacity:0}
   <button class="tab" data-pg="wizard"><span class="dot"></span>Стандартна програма</button>
   <button class="tab" data-pg="custom"><span class="dot"></span>Нестандартен профил</button>
   <button class="tab" data-pg="profil"><span class="dot"></span>Профил</button>
+  <button class="tab" data-pg="jaw"><span class="dot"></span>Челюстна екипировка</button>
   <button class="tab" data-pg="codes"><span class="dot"></span>Кодове</button>
 </div>
 <div class="page on" id="pg-razkroi">
@@ -817,6 +818,45 @@ svg.hidemoves .moves{opacity:0}
     <h2>Геометрична проверка</h2>
     <div class="stats" id="pf_stats"></div>
     <div id="pf_warn"></div>
+   </div>
+  </div>
+ </div>
+</div>
+<div class="page" id="pg-jaw">
+ <div class="grid">
+  <div>
+   <div class="card">
+    <h2>Размер на пръстена</h2>
+    <div class="note" style="margin-bottom:12px">Захват по <b>вътрешния диаметър (ID)</b> — челюстите-сегменти се болтят на болтова окръжност на планшайбата (Supporto griffe, AKM01) и притискат бора отвътре навън.</div>
+    <div class="field"><label>DN пресет</label><select id="jw_dn"></select></div>
+    <div class="field"><div class="row">
+      <div style="flex:1"><label>OD (mm)</label><input type="number" id="jw_OD" value="152.4" step="0.1"></div>
+      <div style="flex:1"><label>ID (mm)</label><input type="number" id="jw_ID" value="114.3" step="0.1"></div>
+    </div></div>
+    <div class="field"><label>Продукт (за реф. Z-ниво)</label>
+      <select id="jw_prod">
+        <option value="camp">Камрофил</option>
+        <option value="inner">Вътрешен пръстен</option>
+      </select>
+    </div>
+    <button class="btn-go" id="jw_btn">▶ ИЗБЕРИ ЕКИПИРОВКА</button>
+    <button class="addbtn" id="jw_csv" style="margin-top:8px">⬇ CSV (болтови окръжности)</button>
+   </div>
+   <div class="card">
+    <h2>Избор за този размер</h2>
+    <div class="stats" id="jw_stats"></div>
+    <div id="jw_warn"></div>
+   </div>
+  </div>
+  <div>
+   <div class="card schem-card">
+    <h2>Планшайба — болтови окръжности</h2>
+    <div class="schem"><svg id="jw_svg" viewBox="0 0 460 460" xmlns="http://www.w3.org/2000/svg" font-family="'JetBrains Mono',monospace"></svg></div>
+    <div class="schem-cap"><b>Supporto griffe G02217233003</b> · 38NiCrMo4. Концентрични болтови окръжности; маркирани са избраната окръжност и сегментите за захват по ID. Пръстенът (ID/OD) е наслаган. Ъгловото разпределение на отворите е <b>схематично</b> (равномерно), не от чертежа.</div>
+   </div>
+   <div class="card">
+    <h2>Болтови окръжности (Supporto griffe)</h2>
+    <div id="jw_tbl"></div>
    </div>
   </div>
  </div>
@@ -1987,6 +2027,16 @@ const DN = [
   {n:'DN600', ID:609.6, OD:685.8, N:38},
 ];
 const NCOLORS=['#3fb950','#ff8c2b','#58a6ff','#f0506e','#d2a8ff','#ffd33d','#39d3c8','#ff7b72'];
+// Болтови окръжности на планшайбата Supporto griffe G02217233003 (Ø mm, N отвора, резба)
+// Транскрибирано от чертежа — не са измисляни числа.
+const JAW_BC=[
+  {d:55,N:6,thr:'M6'},   {d:90,N:6,thr:'M6'},   {d:120,N:6,thr:'M6'},  {d:150,N:9,thr:'M6'},
+  {d:175,N:6,thr:'M6'},  {d:180,N:12,thr:'M6'}, {d:217.5,N:15,thr:'M6'},{d:235,N:6,thr:'M6'},
+  {d:255,N:15,thr:'M6'}, {d:290,N:15,thr:'M6'}, {d:325,N:15,thr:'M6'},  {d:355,N:6,thr:'M4'},
+  {d:360,N:15,thr:'M6'}, {d:385,N:9,thr:'M6'},  {d:400,N:15,thr:'M6'},  {d:430,N:15,thr:'M6'},
+  {d:465,N:15,thr:'M6'}, {d:500,N:15,thr:'M6'}, {d:525,N:9,thr:'M6'},   {d:540,N:15,thr:'M6'},
+  {d:570,N:15,thr:'M6'}
+];
 let parts=[];
 let sheets=[], curSheet=0, lastMeta=null;
 
@@ -2255,6 +2305,7 @@ function initApp(){
       if(pg==='codes'){ renderCodes(); }
       if(pg==='prod'){ renderProductivity(); }
       if(pg==='profil'){ renderProfile(); }
+      if(pg==='jaw'){ renderJaw(); }
     };
   });
   attachCanvas('w-cv','w-wrap','w','w-xy','w-meas-out',wDraw,wP);
@@ -2265,6 +2316,7 @@ function initApp(){
   initNesting();
   initProductivity();
   initProfile();
+  initJaw();
   window.addEventListener('resize',()=>{ wDraw(); cuDraw(); if(typeof drawSheet==='function') drawSheet(); });
 }
 
@@ -2697,6 +2749,99 @@ function initProfile(){
   ['pf_p','pf_h','pf_ang','pf_r','pf_land'].forEach(function(id){ $(id).addEventListener('input',renderProfile); });
   $('pf_btn').onclick=renderProfile;
   $('pf_reset').onclick=function(){ $('pf_p').value='1.000'; $('pf_h').value='0.270'; $('pf_ang').value='45'; $('pf_r').value='0.400'; $('pf_land').value='0.129'; renderProfile(); };
+}
+
+/* ===== Челюстна екипировка (Supporto griffe) — захват по ID ===== */
+// Избор: най-голямата болтова окръжност Ø ≤ ID (под бора, челюстите притискат навън).
+function pickJawCircle(ID){
+  var sel=null, idx=-1;
+  for(var i=0;i<JAW_BC.length;i++){ if(JAW_BC[i].d<=ID+1e-9){ sel=JAW_BC[i]; idx=i; } }
+  var below=false;
+  if(!sel){ sel=JAW_BC[0]; idx=0; below=true; } // ID под най-малката окръжност
+  return {d:sel.d, N:sel.N, thr:sel.thr, idx:idx, gap:(ID-sel.d)/2, below:below};
+}
+// Реф. Z-ниво по продукт и клас размер (AKM01 мануал, разд. 3.2.2.5.2). OD в mm.
+function jawZOffset(product, ODmm){
+  if(product==='inner') return ODmm<=73 ? {mm:12.5, cls:'вътрешен ½″–2½″'} : {mm:8, cls:'вътрешен 3″–20″'};
+  // камрофил: ½″–2″ → 5mm; 2½″–16″ → 0mm (граница ~DN50, OD≈60mm)
+  return ODmm<=100 ? {mm:5, cls:'камрофил ½″–2″'} : {mm:0, cls:'камрофил 2½″–16″'};
+}
+function buildJawSVG(OD,ID,sel){
+  var V=460, cx=V/2, cy=V/2;
+  var trueMax=Math.max(OD/2, JAW_BC[JAW_BC.length-1].d/2);
+  // зум към релевантната зона (избор + пръстен + малко контекст), но не повече от цялата планшайба
+  var viewMax=Math.min(trueMax+10, Math.max(OD/2, sel.d/2)*1.6);
+  var s=(V/2-24)/viewMax; // mm→px
+  var R=function(rmm){return rmm*s;};
+  var d='';
+  // планшайба контур (малко над най-голямата окръжност / OD; клипва се от изгледа при зум)
+  d+='<circle cx="'+cx+'" cy="'+cy+'" r="'+R(trueMax+10).toFixed(1)+'" fill="rgba(120,150,200,0.06)" stroke="#3a4756" stroke-width="1"/>';
+  d+='<circle cx="'+cx+'" cy="'+cy+'" r="2.5" fill="#8aa0c8"/>';
+  // всички болтови окръжности
+  JAW_BC.forEach(function(b,i){
+    var on=(i===sel.idx);
+    d+='<circle cx="'+cx+'" cy="'+cy+'" r="'+R(b.d/2).toFixed(1)+'" fill="none" stroke="'+(on?'#ff8c2b':'#2c3744')+'" stroke-width="'+(on?'1.6':'0.8')+'"'+(on?'':' stroke-dasharray="3,3"')+'/>';
+    if(on){ // отвори/сегменти на избраната окръжност (схематично равномерно)
+      for(var k=0;k<b.N;k++){ var a=-Math.PI/2 + k*2*Math.PI/b.N;
+        var px=cx+R(b.d/2)*Math.cos(a), py=cy+R(b.d/2)*Math.sin(a);
+        d+='<circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="4" fill="#ff8c2b"/>';
+      }
+    }
+  });
+  // наслаган пръстен ID/OD
+  d+='<circle cx="'+cx+'" cy="'+cy+'" r="'+R(OD/2).toFixed(1)+'" fill="none" stroke="#3fb950" stroke-width="1.6"/>';
+  d+='<circle cx="'+cx+'" cy="'+cy+'" r="'+R(ID/2).toFixed(1)+'" fill="none" stroke="#3fb950" stroke-width="1.6" stroke-dasharray="6,3"/>';
+  d+='<text x="'+cx+'" y="18" fill="#3fb950" font-size="11" text-anchor="middle">пръстен OD '+OD+' / ID '+ID+'</text>';
+  d+='<text x="'+cx+'" y="'+(V-8)+'" fill="#ff8c2b" font-size="11" text-anchor="middle">избор Ø '+sel.d+' · '+sel.N+' сегмента ('+sel.thr+')</text>';
+  return d;
+}
+function renderJaw(){
+  var OD=+$('jw_OD').value, ID=+$('jw_ID').value, prod=$('jw_prod').value;
+  var sel=pickJawCircle(ID), z=jawZOffset(prod,OD);
+  var svg=$('jw_svg'); if(svg) svg.innerHTML=buildJawSVG(OD,ID,sel);
+  function stat(k,v,cls){ return '<div class="stat '+(cls||'')+'"><div class="k">'+k+'</div><div class="v" style="font-size:1.05rem">'+v+'</div></div>'; }
+  $('jw_stats').innerHTML =
+      stat('Болтова окръжност','Ø '+sel.d+'<small> mm</small>','hi')
+    + stat('Сегменти (N)', sel.N+'<small> бр</small>')
+    + stat('Резба', sel.thr)
+    + stat('Радиална хлабина', sel.gap.toFixed(1)+'<small> mm</small>', sel.gap<0?'bad':'')
+    + stat('Реф. Z-ниво', z.mm+'<small> mm</small>')
+    + stat('Клас', '<span style="font-size:.7rem">'+z.cls+'</span>');
+  var msgs=[];
+  if(!(ID>0)) msgs.push(['d','Въведи валиден ID.']);
+  else if(sel.below) msgs.push(['c','ID ('+ID+' mm) е под най-малката болтова окръжност (Ø55). Използва се Ø55 — провери дали е приложимо.']);
+  if(OD>0&&ID>0&&ID>=OD) msgs.push(['d','ID трябва да е по-малък от OD.']);
+  if(sel.gap>25) msgs.push(['c','Голяма радиална хлабина ('+sel.gap.toFixed(1)+' mm) между Ø'+sel.d+' и ID — вероятно са нужни по-дълги челюсти/друг сегмент.']);
+  $('jw_warn').innerHTML = msgs.length
+    ? msgs.map(function(m){return '<div class="warn '+m[0]+'">'+m[1]+'</div>';}).join('')
+    : '<div class="warn c" style="background:rgba(63,185,80,.09);border-color:rgba(63,185,80,.25);color:#3fb950">✓ Захватът по ID е съгласуван с болтова окръжност Ø'+sel.d+'.</div>';
+  // таблица на всички окръжности
+  var html='<table class="norm-tbl"><thead><tr><th>Ø mm</th><th>N отвора</th><th>резба</th><th>годна за ID</th></tr></thead><tbody>';
+  JAW_BC.forEach(function(b,i){ var fit=b.d<=ID;
+    html+='<tr'+(i===sel.idx?' style="background:rgba(255,140,43,.12)"':'')+'><td>'+b.d+'</td><td>'+b.N+'</td><td>'+b.thr+'</td><td>'+(fit?'✓':'—')+(i===sel.idx?' ◀':'')+'</td></tr>'; });
+  html+='</tbody></table>';
+  $('jw_tbl').innerHTML=html;
+}
+function exportJawCSV(){
+  var OD=+$('jw_OD').value, ID=+$('jw_ID').value, prod=$('jw_prod').value;
+  var sel=pickJawCircle(ID), z=jawZOffset(prod,OD);
+  var csv='Размер_OD;'+OD+';Размер_ID;'+ID+'\nИзбор_Ø;'+sel.d+';Сегменти_N;'+sel.N+';Резба;'+sel.thr+';Хлабина_mm;'+sel.gap.toFixed(1)+';Z_offset_mm;'+z.mm+';Клас;'+z.cls+'\n\n';
+  csv+='Ø_mm;N_отвора;резба;годна_за_ID\n';
+  JAW_BC.forEach(function(b){ csv+=b.d+';'+b.N+';'+b.thr+';'+(b.d<=ID?'да':'не')+'\n'; });
+  var blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}), a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='chelyustna_ekipirovka.csv'; a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);},2000);
+}
+function initJaw(){
+  var sel=$('jw_dn');
+  { var o=document.createElement('option'); o.value='custom'; o.textContent='✎ Ръчно (OD/ID)'; sel.appendChild(o); }
+  DN.forEach(function(d,i){ var o=document.createElement('option'); o.value=i; o.textContent=d.n+'  (ID '+d.ID+' / OD '+d.OD+')'; sel.appendChild(o); });
+  sel.value='custom';
+  sel.onchange=function(){ if(sel.value!=='custom'){ var d=DN[+sel.value]; $('jw_OD').value=d.OD; $('jw_ID').value=d.ID; renderJaw(); } };
+  ['jw_OD','jw_ID'].forEach(function(id){ $(id).addEventListener('input',function(){ sel.value='custom'; renderJaw(); }); });
+  $('jw_prod').onchange=renderJaw;
+  $('jw_btn').onclick=renderJaw;
+  $('jw_csv').onclick=exportJawCSV;
 }
 
 window.addEventListener('load',initApp);
