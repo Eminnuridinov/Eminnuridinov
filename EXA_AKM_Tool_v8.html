@@ -356,6 +356,12 @@ svg.hidemoves .moves{opacity:0}
       <label class="addbtn" style="cursor:pointer">⬆ Качи DXF<input type="file" id="dxfIn" accept=".dxf,.DXF" style="display:none"></label>
       <button class="addbtn" id="dxfOut">⬇ Свали DXF (тек. лист)</button>
     </div>
+    <details class="box"><summary>DXF за рязане — опции</summary><div class="bx-in">
+      <div class="field" style="margin-top:8px"><label>Дължина на подхода (lead, mm)</label><input type="number" id="dxfLead" value="4" step="0.5" min="0"></div>
+      <label class="toggle"><input type="checkbox" id="dxfKerf" checked><span class="sw"></span><span>Kerf компенсация (вградена в контура)</span></label>
+      <label class="toggle"><input type="checkbox" id="dxfOrder" checked><span class="sw"></span><span>Номера на реда на рязане</span></label>
+      <div class="note" style="margin-top:6px">Слоеве: <b>SHEET</b> (габарит), <b>CUT_ID</b>, <b>CUT_OD</b>, <b>LEAD</b> (тангенциален вход/изход), <b>ORDER</b>. Ред: вложените детайли и вътрешните отвори се режат преди външния контур.</div>
+    </div></details>
     <div class="busy" id="busy">изчислявам…</div>
    </div>
   </div>
@@ -2322,17 +2328,43 @@ function importDXF(file){
   };
   rd.readAsText(file);
 }
+// Генерира DXF за рязане (NcStudio) от един лист. Чиста функция — тествима.
+// opts: {lead, kerf, kerfComp, showOrder}
+function buildCutDXF(sh, A, B, margin, opts){
+  opts=opts||{};
+  var lead=Math.max(0,opts.lead||0), kerf=opts.kerf||0, off=opts.kerfComp?kerf/2:0, showOrder=!!opts.showOrder, s='';
+  function p(c,v){ s+=c+'\n'+v+'\n'; }
+  function seg(x1,y1,x2,y2,L){ p('0','LINE'); p('8',L); p('10',x1); p('20',y1); p('11',x2); p('21',y2); }
+  function circ(cx,cy,r,L){ p('0','CIRCLE'); p('8',L); p('10',cx.toFixed(3)); p('20',cy.toFixed(3)); p('40',r.toFixed(3)); }
+  function arc(cx,cy,r,a1,a2,L){ p('0','ARC'); p('8',L); p('10',cx.toFixed(3)); p('20',cy.toFixed(3)); p('40',r.toFixed(3)); p('50',a1.toFixed(2)); p('51',a2.toFixed(2)); }
+  function txt(x,y,h,str,L){ p('0','TEXT'); p('8',L); p('10',x.toFixed(3)); p('20',y.toFixed(3)); p('40',h.toFixed(2)); p('1',str); }
+  // Тангенциален вход/изход: две четвърт-дъги, които ограждат началната точка S (ъгъл 0, +x).
+  // side: +1 = извън окръжността (OD), −1 = вътре (ID).
+  function leads(cx,cy,r,side){
+    if(lead<=0) return;
+    var rL=lead, Ox=cx+r+side*rL, Oy=cy;
+    if(side>0){ arc(Ox,Oy,rL,180,270,'LEAD'); arc(Ox,Oy,rL,90,180,'LEAD'); }
+    else { arc(Ox,Oy,rL,0,90,'LEAD'); arc(Ox,Oy,rL,270,360,'LEAD'); }
+  }
+  p('0','SECTION'); p('2','ENTITIES');
+  // габарит на листа (не се реже)
+  seg(0,0,A,0,'SHEET'); seg(A,0,A,B,'SHEET'); seg(A,B,0,B,'SHEET'); seg(0,B,0,0,'SHEET');
+  // ред на рязане: вложените детайли преди главните; за всеки детайл — ID преди OD
+  var order=(sh.inner||[]).concat(sh.placed||[]), idx=0;
+  order.forEach(function(pt){ idx++;
+    var cx=margin+pt.x, cy=B-(margin+pt.y);
+    if(pt.ID>0){ var rid=pt.ID/2-off; if(rid>0.05){ leads(cx,cy,rid,-1); circ(cx,cy,rid,'CUT_ID'); } }
+    var rod=pt.OD/2+off; leads(cx,cy,rod,1); circ(cx,cy,rod,'CUT_OD');
+    if(showOrder) txt(cx+rod+lead+1, cy, Math.max(3,pt.OD*0.05), String(idx), 'ORDER');
+  });
+  p('0','ENDSEC'); p('0','EOF');
+  return s;
+}
 function exportDXF(){
   if(!sheets.length||!lastMeta){ alert('Първо изчисли разкрой.'); return; }
-  var A=lastMeta.A, B=lastMeta.B, margin=lastMeta.margin, sh=sheets[curSheet], s='';
-  function p(c,v){ s+=c+'\n'+v+'\n'; }
-  p('0','SECTION'); p('2','ENTITIES');
-  function seg(x1,y1,x2,y2,L){ p('0','LINE'); p('8',L); p('10',x1); p('20',y1); p('11',x2); p('21',y2); }
-  seg(0,0,A,0,'SHEET'); seg(A,0,A,B,'SHEET'); seg(A,B,0,B,'SHEET'); seg(0,B,0,0,'SHEET');
-  function circ(cx,cy,r,L){ p('0','CIRCLE'); p('8',L); p('10',cx.toFixed(3)); p('20',cy.toFixed(3)); p('40',r.toFixed(3)); }
-  sh.placed.concat(sh.inner).forEach(function(pt){ var cx=margin+pt.x, cy=B-(margin+pt.y);
-    circ(cx,cy,pt.OD/2,'CUT_OD'); if(pt.ID>0) circ(cx,cy,pt.ID/2,'CUT_ID'); });
-  p('0','ENDSEC'); p('0','EOF');
+  var opts={ lead:Math.max(0,+$('dxfLead').value||0), kerf:+$('kerf').value||0,
+             kerfComp:$('dxfKerf')?$('dxfKerf').checked:false, showOrder:$('dxfOrder')?$('dxfOrder').checked:false };
+  var s=buildCutDXF(sheets[curSheet], lastMeta.A, lastMeta.B, lastMeta.margin, opts);
   var blob=new Blob([s],{type:'application/dxf'}), a=document.createElement('a');
   a.href=URL.createObjectURL(blob); a.download='nest_list'+(curSheet+1)+'.dxf'; a.click();
   setTimeout(function(){URL.revokeObjectURL(a.href);},2000);
