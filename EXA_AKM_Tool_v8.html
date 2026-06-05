@@ -598,85 +598,91 @@ svg.hidemoves .moves{opacity:0}
 <div class="page" id="pg-akm03">
  <div class="card schem-card">
    <h2>Кинематична схема — AKM03</h2>
-   <div class="schem"><svg id="svgA3" viewBox="0 0 880 470" xmlns="http://www.w3.org/2000/svg" font-family="'JetBrains Mono',monospace" font-size="12">
+   <div class="schem"><svg id="svgA3" viewBox="0 0 880 500" xmlns="http://www.w3.org/2000/svg" font-family="'JetBrains Mono',monospace" font-size="12">
  <defs>
   <marker id="ahb" markerWidth="10" markerHeight="10" refX="7" refY="3.2" orient="auto"><path d="M0,0 L8,3.2 L0,6.4 Z" fill="#58a6ff"/></marker>
   <marker id="aho" markerWidth="10" markerHeight="10" refX="7" refY="3.2" orient="auto"><path d="M0,0 L8,3.2 L0,6.4 Z" fill="#ff8c2b"/></marker>
   <marker id="ahl" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#8aa0c8"/></marker>
  </defs>
- <!-- ЛЯВО: напречен разрез -->
- <text x="14" y="22" fill="#c9d4e0" font-size="13">Работна зона — напречен разрез</text>
- <line x1="40" y1="414" x2="510" y2="414" stroke="#3a4756" stroke-width="2"/>
- <line x1="60" y1="308" x2="510" y2="308" stroke="#c9d4e0" stroke-width="1.4"/>
- <line x1="60" y1="316" x2="510" y2="316" stroke="#c9d4e0" stroke-width="1.4"/>
- <line x1="110" y1="316" x2="110" y2="414" stroke="#c9d4e0" stroke-width="1.4"/>
- <line x1="300" y1="316" x2="300" y2="414" stroke="#c9d4e0" stroke-width="1.4"/>
- <line x1="470" y1="316" x2="470" y2="414" stroke="#c9d4e0" stroke-width="1.4"/>
- <!-- пръстен (плосък, широк × тънък) -->
- <rect x="110" y="252" width="220" height="20" fill="rgba(120,150,200,0.16)" stroke="#8aa0c8" stroke-width="1.4"/>
- <polyline points="170,252 175,247 180,252 185,247 190,252 195,247 200,252 205,247 210,252 215,247 220,252 225,247 230,252 235,247 240,252 245,247 250,252 255,247 260,252 265,247 270,252 275,247 280,252" fill="none" stroke="#3fb950" stroke-width="1.4"/>
- <!-- вертикални ВЪТРЕШНИ колела (ляв ръб) -->
- <circle cx="135" cy="234" r="16" fill="rgba(255,140,43,0.14)" stroke="#ff8c2b" stroke-width="1.5"/><circle cx="135" cy="234" r="3" fill="#ff8c2b"/>
- <circle cx="135" cy="290" r="16" fill="rgba(255,140,43,0.14)" stroke="#ff8c2b" stroke-width="1.5"/><circle cx="135" cy="290" r="3" fill="#ff8c2b"/>
- <!-- вертикални ВЪНШНИ колела (десен ръб) -->
- <circle cx="305" cy="234" r="16" fill="rgba(255,140,43,0.14)" stroke="#ff8c2b" stroke-width="1.5"/><circle cx="305" cy="234" r="3" fill="#ff8c2b"/>
- <circle cx="305" cy="290" r="16" fill="rgba(255,140,43,0.14)" stroke="#ff8c2b" stroke-width="1.5"/><circle cx="305" cy="290" r="3" fill="#ff8c2b"/>
- <!-- ХОРИЗОНТАЛНО колело (външен ръб) -->
- <circle cx="354" cy="262" r="12" fill="rgba(255,140,43,0.14)" stroke="#ff8c2b" stroke-width="1.5"/>
- <line x1="342" y1="262" x2="330" y2="262" stroke="#ff8c2b" stroke-width="1.3" marker-end="url(#aho)"/>
- <!-- режеща глава: X-шина, държач Sandvik Capto C3, пластина -->
- <rect x="176" y="104" width="140" height="5" fill="rgba(120,150,200,0.16)" stroke="#8aa0c8" stroke-width="1.1"/>
- <rect x="206" y="108" width="38" height="5" fill="#c9d4e0"/>
- <rect x="190" y="112" width="70" height="36" fill="rgba(120,150,200,0.16)" stroke="#c9d4e0" stroke-width="1.4"/>
- <rect x="214" y="148" width="22" height="88" fill="#c9d4e0" stroke="#8aa0c8" stroke-width="1"/>
- <path d="M214,236 L236,236 L225,250 Z" fill="#ff8c2b"/>
- <path d="M260,156 Q244,200 232,246" fill="none" stroke="#3fb950" stroke-width="3"/>
- <path d="M229,245 L239,245 L234,254 Z" fill="#ff8c2b"/>
- <line class="moves" x1="164" y1="90" x2="288" y2="90" stroke="#58a6ff" stroke-width="1.6" marker-start="url(#ahb)" marker-end="url(#ahb)"/>
- <text class="moves" x="150" y="84" fill="#58a6ff">X — радиално (по челото)</text>
- <line x1="225" y1="92" x2="225" y2="112" stroke="#5c6b7a" stroke-width="0.7"/>
- <line class="moves" x1="276" y1="152" x2="276" y2="248" stroke="#58a6ff" stroke-width="1.6" marker-end="url(#ahb)"/>
- <text class="moves" x="282" y="202" fill="#58a6ff">Z — дълбочина</text>
- <!-- етикети ляво -->
- <text x="14" y="140" fill="#c9d4e0">Sandvik Capto</text>
- <text x="14" y="154" fill="#c9d4e0">C3 + пластина</text>
- <line x1="100" y1="148" x2="214" y2="178" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
- <text x="244" y="234" fill="#3fb950" font-size="11">MQL</text>
- <text x="120" y="300" fill="#c9d4e0" font-size="11">камрофилно чело</text>
- <line x1="180" y1="294" x2="210" y2="252" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
- <text x="14" y="338" fill="#ff8c2b" font-size="11">вертикални</text>
- <text x="14" y="351" fill="#ff8c2b" font-size="11">вътрешни</text>
- <line x1="92" y1="338" x2="135" y2="306" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
- <text x="300" y="338" fill="#ff8c2b" font-size="11">вертикални външни</text>
- <text x="300" y="351" fill="#ff8c2b" font-size="11">+ хоризонтално</text>
- <line x1="334" y1="342" x2="305" y2="306" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
- <line x1="360" y1="344" x2="356" y2="274" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
- <text x="378" y="374" fill="#c9d4e0">носеща рамка</text>
- <line x1="420" y1="368" x2="440" y2="316" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
- <!-- разделител -->
- <line x1="528" y1="40" x2="528" y2="430" stroke="#2c3744" stroke-width="1.2" stroke-dasharray="5,4"/>
- <!-- ДЯСНО: план отгоре -->
- <text x="548" y="22" fill="#c9d4e0" font-size="13">Обзор отгоре (план)</text>
- <rect x="582" y="120" width="258" height="262" fill="rgba(120,150,200,0.05)" stroke="#3a4756" stroke-width="1" stroke-dasharray="4,3"/>
- <circle cx="710" cy="262" r="112" fill="none" stroke="#8aa0c8" stroke-width="2"/>
- <circle cx="710" cy="262" r="86" fill="none" stroke="#8aa0c8" stroke-width="2"/>
- <path class="moves" d="M766,165 A112,112 0 0 1 820,243" fill="none" stroke="#58a6ff" stroke-width="1.6" marker-end="url(#ahb)"/>
- <text class="moves" x="826" y="232" fill="#58a6ff">ω</text>
- <circle cx="710" cy="374" r="6" fill="none" stroke="#8aa0c8" stroke-width="1.2"/>
- <circle cx="612" cy="320" r="6" fill="none" stroke="#8aa0c8" stroke-width="1.2"/>
- <circle cx="808" cy="320" r="6" fill="none" stroke="#8aa0c8" stroke-width="1.2"/>
- <circle cx="612" cy="204" r="6" fill="none" stroke="#8aa0c8" stroke-width="1.2"/>
- <circle cx="808" cy="204" r="6" fill="none" stroke="#8aa0c8" stroke-width="1.2"/>
- <rect x="688" y="138" width="44" height="24" fill="rgba(255,140,43,0.16)" stroke="#ff8c2b" stroke-width="1.4"/>
- <text x="586" y="108" fill="#ff8c2b" font-size="11">работна зона (глава)</text>
- <line x1="648" y1="112" x2="700" y2="138" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
- <path d="M704,262 L716,262 M710,256 L710,268" stroke="#6b7a8a" stroke-width="1"/>
- <line x1="598" y1="262" x2="822" y2="262" stroke="#6b7a8a" stroke-width="0.8" stroke-dasharray="6,3" marker-start="url(#ahl)" marker-end="url(#ahl)"/>
- <text x="642" y="282" fill="#6b7a8a" font-size="11">Ø 450 – 4000</text>
- <text x="556" y="352" fill="#c9d4e0" font-size="11">ролкови опори</text>
- <line x1="598" y1="346" x2="612" y2="326" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
- <text x="606" y="406" fill="#c9d4e0" font-size="11">носеща рамка (маса)</text>
- <line x1="654" y1="400" x2="600" y2="378" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
+ <text x="16" y="22" fill="#c9d4e0" font-size="13">AKM03 — фронтален изглед</text>
+ <line x1="20" y1="486" x2="860" y2="486" stroke="#3a4756" stroke-width="2"/>
+ <!-- КОРПУС (шкаф) -->
+ <rect x="300" y="290" width="300" height="168" fill="rgba(120,150,200,0.10)" stroke="#8aa0c8" stroke-width="1.4"/>
+ <rect x="322" y="322" width="118" height="104" fill="none" stroke="#3a4756" stroke-width="1"/>
+ <rect x="336" y="458" width="18" height="26" fill="rgba(120,150,200,0.10)" stroke="#8aa0c8" stroke-width="1.1"/>
+ <rect x="546" y="458" width="18" height="26" fill="rgba(120,150,200,0.10)" stroke="#8aa0c8" stroke-width="1.1"/>
+ <!-- странични носещи релси (за големи Ø) + крака -->
+ <rect x="44" y="290" width="256" height="8" fill="rgba(120,150,200,0.16)" stroke="#8aa0c8" stroke-width="1.2"/>
+ <rect x="600" y="290" width="240" height="8" fill="rgba(120,150,200,0.16)" stroke="#8aa0c8" stroke-width="1.2"/>
+ <polyline points="86,290 78,300 90,300 82,310" fill="none" stroke="#8aa0c8" stroke-width="1"/>
+ <polyline points="808,290 800,300 812,300 804,310" fill="none" stroke="#8aa0c8" stroke-width="1"/>
+ <line x1="120" y1="298" x2="120" y2="486" stroke="#8aa0c8" stroke-width="1.2"/><line x1="108" y1="486" x2="132" y2="486" stroke="#8aa0c8" stroke-width="1.2"/>
+ <line x1="772" y1="298" x2="772" y2="486" stroke="#8aa0c8" stroke-width="1.2"/><line x1="760" y1="486" x2="784" y2="486" stroke="#8aa0c8" stroke-width="1.2"/>
+ <!-- ролкови опори -->
+ <circle cx="150" cy="278" r="10" fill="none" stroke="#8aa0c8" stroke-width="1.2"/><circle cx="150" cy="278" r="3" fill="#8aa0c8"/>
+ <circle cx="232" cy="278" r="10" fill="none" stroke="#8aa0c8" stroke-width="1.2"/><circle cx="232" cy="278" r="3" fill="#8aa0c8"/>
+ <circle cx="672" cy="278" r="10" fill="none" stroke="#8aa0c8" stroke-width="1.2"/><circle cx="672" cy="278" r="3" fill="#8aa0c8"/>
+ <circle cx="756" cy="278" r="10" fill="none" stroke="#8aa0c8" stroke-width="1.2"/><circle cx="756" cy="278" r="3" fill="#8aa0c8"/>
+ <!-- ПРЪСТЕН (плосък, лежи хоризонтално) -->
+ <rect x="44" y="254" width="792" height="14" fill="rgba(120,150,200,0.16)" stroke="#8aa0c8" stroke-width="1.4"/>
+ <polyline points="86,254 78,261 90,261 82,268" fill="none" stroke="#8aa0c8" stroke-width="1"/>
+ <polyline points="808,254 800,261 812,261 804,268" fill="none" stroke="#8aa0c8" stroke-width="1"/>
+ <polyline points="386,254 390,259 394,254 398,259 402,254 406,259 410,254 414,259 418,254 422,259 426,254 430,259 434,254 438,259 442,254 446,259 450,254 454,259 458,254 462,259 466,254 470,259" fill="none" stroke="#3fb950" stroke-width="1.4"/>
+ <line class="moves" x1="636" y1="261" x2="716" y2="261" stroke="#58a6ff" stroke-width="1.6" marker-end="url(#ahb)"/>
+ <text class="moves" x="620" y="240" fill="#58a6ff">въртене (ω)</text>
+ <!-- ГАНТРИ-КОЛОНА за главата (стъпила на корпуса) -->
+ <rect x="568" y="98" width="18" height="192" fill="rgba(120,150,200,0.10)" stroke="#8aa0c8" stroke-width="1.1"/>
+ <rect x="406" y="92" width="180" height="8" fill="rgba(120,150,200,0.16)" stroke="#8aa0c8" stroke-width="1.2"/>
+ <!-- РЕЖЕЩА ГЛАВА (серво) + държач Sandvik Capto C3 -->
+ <rect x="388" y="100" width="64" height="46" fill="rgba(120,150,200,0.16)" stroke="#c9d4e0" stroke-width="1.4"/>
+ <rect x="410" y="146" width="20" height="96" fill="#c9d4e0" stroke="#8aa0c8" stroke-width="1"/>
+ <path d="M410,242 L430,242 L420,254 Z" fill="#ff8c2b"/>
+ <!-- ПРИТИСКАЩО устройство (пневм. цилиндър) + водещи колела (големи цилиндри) -->
+ <rect x="502" y="196" width="16" height="28" fill="rgba(120,150,200,0.16)" stroke="#8aa0c8" stroke-width="1.2"/>
+ <line x1="510" y1="224" x2="510" y2="232" stroke="#8aa0c8" stroke-width="1.4"/>
+ <circle cx="510" cy="236" r="16" fill="rgba(255,140,43,0.14)" stroke="#ff8c2b" stroke-width="1.6"/><circle cx="510" cy="236" r="3" fill="#ff8c2b"/>
+ <circle cx="510" cy="280" r="13" fill="rgba(255,140,43,0.14)" stroke="#ff8c2b" stroke-width="1.6"/><circle cx="510" cy="280" r="3" fill="#ff8c2b"/>
+ <!-- външно вертикално притискащо колело (вляво) -->
+ <rect x="366" y="204" width="16" height="24" fill="rgba(120,150,200,0.16)" stroke="#8aa0c8" stroke-width="1.1"/>
+ <circle cx="374" cy="238" r="11" fill="rgba(255,140,43,0.14)" stroke="#ff8c2b" stroke-width="1.5"/>
+ <!-- MQL -->
+ <path d="M452,170 Q438,212 426,250" fill="none" stroke="#3fb950" stroke-width="3"/>
+ <path d="M423,249 L433,249 L428,258 Z" fill="#ff8c2b"/>
+ <!-- Z ос -->
+ <line class="moves" x1="388" y1="158" x2="388" y2="250" stroke="#58a6ff" stroke-width="1.6" marker-end="url(#ahb)"/>
+ <text class="moves" x="360" y="196" fill="#58a6ff">Z</text>
+ <!-- PLC панел на рамо -->
+ <line x1="600" y1="150" x2="744" y2="150" stroke="#8aa0c8" stroke-width="2"/>
+ <rect x="744" y="128" width="78" height="60" fill="rgba(120,150,200,0.16)" stroke="#8aa0c8" stroke-width="1.3"/>
+ <rect x="752" y="136" width="50" height="30" fill="#0a0d12" stroke="#3a4756" stroke-width="1"/>
+ <circle cx="756" cy="178" r="3.5" fill="#f0506e"/><circle cx="770" cy="178" r="3.5" fill="#3fb950"/><circle cx="784" cy="178" r="3.5" fill="#58a6ff"/>
+ <!-- скала Ø -->
+ <path d="M150,180 A52,52 0 0 1 202,232" fill="none" stroke="#8aa0c8" stroke-width="1.1"/>
+ <text x="126" y="180" fill="#8aa0c8" font-size="10">Ø450</text>
+ <text x="168" y="246" fill="#8aa0c8" font-size="10">Ø4000</text>
+ <!-- ЕТИКЕТИ -->
+ <text x="392" y="52" fill="#c9d4e0">режеща глава (серво) ·</text>
+ <text x="392" y="66" fill="#c9d4e0">Sandvik Capto C3 + пластина</text>
+ <line x1="436" y1="70" x2="430" y2="100" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
+ <text x="528" y="200" fill="#c9d4e0" font-size="11">притискащо у-во (цилиндър)</text>
+ <line x1="528" y1="204" x2="518" y2="210" stroke="#8aa0c8" stroke-width="0.7" marker-end="url(#ahl)"/>
+ <text x="548" y="296" fill="#ff8c2b" font-size="11">водещи колела</text>
+ <text x="548" y="309" fill="#ff8c2b" font-size="11">(големи цилиндри)</text>
+ <line x1="544" y1="292" x2="524" y2="284" stroke="#8aa0c8" stroke-width="0.7" marker-end="url(#ahl)"/>
+ <text x="196" y="206" fill="#ff8c2b" font-size="11">външни вертикални</text>
+ <text x="196" y="219" fill="#ff8c2b" font-size="11">притискащи колела</text>
+ <line x1="300" y1="214" x2="366" y2="232" stroke="#8aa0c8" stroke-width="0.7" marker-end="url(#ahl)"/>
+ <text x="456" y="250" fill="#3fb950" font-size="11">MQL</text>
+ <text x="44" y="244" fill="#c9d4e0" font-size="11">пръстен (плосък)</text>
+ <line x1="120" y1="250" x2="200" y2="258" stroke="#8aa0c8" stroke-width="0.7" marker-end="url(#ahl)"/>
+ <text x="44" y="304" fill="#3fb950" font-size="11">камрофилно чело (горе)</text>
+ <line x1="120" y1="300" x2="386" y2="258" stroke="#8aa0c8" stroke-width="0.7" marker-end="url(#ahl)"/>
+ <text x="214" y="360" fill="#c9d4e0" font-size="11">ролкови опори</text>
+ <line x1="232" y1="354" x2="232" y2="288" stroke="#8aa0c8" stroke-width="0.7" marker-end="url(#ahl)"/>
+ <text x="610" y="440" fill="#c9d4e0" font-size="11">носеща рамка (за големи Ø)</text>
+ <line x1="660" y1="434" x2="700" y2="298" stroke="#8aa0c8" stroke-width="0.7" marker-end="url(#ahl)"/>
+ <text x="330" y="430" fill="#c9d4e0" font-size="11">корпус 1000×1000×1900H</text>
+ <text x="744" y="120" fill="#c9d4e0" font-size="11">PLC Panasonic GT32</text>
 </svg></div>
    <div class="schem-ctl"><label><input type="checkbox" checked onchange="toggleMoves('svgA3',this.checked)"> линии на движение</label></div>
    <div class="legend" style="margin-top:10px">
@@ -685,7 +691,7 @@ svg.hidemoves .moves{opacity:0}
      <span class="li"><span class="sw2" style="background:#3fb950"></span>канали (профил) / MQL</span>
      <span class="li"><span class="sw2" style="background:#8aa0c8"></span>машина / детайл</span>
    </div>
-   <div class="schem-cap"><b>AKM03 — ролкова, PLC (Panasonic GT32).</b> За <b>големи пръстени Ø450–4000 mm</b> (камрофилна лента ≤100 mm, дебелина 2–8 mm). Плоският пръстен лежи хоризонтално върху удължена носеща рамка с <b>лагерни ролкови опори</b> (план вдясно) и се върти около вертикалната си ос чрез триене от притискащи колела. По мануала те са <b>три типа</b>: <b>вертикални вътрешни</b>, <b>вертикални външни</b> и <b>хоризонтални</b> (всеки с отделно заключване и настройка по диаметър Ø450–4000). Режещата глава (серво, ос <b>X</b> по челото + ос <b>Z</b> дълбочина) с държач <b>Sandvik Capto C3</b> и режеща пластина оформя каналите по горното чело; <b>MQL</b> охлаждане. Лявата проекция е напречен разрез на работната зона. Скорост на рязане <b>15–144 m/min</b>; корпус 1000×1000×1900H (с маса 5200×3800).</div>
+   <div class="schem-cap"><b>AKM03 — ролкова, PLC (Panasonic GT32).</b> Фронтален изглед на работната зона за <b>големи пръстени Ø450–4000 mm</b> (камрофилна лента ≤100 mm, дебелина 2–8 mm). Плоският пръстен лежи хоризонтално върху удължена носеща рамка с <b>лагерни ролкови опори</b> и се върти около вертикалната си ос (ω) чрез триене от <b>водещи/притискащи колела</b> — по мануала те са три типа: вертикални вътрешни, вертикални външни и хоризонтални, с пневматични цилиндри и настройка по диаметър (скала Ø450–4000). Режещата глава на портал-колона (серво) врязва по ос <b>Z</b>; радиалното позициониране по ос <b>X</b> е навътре (по ширината на челото). Държач <b>Sandvik Capto C3</b> + пластина; <b>MQL</b> охлаждане. Скорост на рязане <b>15–144 m/min</b>; корпус 1000×1000×1900H.</div>
  </div>
  <div class="grid">
   <div class="card">
