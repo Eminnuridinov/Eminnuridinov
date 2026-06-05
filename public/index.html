@@ -507,7 +507,7 @@ svg.hidemoves .moves{opacity:0}
  <text x="300" y="404" fill="#ff8c2b">3 челюсти — захват отвътре по ID</text>
  <line x1="372" y1="394" x2="360" y2="300" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
 </svg></div>
-   <div class="schem-ctl"><label><input type="checkbox" checked onchange="toggleMoves('svgA1',this.checked)"> линии на движение</label></div>
+   <div class="schem-ctl"><label><input type="checkbox" checked onchange="toggleMoves('svgA1',this.checked)"> линии на движение</label><button class="addbtn" style="margin-left:12px;padding:4px 12px" onclick="downloadSchemDXF('svgA1','AKM01_shema.dxf')">⬇ DXF</button></div>
    <div class="legend" style="margin-top:10px">
      <span class="li"><span class="sw2" style="background:#58a6ff"></span>движения / оси (X, Z, ω)</span>
      <span class="li"><span class="sw2" style="background:#ff8c2b"></span>инструмент и челюсти</span>
@@ -694,7 +694,7 @@ svg.hidemoves .moves{opacity:0}
  <text x="92" y="44" fill="#3fb950" font-size="11">детайл — напречен разрез на профила</text>
  <text x="108" y="58" fill="#3fb950" font-size="10">(зъбите личат само в сечение)</text>
 </svg></div>
-   <div class="schem-ctl"><label><input type="checkbox" checked onchange="toggleMoves('svgA3',this.checked)"> линии на движение</label></div>
+   <div class="schem-ctl"><label><input type="checkbox" checked onchange="toggleMoves('svgA3',this.checked)"> линии на движение</label><button class="addbtn" style="margin-left:12px;padding:4px 12px" onclick="downloadSchemDXF('svgA3','AKM03_shema.dxf')">⬇ DXF</button></div>
    <div class="legend" style="margin-top:10px">
      <span class="li"><span class="sw2" style="background:#58a6ff"></span>движения / оси (X, Z, ω)</span>
      <span class="li"><span class="sw2" style="background:#ff8c2b"></span>инструмент и притискащи колела</span>
@@ -919,7 +919,7 @@ svg.hidemoves .moves{opacity:0}
     <div class="field"><label>land — площадка при върха (mm)</label><input type="number" id="pf_land" value="0.129" step="0.001"></div>
     <label class="toggle"><input type="checkbox" id="pf_tool" checked><span class="sw"></span><span>Ход на инструмента (Z + X)</span></label>
     <button class="btn-go" id="pf_btn">▶ ОБНОВИ ФИГУРАТА</button>
-    <button class="lnk" id="pf_reset">↺ Възстанови стандартните</button>
+    <button class="lnk" id="pf_reset">↺ Възстанови стандартните</button><button class="addbtn" style="margin-top:8px" onclick="downloadSchemDXF('pf_svg','profil_shema.dxf')">⬇ DXF (профил)</button>
    </div>
   </div>
   <div>
@@ -954,7 +954,7 @@ svg.hidemoves .moves{opacity:0}
       </select>
     </div>
     <button class="btn-go" id="jw_btn">▶ ИЗБЕРИ ЕКИПИРОВКА</button>
-    <button class="addbtn" id="jw_csv" style="margin-top:8px">⬇ CSV (болтови окръжности)</button>
+    <button class="addbtn" id="jw_csv" style="margin-top:8px">⬇ CSV (болтови окръжности)</button><button class="addbtn" style="margin-top:8px" onclick="downloadSchemDXF('jw_svg','chelyusti_shema.dxf')">⬇ DXF (схема)</button>
    </div>
    <div class="card">
     <h2>Избор за този размер</h2>
@@ -3048,6 +3048,45 @@ function loadProject(file){
   };
   rd.readAsText(file);
 }
+
+/* ===== Експорт на схема (SVG) -> DXF (за доработка в CAD) ===== */
+function schemLayer(el){
+  var t=el.tagName.toLowerCase();
+  if(t==='text') return 'TEKST';
+  var c=(el.getAttribute('stroke')||'').toLowerCase();
+  if(c==='none'||!c) c=(el.getAttribute('fill')||'').toLowerCase();
+  var map={'#58a6ff':'DVIZHENIE_OSI','#ff8c2b':'INSTRUMENT','#3fb950':'PROFIL_KANALI',
+    '#8aa0c8':'MASHINA','#c9d4e0':'MASHINA','#6b7a8a':'OS_POMOSHTNI','#5c6b7a':'OS_POMOSHTNI',
+    '#3a4756':'RAMKA','#9aa6b3':'MASHINA'};
+  return map[c]||'SCHEM';
+}
+function svgToDXF(svg){
+  var vb=(svg.getAttribute('viewBox')||'0 0 0 0').split(/\s+/);
+  var H=+vb[3]||0, defFS=+(svg.getAttribute('font-size'))||12, rows=[];
+  function e(c,v){ rows.push(c); rows.push(v); }
+  function Y(y){ return (H-y); }
+  function line(x1,y1,x2,y2,L){ e(0,'LINE'); e(8,L); e(10,x1.toFixed(3)); e(20,Y(y1).toFixed(3)); e(11,x2.toFixed(3)); e(21,Y(y2).toFixed(3)); }
+  function circ(cx,cy,r,L){ e(0,'CIRCLE'); e(8,L); e(10,cx.toFixed(3)); e(20,Y(cy).toFixed(3)); e(40,r.toFixed(3)); }
+  function lw(pts,closed,L){ if(pts.length<2)return; e(0,'LWPOLYLINE'); e(8,L); e(90,pts.length); e(70,closed?1:0);
+    pts.forEach(function(p){ e(10,p[0].toFixed(3)); e(20,Y(p[1]).toFixed(3)); }); }
+  function txt(x,y,h,s,L){ if(!s)return; e(0,'TEXT'); e(8,L); e(10,x.toFixed(3)); e(20,Y(y).toFixed(3)); e(40,h.toFixed(3)); e(1,s); }
+  e(0,'SECTION'); e(2,'ENTITIES');
+  var els=svg.querySelectorAll('line,rect,circle,polyline,polygon,path,text');
+  for(var i=0;i<els.length;i++){ var el=els[i], tag=el.tagName.toLowerCase(), L=schemLayer(el);
+    if(el.closest && el.closest('defs')) continue;
+    try{
+      if(tag==='line'){ line(+el.getAttribute('x1'),+el.getAttribute('y1'),+el.getAttribute('x2'),+el.getAttribute('y2'),L); }
+      else if(tag==='rect'){ var x=+el.getAttribute('x'),y=+el.getAttribute('y'),w=+el.getAttribute('width'),hh=+el.getAttribute('height'); lw([[x,y],[x+w,y],[x+w,y+hh],[x,y+hh]],true,L); }
+      else if(tag==='circle'){ circ(+el.getAttribute('cx'),+el.getAttribute('cy'),+el.getAttribute('r'),L); }
+      else if(tag==='polyline'||tag==='polygon'){ var pts=(el.getAttribute('points')||'').trim().split(/\s+/).filter(Boolean).map(function(s){var a=s.split(','); return [+a[0],+a[1]];}); lw(pts, tag==='polygon', L); }
+      else if(tag==='path'){ var tot=el.getTotalLength?el.getTotalLength():0; if(tot){ var n=Math.max(6,Math.ceil(tot/3)), pts=[]; for(var k=0;k<=n;k++){ var pt=el.getPointAtLength(tot*k/n); pts.push([pt.x,pt.y]); } lw(pts,false,L); } }
+      else if(tag==='text'){ var fs=+(el.getAttribute('font-size'))||defFS; txt(+el.getAttribute('x'),+el.getAttribute('y'),fs,(el.textContent||'').trim(),L); }
+    }catch(err){}
+  }
+  e(0,'ENDSEC'); e(0,'EOF');
+  var s=''; for(var j=0;j<rows.length;j+=2){ s+=rows[j]+'\n'+rows[j+1]+'\n'; } return s;
+}
+function downloadSchemDXF(svgId,name){ var svg=document.getElementById(svgId); if(!svg){alert('Схемата не е намерена.');return;} downloadFile(name, svgToDXF(svg), 'application/dxf'); }
 
 window.addEventListener('load',initApp);
 
