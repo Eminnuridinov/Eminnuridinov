@@ -460,63 +460,52 @@ svg.hidemoves .moves{opacity:0}
   <marker id="aho" markerWidth="10" markerHeight="10" refX="7" refY="3.2" orient="auto"><path d="M0,0 L8,3.2 L0,6.4 Z" fill="#ff8c2b"/></marker>
   <marker id="ahl" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#8aa0c8"/></marker>
  </defs>
- <!-- ос на въртене (вертикална) -->
- <line x1="430" y1="48" x2="430" y2="372" stroke="#6b7a8a" stroke-width="1" stroke-dasharray="10,4,2,4"/>
+ <line x1="430" y1="118" x2="430" y2="372" stroke="#6b7a8a" stroke-width="1" stroke-dasharray="10,4,2,4"/>
  <text x="300" y="40" fill="#6b7a8a">ос на въртене</text>
-
- <!-- спиндел + планшайба -->
+ <!-- планшайба (плътен диск) + спиндел + основа -->
  <rect x="250" y="300" width="360" height="22" fill="rgba(120,150,200,0.16)" stroke="#8aa0c8" stroke-width="1.4"/>
  <rect x="404" y="318" width="52" height="46" fill="rgba(120,150,200,0.16)" stroke="#8aa0c8" stroke-width="1.4"/>
  <rect x="384" y="364" width="92" height="14" fill="rgba(120,150,200,0.10)" stroke="#8aa0c8" stroke-width="1.2"/>
- <!-- въртене ω -->
- <path class="moves" d="M372,330 A66,15 0 0 0 488,330" fill="none" stroke="#58a6ff" stroke-width="1.6" marker-end="url(#ahb)"/>
- <text class="moves" x="392" y="350" fill="#58a6ff">ω — въртене на детайла</text>
-
- <!-- пръстен в сечение (две стени, симетрични спрямо оста) -->
- <rect x="298" y="240" width="44" height="60" fill="rgba(120,150,200,0.16)" stroke="#8aa0c8" stroke-width="1.4"/>
- <rect x="518" y="240" width="44" height="60" fill="rgba(120,150,200,0.16)" stroke="#8aa0c8" stroke-width="1.4"/>
- <!-- камрофилни канали по горната челна повърхност -->
- <polyline points="298,240 302,245 306,240 310,245 314,240 318,245 322,240 326,245 330,240 334,245 338,240 342,240" fill="none" stroke="#3fb950" stroke-width="1.5"/>
- <polyline points="518,240 522,245 526,240 530,245 534,240 538,245 542,240 546,245 550,240 554,245 558,240 562,240" fill="none" stroke="#3fb950" stroke-width="1.5"/>
-
- <!-- 3 челюсти — захват отвътре по ID -->
- <rect x="342" y="256" width="16" height="38" fill="rgba(255,140,43,0.22)" stroke="#ff8c2b" stroke-width="1.4"/>
- <rect x="502" y="256" width="16" height="38" fill="rgba(255,140,43,0.22)" stroke="#ff8c2b" stroke-width="1.4"/>
- <line x1="356" y1="276" x2="344" y2="276" stroke="#ff8c2b" stroke-width="1.4" marker-end="url(#aho)"/>
- <line x1="504" y1="276" x2="516" y2="276" stroke="#ff8c2b" stroke-width="1.4" marker-end="url(#aho)"/>
-
- <!-- режеща глава (по-ниска и по-плътна) + горна X-шина/каретка -->
- <rect x="466" y="122" width="156" height="5" fill="rgba(120,150,200,0.16)" stroke="#8aa0c8" stroke-width="1.1"/>
- <rect x="520" y="126" width="40" height="5" fill="#c9d4e0"/>
- <rect x="502" y="130" width="76" height="44" fill="rgba(120,150,200,0.16)" stroke="#c9d4e0" stroke-width="1.4"/>
- <rect x="528" y="174" width="24" height="56" fill="#c9d4e0" stroke="#8aa0c8" stroke-width="1"/>
- <path d="M528,230 L552,230 L540,240 Z" fill="#ff8c2b"/>
- <!-- MQL охлаждаща дюза -->
- <path d="M576,168 Q568,206 552,236" fill="none" stroke="#3fb950" stroke-width="3.2"/>
- <path d="M549,235 L559,235 L554,244 Z" fill="#ff8c2b"/>
- <text x="448" y="226" fill="#3fb950" font-size="11">MQL дюза</text>
- <line x1="496" y1="222" x2="550" y2="236" stroke="#8aa0c8" stroke-width="0.7" marker-end="url(#ahl)"/>
-
- <!-- X — радиално позициониране (над главата) -->
- <line class="moves" x1="466" y1="108" x2="614" y2="108" stroke="#58a6ff" stroke-width="1.6" marker-start="url(#ahb)" marker-end="url(#ahb)"/>
- <text class="moves" x="472" y="102" fill="#58a6ff">X — радиално позициониране</text>
- <line x1="540" y1="110" x2="540" y2="122" stroke="#5c6b7a" stroke-width="0.7"/>
-
- <!-- Z — врязване (дълбочина) -->
- <line class="moves" x1="602" y1="150" x2="602" y2="250" stroke="#58a6ff" stroke-width="1.6" marker-end="url(#ahb)"/>
- <text class="moves" x="608" y="205" fill="#58a6ff">Z — дълбочина</text>
-
+ <path class="moves" d="M372,332 A66,15 0 0 0 488,332" fill="none" stroke="#58a6ff" stroke-width="1.6" marker-end="url(#ahb)"/>
+ <text class="moves" x="392" y="352" fill="#58a6ff">ω — въртене на детайла</text>
+ <!-- пръстен — тънка плоска гарнитура (две стени), стъпил на планшайбата -->
+ <rect x="296" y="266" width="48" height="34" fill="rgba(120,150,200,0.16)" stroke="#8aa0c8" stroke-width="1.4"/>
+ <rect x="516" y="266" width="48" height="34" fill="rgba(120,150,200,0.16)" stroke="#8aa0c8" stroke-width="1.4"/>
+ <polyline points="296,266 300,271 304,266 308,271 312,266 316,271 320,266 324,271 328,266 332,271 336,266 340,271 344,266" fill="none" stroke="#3fb950" stroke-width="1.5"/>
+ <polyline points="516,266 520,271 524,266 528,271 532,266 536,271 540,266 544,271 548,266 552,271 556,266 560,271 564,266" fill="none" stroke="#3fb950" stroke-width="1.5"/>
+ <!-- 3 челюсти — едри блокове, захват отвътре по ID (по-високи и по-широки от пръстена) -->
+ <rect x="344" y="252" width="36" height="48" fill="rgba(255,140,43,0.22)" stroke="#ff8c2b" stroke-width="1.6"/>
+ <rect x="480" y="252" width="36" height="48" fill="rgba(255,140,43,0.22)" stroke="#ff8c2b" stroke-width="1.6"/>
+ <line x1="362" y1="282" x2="346" y2="282" stroke="#ff8c2b" stroke-width="1.5" marker-end="url(#aho)"/>
+ <line x1="498" y1="282" x2="514" y2="282" stroke="#ff8c2b" stroke-width="1.5" marker-end="url(#aho)"/>
+ <!-- режеща глава (компактна, ниска) над дясната стена -->
+ <rect x="466" y="150" width="156" height="5" fill="rgba(120,150,200,0.16)" stroke="#8aa0c8" stroke-width="1.1"/>
+ <rect x="520" y="154" width="40" height="5" fill="#c9d4e0"/>
+ <rect x="502" y="158" width="76" height="46" fill="rgba(120,150,200,0.16)" stroke="#c9d4e0" stroke-width="1.4"/>
+ <rect x="528" y="204" width="24" height="52" fill="#c9d4e0" stroke="#8aa0c8" stroke-width="1"/>
+ <path d="M528,256 L552,256 L540,266 Z" fill="#ff8c2b"/>
+ <path d="M576,200 Q568,236 552,262" fill="none" stroke="#3fb950" stroke-width="3.2"/>
+ <path d="M549,261 L559,261 L554,270 Z" fill="#ff8c2b"/>
+ <text x="452" y="250" fill="#3fb950" font-size="11">MQL дюза</text>
+ <line x1="496" y1="248" x2="550" y2="260" stroke="#8aa0c8" stroke-width="0.7" marker-end="url(#ahl)"/>
+ <!-- X ос -->
+ <line class="moves" x1="466" y1="136" x2="614" y2="136" stroke="#58a6ff" stroke-width="1.6" marker-start="url(#ahb)" marker-end="url(#ahb)"/>
+ <text class="moves" x="472" y="130" fill="#58a6ff">X — радиално позициониране</text>
+ <line x1="540" y1="138" x2="540" y2="150" stroke="#5c6b7a" stroke-width="0.7"/>
+ <!-- Z ос -->
+ <line class="moves" x1="602" y1="176" x2="602" y2="264" stroke="#58a6ff" stroke-width="1.6" marker-end="url(#ahb)"/>
+ <text class="moves" x="608" y="224" fill="#58a6ff">Z — дълбочина</text>
  <!-- етикети -->
- <text x="618" y="92" fill="#c9d4e0">режеща глава (инструмент)</text>
- <line x1="656" y1="96" x2="574" y2="140" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
- <text x="40" y="300" fill="#c9d4e0">планшайба</text>
- <line x1="100" y1="296" x2="250" y2="306" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
- <text x="40" y="250" fill="#c9d4e0">пръстен (заготовка)</text>
- <line x1="150" y1="246" x2="298" y2="252" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
- <text x="612" y="250" fill="#3fb950">канали (камрофил)</text>
- <line x1="610" y1="242" x2="560" y2="244" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
+ <text x="612" y="150" fill="#c9d4e0">режеща глава (инструмент)</text>
+ <line x1="650" y1="154" x2="576" y2="170" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
+ <text x="40" y="312" fill="#c9d4e0">планшайба</text>
+ <line x1="100" y1="308" x2="250" y2="312" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
+ <text x="40" y="276" fill="#c9d4e0">пръстен (тънка гарнитура)</text>
+ <line x1="168" y1="272" x2="296" y2="276" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
+ <text x="600" y="290" fill="#3fb950">канали (камрофил)</text>
+ <line x1="600" y1="286" x2="560" y2="268" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
  <text x="300" y="404" fill="#ff8c2b">3 челюсти — захват отвътре по ID</text>
- <line x1="372" y1="392" x2="350" y2="294" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
+ <line x1="372" y1="394" x2="360" y2="300" stroke="#8aa0c8" stroke-width="0.8" marker-end="url(#ahl)"/>
 </svg></div>
    <div class="schem-ctl"><label><input type="checkbox" checked onchange="toggleMoves('svgA1',this.checked)"> линии на движение</label></div>
    <div class="legend" style="margin-top:10px">
