@@ -1,0 +1,1507 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AVKO Joint Lab v1.0.2</title>
+<style>
+:root{
+  --bg:#0f1115; --card:#181b22; --line:#2a313c; --txt:#e6e9ee; --mut:#8a93a0;
+  --teal:#2dd4bf; --blue:#5aa9e6; --yel:#facc15; --red:#f87171; --vio:#a78bfa; --grn:#34d399;
+  --mono:ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--txt);
+  font:14px/1.45 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+header{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
+  padding:12px 16px;border-bottom:1px solid var(--line)}
+header h1{font-size:17px;margin:0;letter-spacing:.8px}
+.badge{font:600 11px/1 var(--mono);color:#0f1115;background:var(--teal);
+  border-radius:4px;padding:3px 7px}
+header .sub{color:var(--mut);font-size:12px}
+main{display:grid;grid-template-columns:340px 1fr;gap:12px;padding:12px 16px;align-items:start}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+fieldset{border:1px solid var(--line);border-radius:10px;background:var(--card);
+  margin:0 0 12px;padding:10px 12px 12px}
+legend{font:600 11px/1 var(--mono);letter-spacing:1.2px;color:var(--teal);padding:0 6px}
+.row{display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap}
+.row label{color:var(--mut);font-size:12px;min-width:118px}
+input[type=number],input[type=text],select,textarea{
+  background:#10131a;color:var(--txt);border:1px solid var(--line);border-radius:6px;
+  padding:6px 8px;font:13px var(--mono);width:100px}
+select{width:auto;font-family:inherit}
+textarea{width:100%;height:74px;resize:vertical}
+input[type=range]{width:150px}
+input:focus,select:focus,textarea:focus,button:focus{outline:2px solid var(--teal);outline-offset:1px}
+.tabs{display:flex;gap:6px;margin-bottom:8px}
+.tabs button{flex:1;background:#10131a;color:var(--mut);border:1px solid var(--line);
+  border-radius:7px;padding:7px 4px;cursor:pointer;font-weight:600;font-size:12.5px}
+.tabs button.on{color:#0f1115;background:var(--teal);border-color:var(--teal)}
+button.act{background:var(--teal);color:#0f1115;border:none;border-radius:7px;
+  padding:8px 12px;font-weight:700;cursor:pointer;font-size:13px}
+button.sec{background:#10131a;color:var(--txt);border:1px solid var(--line);
+  border-radius:7px;padding:7px 11px;cursor:pointer;font-size:12.5px}
+button.sec.on{border-color:var(--teal);color:var(--teal)}
+.hint{color:var(--mut);font-size:11.5px;margin:4px 0 0}
+#valBox div{font-size:12.5px;border-left:3px solid;padding:4px 8px;margin:5px 0;border-radius:0 5px 5px 0}
+#valBox .e{color:var(--red);border-color:var(--red);background:rgba(248,113,113,.07)}
+#valBox .w{color:var(--yel);border-color:var(--yel);background:rgba(250,204,21,.06)}
+#valBox .k{color:var(--grn);border-color:var(--grn);background:rgba(52,211,153,.06)}
+#jprev{width:100%;height:110px;background:#10131a;border:1px solid var(--line);border-radius:7px}
+#cnvWrap{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px}
+#toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+#toolbar .sp{flex:1}
+#info{font:12px var(--mono);color:var(--mut)}
+#cv{width:100%;height:62vh;min-height:340px;display:block;background:#0f1115;
+  border:1px solid var(--line);border-radius:8px;touch-action:none;cursor:grab}
+table{width:100%;border-collapse:collapse;margin-top:10px;font:12px var(--mono)}
+th,td{border-bottom:1px solid var(--line);padding:5px 8px;text-align:right;white-space:nowrap}
+th{color:var(--mut);font-weight:600;text-align:right}
+th:first-child,td:first-child{text-align:left}
+td .dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:baseline}
+.dl{display:flex;gap:8px;flex-wrap:wrap}
+input.swatch{width:18px;height:18px;padding:0;border:1px solid var(--line);border-radius:4px;
+  background:none;margin-right:6px;vertical-align:middle;cursor:pointer}
+input.swatch::-webkit-color-swatch-wrapper{padding:1px}
+input.swatch::-webkit-color-swatch{border:none;border-radius:3px}
+input.swatch::-moz-color-swatch{border:none;border-radius:3px}
+tr.sel td{background:rgba(45,212,191,.08)}
+#coords{font:11px var(--mono);color:var(--mut)}
+</style>
+</head>
+<body>
+<header>
+  <h1>AVKO JOINT LAB</h1><span class="badge">v1.0.2</span>
+  <span class="sub">Сглобки за уплътнения — сегменти със заключващи замъци · DXF R12 · CSV</span>
+</header>
+<main>
+<aside>
+
+<fieldset><legend>ГЕОМЕТРИЯ</legend>
+  <div class="tabs">
+    <button id="tabRing" class="on">Пръстен</button>
+    <button id="tabStrip">Лента</button>
+    <button id="tabCnt">Контур</button>
+  </div>
+  <div id="pgRing">
+    <div class="row"><label>Външен Ø OD, mm</label><input type="number" id="inOD" value="2550" step="1"></div>
+    <div class="row"><label>Вътрешен Ø ID, mm</label><input type="number" id="inID" value="2480" step="1"></div>
+    <div class="hint" id="ringInfo"></div>
+  </div>
+  <div id="pgStrip" style="display:none">
+    <div class="row"><label>Дължина L, mm</label><input type="number" id="inL" value="3000" step="1"></div>
+    <div class="row"><label>Ширина W, mm</label><input type="number" id="inW" value="43" step="0.5"></div>
+  </div>
+  <div id="pgCnt" style="display:none">
+    <div class="row"><label>Ширина на лентата W, mm</label><input type="number" id="inCW" value="43" step="0.5"></div>
+    <div class="row"><label>DXF файл (mm)</label><input type="file" id="fileDXF" accept=".dxf" style="width:180px;font-size:11px"></div>
+    <div class="hint">Осевата линия се чете от LINE / ARC / CIRCLE / LWPOLYLINE / POLYLINE. Или точки на ръка:</div>
+    <textarea id="taPts" placeholder="x,y на ред — напр.&#10;0,0&#10;800,0&#10;800,400&#10;0,400"></textarea>
+    <div class="row">
+      <label style="min-width:0"><input type="checkbox" id="cbClosed" checked> затворен контур</label>
+      <button class="sec" id="btnApplyPts">Приложи точките</button>
+    </div>
+    <div class="hint" id="cntReport"></div>
+  </div>
+</fieldset>
+
+<fieldset><legend>ЗАМЪК</legend>
+  <div class="row"><label>Тип</label>
+    <select id="selType">
+      <option value="combo">Комбинация (скос + кръгла глава)</option>
+      <option value="puzzle">Пъзел (кръгла глава)</option>
+      <option value="dovetail">Лястовича опашка</option>
+      <option value="straight">Прав рез (без зъб)</option>
+    </select>
+  </div>
+  <div class="row"><label>Зъби по ширината N</label><input type="number" id="inN" value="1" min="1" step="1"></div>
+  <div class="row"><label>Шийка n, mm</label><input type="number" id="inNn" value="10" step="0.5"></div>
+  <div class="row"><label>Глава D, mm</label><input type="number" id="inD" value="18" step="0.5"></div>
+  <div class="row"><label>Издаване h, mm</label><input type="number" id="inH" value="22" step="0.5"></div>
+  <div class="row"><label>r_min (нож), mm</label><input type="number" id="inR" value="1.5" step="0.1"></div>
+  <div class="row"><label>Луфт g, mm</label><input type="number" id="inG" value="0" step="0.05"></div>
+  <canvas id="jprev"></canvas>
+  <div id="valBox"></div>
+</fieldset>
+
+<fieldset><legend>СЕГМЕНТИРАНЕ</legend>
+  <div class="row"><label style="min-width:0"><input type="checkbox" id="cbAuto" checked> авто брой от макс. дължина</label></div>
+  <div class="row"><label>Макс. сегмент Lmax, mm</label><input type="number" id="inLmax" value="1500" step="10"></div>
+  <div class="row"><label>Брой сектори / замъци k</label><input type="number" id="inK" value="4" min="0" step="1"></div>
+  <div class="hint">Пиши направо в полето — „авто" се изключва самò.</div>
+  <div class="row" id="rowPhase"><label>Фаза (позиция), °</label>
+    <input type="range" id="inPhase" min="0" max="360" value="0" step="1"><span id="phaseVal" style="font:12px var(--mono);color:var(--mut)">0°</span></div>
+</fieldset>
+
+<fieldset id="fsHoles" style="display:none"><legend>ОТВОРИ (БОЛТОВА ОКРЪЖНОСТ)</legend>
+  <div class="row"><label style="min-width:0"><input type="checkbox" id="cbHoles"> отвори по делителен Ø</label></div>
+  <div id="pgHoles" style="display:none">
+    <div class="row"><label>Брой отвори</label><input type="number" id="inHN" value="8" min="1" step="1"></div>
+    <div class="row"><label>Ø на отвор, mm</label><input type="number" id="inHD" value="22" step="0.5"></div>
+    <div class="row"><label>Делителен Ø, mm</label><input type="number" id="inHBCD" value="2515" step="1"></div>
+    <div class="row"><label>Начален ъгъл, °</label><input type="number" id="inHA" value="0" step="1"></div>
+  </div>
+</fieldset>
+
+<fieldset><legend>ИЗХОД</legend>
+  <div class="row"><label>Ширина на рязане (kerf), mm</label><input type="number" id="inKerf" value="0" min="0" step="0.05"></div>
+  <div class="dl">
+    <button class="act" id="btnDXFex">DXF · разложен</button>
+    <button class="sec" id="btnDXFas">DXF · сглобен</button>
+    <button class="sec" id="btnCSV">CSV спецификация</button>
+  </div>
+  <div class="hint">Слоеве: KONTUR_1…N (по един на сегмент, с неговия цвят) · OTVORI (отвори) · ORDER (номера за сглобяване) · OSEVA (само в сглобения). При kerf &gt; 0 контурите в DXF са компенсирани с kerf/2.</div>
+</fieldset>
+
+</aside>
+<section id="cnvWrap">
+  <div id="toolbar">
+    <button class="sec on" id="btnVAsm">Сглобен</button>
+    <button class="sec" id="btnVExp">Разложен</button>
+    <button class="sec" id="btnFit">Побери</button>
+    <span class="sp"></span><span id="coords"></span><span id="info"></span>
+  </div>
+  <canvas id="cv"></canvas>
+  <table><thead><tr>
+    <th>Сегмент</th><th>Осева дълж., mm</th><th>Ъгъл, °</th><th>Габарит, mm</th><th>Площ, mm²</th>
+  </tr></thead><tbody id="tbSegs"></tbody></table>
+</section>
+</main>
+
+<script>
+const CORE = (() => {
+/* ============================================================
+   AVKO Joint Lab — геометрично ядро
+   Всичко в mm. Локална система на замък: u = напред по осевата, v = напречно.
+   ============================================================ */
+
+const EPS = 1e-9;
+
+/* ---------- вектори ---------- */
+const V = {
+  add: (a, b) => ({ x: a.x + b.x, y: a.y + b.y }),
+  sub: (a, b) => ({ x: a.x - b.x, y: a.y - b.y }),
+  mul: (a, k) => ({ x: a.x * k, y: a.y * k }),
+  len: (a) => Math.hypot(a.x, a.y),
+  norm: (a) => { const l = Math.hypot(a.x, a.y); return l < EPS ? { x: 0, y: 0 } : { x: a.x / l, y: a.y / l }; },
+  perp: (a) => ({ x: -a.y, y: a.x }),          // лява нормала
+  dot: (a, b) => a.x * b.x + a.y * b.y,
+  cross: (a, b) => a.x * b.y - a.y * b.x,
+};
+
+/* ---------- дискретизация на осевата линия ---------- */
+
+// Пръстен: осева окръжност R = (OD+ID)/4, ширина W = (OD-ID)/2
+function ringPath(OD, ID, tol = 0.02) {
+  const R = (OD + ID) / 4;
+  const W = (OD - ID) / 2;
+  // ъглова стъпка от хордовата грешка: e = R(1-cos(dθ/2))
+  let dth = 2 * Math.acos(Math.max(-1, 1 - tol / R));
+  if (!isFinite(dth) || dth <= 0) dth = Math.PI / 180;
+  let n = Math.ceil(2 * Math.PI / dth);
+  n = Math.max(n, 240);
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const a = (2 * Math.PI * i) / n;
+    pts.push({ x: R * Math.cos(a), y: R * Math.sin(a) });
+  }
+  return { pts, closed: true, W };
+}
+
+// Права лента: осева отсечка (0,0)→(L,0)
+function stripPath(L, W, step = 1.0) {
+  const n = Math.max(2, Math.ceil(L / step) + 1);
+  const pts = [];
+  for (let i = 0; i < n; i++) pts.push({ x: (L * i) / (n - 1), y: 0 });
+  return { pts, closed: false, W };
+}
+
+// Произволна полилиния (върхове) → уплътнена
+function polyPath(verts, W, closed, step = 1.0) {
+  const src = verts.slice();
+  if (closed && src.length > 1) src.push(src[0]);
+  const pts = [src[0]];
+  for (let i = 1; i < src.length; i++) {
+    const a = src[i - 1], b = src[i];
+    const d = V.len(V.sub(b, a));
+    const n = Math.max(1, Math.ceil(d / step));
+    for (let k = 1; k <= n; k++) pts.push({ x: a.x + ((b.x - a.x) * k) / n, y: a.y + ((b.y - a.y) * k) / n });
+  }
+  if (closed) pts.pop();  // последната == първата
+  return { pts, closed, W };
+}
+
+/* ---------- дължини по пътя ---------- */
+function cumLengths(pts, closed) {
+  const cum = [0];
+  for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + V.len(V.sub(pts[i], pts[i - 1])));
+  if (closed) cum.push(cum[cum.length - 1] + V.len(V.sub(pts[0], pts[pts.length - 1])));
+  return cum;                                  // closed → дължина = cum[n]
+}
+function pathLength(pts, closed) { const c = cumLengths(pts, closed); return c[c.length - 1]; }
+
+/* ---------- тангента в точка i ---------- */
+function tangentAt(pts, i, closed) {
+  const n = pts.length;
+  const prev = closed ? pts[(i - 1 + n) % n] : pts[Math.max(0, i - 1)];
+  const next = closed ? pts[(i + 1) % n] : pts[Math.min(n - 1, i + 1)];
+  return V.norm(V.sub(next, prev));
+}
+
+/* ---------- offset на полилиния (miter, с лимит) ---------- */
+function offsetPolyline(pts, d, closed, miterLimit = 4) {
+  const n = pts.length;
+  const segN = [];                             // нормала на всеки сегмент
+  const m = closed ? n : n - 1;
+  for (let i = 0; i < m; i++) {
+    const a = pts[i], b = pts[(i + 1) % n];
+    segN.push(V.perp(V.norm(V.sub(b, a))));
+  }
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    let nrm;
+    if (!closed && i === 0) nrm = segN[0];
+    else if (!closed && i === n - 1) nrm = segN[m - 1];
+    else {
+      const n1 = segN[(i - 1 + m) % m], n2 = segN[i % m];
+      const s = V.add(n1, n2);
+      const l = V.len(s);
+      if (l < EPS) nrm = n2;
+      else {
+        const bis = V.mul(s, 1 / l);
+        const cosHalf = V.dot(bis, n2);        // = cos(θ/2)
+        let scale = cosHalf > EPS ? 1 / cosHalf : miterLimit;
+        if (scale > miterLimit) scale = miterLimit;
+        nrm = V.mul(bis, scale);
+      }
+    }
+    out.push(V.add(pts[i], V.mul(nrm, d)));
+  }
+  return out;
+}
+
+/* ---------- закръгляване на ъгли на полилиния с радиус r ---------- */
+// Работи върху дискретизирана полилиния: хваща само истинските чупки.
+function roundCorners(pts, r, angleThreshDeg = 8) {
+  if (r <= 0 || pts.length < 3) return pts.slice();
+  const thresh = Math.cos((180 - angleThreshDeg) * Math.PI / 180); // dot(d1,d2) > thresh → чупка
+  const out = [pts[0]];
+  let i = 1;
+  while (i < pts.length - 1) {
+    const P = pts[i - 1], Vv = pts[i], N = pts[i + 1];
+    const d1 = V.norm(V.sub(P, Vv));
+    const d2 = V.norm(V.sub(N, Vv));
+    const dp = V.dot(d1, d2);
+    if (dp <= thresh - 1e-12) { out.push(Vv); i++; continue; }   // почти права → пропусни
+    const theta = Math.acos(Math.max(-1, Math.min(1, dp)));      // вътрешен ъгъл
+    if (theta < 1e-6 || Math.PI - theta < 1e-6) { out.push(Vv); i++; continue; }
+    let t = r / Math.tan(theta / 2);
+    const l1 = V.len(V.sub(P, Vv)), l2 = V.len(V.sub(N, Vv));
+    t = Math.min(t, l1 * 0.999, l2 * 0.999);
+    const rEff = t * Math.tan(theta / 2);
+    if (rEff < 1e-6) { out.push(Vv); i++; continue; }
+    const A = V.add(Vv, V.mul(d1, t));
+    const B = V.add(Vv, V.mul(d2, t));
+    // център: по бисектрисата, на разстояние rEff/sin(θ/2)
+    const bis = V.norm(V.add(d1, d2));
+    const C = V.add(Vv, V.mul(bis, rEff / Math.sin(theta / 2)));
+    // дъга A→B около C
+    let a0 = Math.atan2(A.y - C.y, A.x - C.x);
+    let a1 = Math.atan2(B.y - C.y, B.x - C.x);
+    let da = a1 - a0;
+    while (da > Math.PI) da -= 2 * Math.PI;
+    while (da < -Math.PI) da += 2 * Math.PI;
+    const steps = Math.max(2, Math.ceil(Math.abs(da) / 0.15));
+    out.push(A);
+    for (let k = 1; k < steps; k++) {
+      const a = a0 + (da * k) / steps;
+      out.push({ x: C.x + rEff * Math.cos(a), y: C.y + rEff * Math.sin(a) });
+    }
+    out.push(B);
+    i++;
+  }
+  out.push(pts[pts.length - 1]);
+  return out;
+}
+
+/* ============================================================
+   ЗАМЪЧЕН ПРОФИЛ (локални u,v)
+   Профилът върви от v=-W/2 до v=+W/2. Зъбите стърчат в +u.
+   Типове: 'puzzle' (прави стени + кръгла глава)
+           'dovetail' (наклонени стени + плосък връх)
+           'combo' (тангентни наклонени стени + кръгла глава)
+           'straight' (прав рез, без зъб)
+   ============================================================ */
+
+// Дъга cx,cy,R от a0 до a1 (CCW). Мрежата ВИНАГИ съдържа кратните на π/2,
+// иначе върхът (u=h) и екваторът (|v|=R) се пропускат и D/h не излизат точни.
+function arcPts(cx, cy, R, a0, a1, maxStep = 0.08) {
+  const steps = Math.max(12, Math.ceil((a1 - a0) / maxStep));
+  const angs = [];
+  for (let k = 0; k <= steps; k++) angs.push(a0 + ((a1 - a0) * k) / steps);
+  for (let m = -4; m <= 4; m++) {
+    const ka = (m * Math.PI) / 2;
+    if (ka > a0 + 1e-9 && ka < a1 - 1e-9) angs.push(ka);
+  }
+  angs.sort((p, q) => p - q);
+  const out = [];
+  for (const a of angs) {
+    if (out.length && Math.abs(a - out[out.length - 1]) < 1e-9) continue;
+    out.push(a);
+  }
+  return out.map((a) => ({ x: cx + R * Math.cos(a), y: cy + R * Math.sin(a) }));
+}
+
+function toothProfile(type, n, D, h) {
+  // връща точки на един зъб около v=0, от (0,-n/2) до (0,+n/2)
+  const pts = [{ x: 0, y: -n / 2 }];
+  const R = D / 2;
+
+  if (type === 'dovetail') {
+    pts.push({ x: h, y: -D / 2 });
+    pts.push({ x: h, y: D / 2 });
+  } else if (type === 'puzzle') {
+    const uc = h - R;
+    const dx = Math.sqrt(Math.max(0, R * R - (n / 2) * (n / 2)));
+    const uNeck = uc - dx;
+    const a0 = Math.atan2(-n / 2, uNeck - uc);   // в (-π,-π/2)
+    // arcPts ВЕЧЕ дава (uNeck, ∓n/2) като краища на дъгата — не ги дублирай.
+    pts.push(...arcPts(uc, 0, R, a0, -a0));      // голямата дъга през 0°
+  } else if (type === 'combo') {
+    const uc = h - R;
+    const P = { x: 0, y: -n / 2 };
+    const Cc = { x: uc, y: 0 };
+    const dPC = V.len(V.sub(Cc, P));
+    const Ltan = Math.sqrt(Math.max(0, dPC * dPC - R * R));
+    const thPC = Math.atan2(Cc.y - P.y, Cc.x - P.x);
+    const phi = Math.asin(Math.min(1, R / dPC));
+    const thT = thPC - phi;                      // допирателна, докосваща отдолу
+    const T0 = { x: P.x + Ltan * Math.cos(thT), y: P.y + Ltan * Math.sin(thT) };
+    const a0 = Math.atan2(T0.y - Cc.y, T0.x - Cc.x);
+    pts.push(...arcPts(uc, 0, R, a0, -a0));
+  }
+  pts.push({ x: 0, y: n / 2 });
+  return pts;
+}
+
+// Реалната макс. ширина на зъба (при combo стените може да са тангентни преди екватора,
+// тогава зъбът не достига пълния D — заключването се мери по това, не по D).
+function toothMaxWidth(type, n, D, h) {
+  const p = toothProfile(type, n, D, h);
+  return 2 * Math.max(...p.map((q) => Math.abs(q.y)));
+}
+
+// Пълният профил през ширината W, с N зъба, закръглен с r
+function jointProfile(opts) {
+  const { W, type, N, n, D, h, r } = opts;
+  if (type === 'straight' || N < 1) return roundCorners([{ x: 0, y: -W / 2 }, { x: 0, y: W / 2 }], 0);
+  const pts = [{ x: 0, y: -W / 2 }];
+  const zone = W / N;
+  for (let j = 0; j < N; j++) {
+    const vc = -W / 2 + (j + 0.5) * zone;
+    const t = toothProfile(type, n, D, h);
+    for (const p of t) pts.push({ x: p.x, y: p.y + vc });
+  }
+  pts.push({ x: 0, y: W / 2 });
+  return roundCorners(pts, r);
+}
+
+/* ---------- валидация на замъка ---------- */
+function validateJoint(o) {
+  const errs = [], warns = [];
+  const { W, type, N, n, D, h, r } = o;
+  if (type === 'straight') return { errs, warns, wMax: 0 };
+  const zone = W / N;
+
+  // геометрична допустимост първо — иначе toothProfile връща боклук
+  if (type === 'puzzle' || type === 'combo') {
+    const R = D / 2, uc = h - R;
+    if (uc <= 0) {
+      errs.push(`h ≤ D/2 — главата излиза преди резната линия (h=${h}, D/2=${R}).`);
+      return { errs, warns, wMax: 0 };
+    }
+    if (type === 'puzzle') {
+      const uNeck = uc - Math.sqrt(Math.max(0, R * R - (n / 2) * (n / 2)));
+      if (uNeck <= r) errs.push(`Няма място за шийка: остават ${uNeck.toFixed(2)} mm < r=${r} mm. Увеличи h.`);
+    } else if (Math.hypot(uc, n / 2) <= R) {
+      errs.push('Шийката е вътре в главата — увеличи h или намали D.');
+      return { errs, warns, wMax: 0 };
+    }
+  }
+
+  const wMax = toothMaxWidth(type, n, D, h);
+  if (wMax <= n + 1e-6) errs.push('Зъбът не заключва — най-широкото му място не надвишава шийката n.');
+  if (wMax + 2 * r >= zone) errs.push(`Зъбът не се побира: ${wMax.toFixed(1)} mm + 2·r ≥ зона W/N = ${zone.toFixed(1)} mm.`);
+
+  if (type === 'dovetail') {
+    const alpha = (Math.atan((D - n) / (2 * h)) * 180) / Math.PI;
+    if (alpha < 5) warns.push(`α = ${alpha.toFixed(1)}° — плитко заключване. Увеличи D или намали h.`);
+    if (alpha > 40) warns.push(`α = ${alpha.toFixed(1)}° — върхът е тънък в основата.`);
+  }
+  if (type === 'combo') {
+    const alpha = (Math.atan2(n / 2, h - D / 2) * 180) / Math.PI;   // наклон на стената спрямо оста
+    if (h > 3 * D) warns.push(`h = ${h} mm при D = ${D} mm — стените са почти прави, зъбът клони към пъзел.`);
+  }
+  if (n < 2 * r) warns.push(`Шийка n=${n} mm < 2·r_min=${(2 * r).toFixed(1)} mm — радиусите изяждат шийката.`);
+  return { errs, warns, wMax };
+}
+
+/* ============================================================
+   СЕГМЕНТИРАНЕ
+   ============================================================ */
+
+// Точни позиции на замъците (v1.0.2). Старият вариант закръгляше към индекс на
+// дискретизацията (~14 mm стъпка при голям пръстен) → при фаза, различна от кратна
+// на стъпката, секторите излизаха неравни. Тук за всяка целева дъгова дължина се
+// ВМЪКВА интерполирана точка в пътя и се връщат реалните ѝ индекси.
+function insertAtArcLengths(pts, closed, targets) {
+  const cum = cumLengths(pts, closed);
+  const L = cum[cum.length - 1];
+  const n = pts.length;
+  const tg = targets
+    .map((s, j) => ({ s: ((s % L) + L) % L, j }))
+    .sort((a, b) => a.s - b.s);
+  const out = [];
+  const idx = new Array(targets.length);
+  const tol = 1e-6;                              // сливане с налична точка
+  let ti = 0;
+  const nSeg = closed ? n : n - 1;
+  for (let i = 0; i < nSeg; i++) {
+    const a = pts[i], b = pts[(i + 1) % n];
+    out.push(a);
+    const ia = out.length - 1;
+    while (ti < tg.length && tg[ti].s < cum[i + 1] - tol) {
+      const s = tg[ti].s;
+      if (s <= cum[i] + tol) idx[tg[ti].j] = ia;
+      else {
+        const t = (s - cum[i]) / (cum[i + 1] - cum[i]);
+        out.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+        idx[tg[ti].j] = out.length - 1;
+      }
+      ti++;
+    }
+  }
+  if (!closed) out.push(pts[n - 1]);
+  while (ti < tg.length) { idx[tg[ti].j] = closed ? 0 : out.length - 1; ti++; }
+  return { pts: out, idx };
+}
+
+// Целеви дъгови дължини на замъците
+function jointTargets(L, closed, k, phase = 0) {
+  const t = [];
+  if (closed) for (let i = 0; i < k; i++) t.push(((i / k + phase) % 1 + 1) % 1 * L);
+  else for (let i = 1; i <= k; i++) t.push((i / (k + 1)) * L);
+  return t;
+}
+
+// Авто брой замъци от макс. дължина на сегмент
+function autoJointCount(L, Lmax, closed) {
+  const k = Math.max(1, Math.ceil(L / Lmax));
+  return closed ? k : Math.max(0, k - 1);
+}
+
+// Профил в глобални координати при индекс i
+function placeProfile(pts, i, closed, prof, sign) {
+  const P = pts[i];
+  const T = tangentAt(pts, i, closed);
+  const Nn = V.perp(T);
+  const out = [];
+  for (const p of prof) {
+    const u = p.x * sign;                        // sign=-1 → огледален (женско отзад)
+    out.push({ x: P.x + T.x * u + Nn.x * p.y, y: P.y + T.y * u + Nn.y * p.y });
+  }
+  return out;
+}
+
+// Изгражда контурите на всички сегменти.
+// Връща и pts: пътят с вмъкнатите точни точки на замъците — извикващият трябва
+// да продължи с него (индексите i0/i1 са спрямо новия масив).
+function buildSegments(path, jopts, k, phase, gap) {
+  const { closed, W } = path;
+  let pts = path.pts, idx = [];
+  if (k > 0) {
+    const L = pathLength(pts, closed);
+    const ins = insertAtArcLengths(pts, closed, jointTargets(L, closed, k, phase));
+    pts = ins.pts;
+    idx = [...new Set(ins.idx)].sort((a, b) => a - b);
+  }
+  const nPts = pts.length;
+  const half = W / 2;
+  const outer = offsetPolyline(pts, +half, closed);
+  const inner = offsetPolyline(pts, -half, closed);
+
+  // Нормалата на профила (perp на тангентата, която сочи +v) сочи в -u.
+  // Мъжкият зъб се свива → профилът се мести в -u → offset с +gap/2.
+  // Женското гнездо се разширява → профилът се мести в +u → offset с -gap/2.
+  const profM = jointProfile({ ...jopts, W });
+  const profMale = gap ? shrinkProfile(profM, +gap / 2, W) : profM;
+  const profFem = gap ? shrinkProfile(profM, -gap / 2, W) : profM;
+
+  // граници на сегментите
+  const bounds = [];
+  if (closed) {
+    for (let i = 0; i < idx.length; i++) bounds.push([idx[i], idx[(i + 1) % idx.length]]);
+  } else {
+    const all = [0, ...idx, nPts - 1];
+    for (let i = 0; i < all.length - 1; i++) bounds.push([all[i], all[i + 1]]);
+  }
+
+  const segs = [];
+  for (let s = 0; s < bounds.length; s++) {
+    const [i0, i1] = bounds[s];
+    const isFirst = !closed && s === 0;
+    const isLast = !closed && s === bounds.length - 1;
+
+    const ring = [];
+    // 1) вътрешен ръб напред: i0 → i1
+    walk(inner, i0, i1, closed, nPts, ring);
+    // 2) преден край при i1: мъжки зъб (или прав, ако е краят на отворен път)
+    if (isLast) ring.push(outer[i1]);
+    else ring.push(...placeProfile(pts, i1, closed, profMale, +1));
+    // 3) външен ръб назад: i1 → i0
+    walkRev(outer, i1, i0, closed, nPts, ring);
+    // 4) заден край при i0: женско гнездо (профилът обърнат)
+    if (isFirst) ring.push(inner[i0]);
+    else ring.push(...placeProfile(pts, i0, closed, profFem.slice().reverse(), +1));
+
+    segs.push({ ring: simplify(dedupe(ring), 0.01), i0, i1 });
+  }
+  return { segs, idx, outer, inner, pts };
+}
+
+// свиване/разширяване на профила по нормалата (за луфт)
+// Краищата се заковават на (0, ∓W/2): луфтът живее в зъба, ръбовете на лентата се допират.
+function shrinkProfile(prof, d, W) {
+  const off = offsetPolyline(prof, d, false);
+  off[0] = { x: 0, y: -W / 2 };
+  off[off.length - 1] = { x: 0, y: W / 2 };
+  return off;
+}
+
+function walk(arr, i0, i1, closed, n, out) {
+  let i = i0;
+  out.push(arr[i]);
+  if (closed && i0 === i1) {                     // k=1: пълна обиколка
+    for (let s = 1; s < n; s++) { i = (i + 1) % n; out.push(arr[i]); }
+    return;
+  }
+  let guard = 0;
+  while (i !== i1 && guard++ < 4 * n) { i = closed ? (i + 1) % n : i + 1; if (i >= n) break; out.push(arr[i]); }
+}
+function walkRev(arr, i0, i1, closed, n, out) {
+  let i = i0;
+  out.push(arr[i]);
+  if (closed && i0 === i1) {                     // k=1: пълна обиколка назад
+    for (let s = 1; s < n; s++) { i = (i - 1 + n) % n; out.push(arr[i]); }
+    return;
+  }
+  let guard = 0;
+  while (i !== i1 && guard++ < 4 * n) { i = closed ? (i - 1 + n) % n : i - 1; if (i < 0) break; out.push(arr[i]); }
+}
+/* Douglas–Peucker. tol=0.01 mm: правите падат до 2 точки, дъгите оцеляват
+   (при хордова толеранция 0.02 отстоянието на междинна точка е ~0.08 mm >> tol). */
+function simplify(pts, tol = 0.01) {
+  const n = pts.length;
+  if (n < 3 || tol <= 0) return pts.slice();
+  const keep = new Array(n).fill(false);
+  keep[0] = keep[n - 1] = true;
+  const stack = [[0, n - 1]];
+  while (stack.length) {
+    const [a, b] = stack.pop();
+    if (b - a < 2) continue;
+    const A = pts[a], B = pts[b];
+    const dx = B.x - A.x, dy = B.y - A.y;
+    const L = Math.hypot(dx, dy);
+    let maxD = -1, maxI = -1;
+    for (let i = a + 1; i < b; i++) {
+      const P = pts[i];
+      const d = L < 1e-12
+        ? Math.hypot(P.x - A.x, P.y - A.y)
+        : Math.abs(dx * (A.y - P.y) - (A.x - P.x) * dy) / L;
+      if (d > maxD) { maxD = d; maxI = i; }
+    }
+    if (maxD > tol) { keep[maxI] = true; stack.push([a, maxI], [maxI, b]); }
+  }
+  return pts.filter((_, i) => keep[i]);
+}
+
+function dedupe(pts, tol = 1e-7) {
+  const out = [];
+  for (const p of pts) {
+    const q = out[out.length - 1];
+    if (!q || Math.hypot(p.x - q.x, p.y - q.y) > tol) out.push(p);
+  }
+  if (out.length > 1) {
+    const a = out[0], b = out[out.length - 1];
+    if (Math.hypot(a.x - b.x, a.y - b.y) < tol) out.pop();
+  }
+  return out;
+}
+
+/* ---------- метрики ---------- */
+function polyArea(pts) {
+  let a = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i], q = pts[(i + 1) % pts.length];
+    a += p.x * q.y - q.x * p.y;
+  }
+  return a / 2;
+}
+function bbox(pts) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const p of pts) { if (p.x < x0) x0 = p.x; if (p.y < y0) y0 = p.y; if (p.x > x1) x1 = p.x; if (p.y > y1) y1 = p.y; }
+  return { x0, y0, x1, y1, w: x1 - x0, h: y1 - y0 };
+}
+function segArcLength(path, i0, i1) {
+  const { pts, closed } = path;
+  const n = pts.length;
+  let L = 0, i = i0, guard = 0;
+  while (i !== i1 && guard++ < 4 * n) {
+    const j = closed ? (i + 1) % n : i + 1;
+    if (j >= n) break;
+    L += V.len(V.sub(pts[j], pts[i]));
+    i = j;
+  }
+  return L;
+}
+
+/* ---------- разлагане (layout за рязане) ---------- */
+// v1.0.2: всеки сегмент се завърта така, че хордата му (права от началния до
+// крайния замък по осевата) да легне хоризонтално, и се подрежда в компактни
+// редове по действителните ширини. Пази се трансформацията {ang, dx, dy}, за да
+// могат номера/отвори да се пренасят със сегмента: p' = rot(p, ang) + (dx, dy).
+function explode(segs, path, gapMM = 20) {
+  const items = segs.map((s) => {
+    let ang = 0;
+    if (path && !(path.closed && s.i0 === s.i1)) {
+      const P0 = path.pts[s.i0], P1 = path.pts[s.i1];
+      const ch = { x: P1.x - P0.x, y: P1.y - P0.y };
+      if (Math.hypot(ch.x, ch.y) > 1e-9) ang = -Math.atan2(ch.y, ch.x);
+    }
+    const c = Math.cos(ang), sn = Math.sin(ang);
+    const ring0 = s.ring.map((p) => ({ x: p.x * c - p.y * sn, y: p.x * sn + p.y * c }));
+    return { s, ang, ring0, b: bbox(ring0) };
+  });
+  // целева ширина на ред: ~квадратен общ габарит, но поне най-широкия елемент
+  const totA = items.reduce((a, t) => a + (t.b.w + gapMM) * (t.b.h + gapMM), 0);
+  const rowLimit = Math.max(Math.max(...items.map((t) => t.b.w)), Math.sqrt(totA));
+  const out = [];
+  let x = 0, yTop = 0, rowH = 0;
+  for (const t of items) {
+    if (x > 0 && x + t.b.w > rowLimit + 1e-9) { x = 0; yTop -= rowH + gapMM; rowH = 0; }
+    const dx = x - t.b.x0, dy = yTop - t.b.y1;
+    out.push({ ...t.s, ang: t.ang, dx, dy,
+      ring: t.ring0.map((p) => ({ x: p.x + dx, y: p.y + dy })) });
+    x += t.b.w + gapMM;
+    rowH = Math.max(rowH, t.b.h);
+  }
+  return out;
+}
+
+// Прилага трансформацията на разложен сегмент върху точка (или идентитет за сглобен)
+function segXf(seg, p) {
+  if (seg.ang == null && !seg.dx && !seg.dy) return p;
+  const a = seg.ang || 0, c = Math.cos(a), sn = Math.sin(a);
+  return { x: p.x * c - p.y * sn + (seg.dx || 0), y: p.x * sn + p.y * c + (seg.dy || 0) };
+}
+
+/* ---------- DXF R12 ---------- */
+function buildDXF(entities) {
+  // entities: [{layer, color, type:'poly', pts, closed}|{layer,color,type:'text',x,y,h,text}]
+  const layers = [...new Set(entities.map((e) => e.layer))];
+  const colorOf = {};
+  entities.forEach((e) => { if (!(e.layer in colorOf)) colorOf[e.layer] = e.color; });
+  const L = [];
+  const g = (c, v) => { L.push(String(c)); L.push(String(v)); };
+
+  g(0, 'SECTION'); g(2, 'HEADER');
+  g(9, '$INSUNITS'); g(70, 4);
+  g(9, '$MEASUREMENT'); g(70, 1);
+  g(0, 'ENDSEC');
+
+  g(0, 'SECTION'); g(2, 'TABLES');
+  g(0, 'TABLE'); g(2, 'LAYER'); g(70, layers.length);
+  for (const ly of layers) {
+    g(0, 'LAYER'); g(2, ly); g(70, 0); g(62, colorOf[ly] || 7); g(6, 'CONTINUOUS');
+  }
+  g(0, 'ENDTAB'); g(0, 'ENDSEC');
+
+  g(0, 'SECTION'); g(2, 'ENTITIES');
+  for (const e of entities) {
+    if (e.type === 'poly') {
+      g(0, 'POLYLINE'); g(8, e.layer); g(66, 1); g(70, e.closed ? 1 : 0);
+      g(10, 0); g(20, 0); g(30, 0);
+      for (const p of e.pts) {
+        g(0, 'VERTEX'); g(8, e.layer);
+        g(10, p.x.toFixed(4)); g(20, p.y.toFixed(4)); g(30, '0.0');
+      }
+      g(0, 'SEQEND'); g(8, e.layer);
+    } else if (e.type === 'text') {
+      g(0, 'TEXT'); g(8, e.layer);
+      g(10, e.x.toFixed(4)); g(20, e.y.toFixed(4)); g(30, '0.0');
+      g(40, (e.h || 10).toFixed(4)); g(1, e.text);
+    } else if (e.type === 'circle') {
+      g(0, 'CIRCLE'); g(8, e.layer);
+      g(10, e.x.toFixed(4)); g(20, e.y.toFixed(4)); g(30, '0.0');
+      g(40, e.r.toFixed(4));
+    }
+  }
+  g(0, 'ENDSEC');
+  g(0, 'EOF');
+  return L.join('\r\n') + '\r\n';
+}
+return { V, ringPath, stripPath, polyPath, cumLengths, pathLength, tangentAt, offsetPolyline, roundCorners, toothProfile, toothMaxWidth, arcPts, jointProfile, validateJoint, insertAtArcLengths, jointTargets, autoJointCount, buildSegments, polyArea, bbox, segArcLength, explode, segXf, buildDXF, placeProfile, simplify };
+})();
+if (typeof module !== 'undefined') module.exports = CORE;
+</script>
+<script>
+const App = (() => {
+const VER = '1.0.2';
+const PAL = ['#2dd4bf','#5aa9e6','#facc15','#f87171','#a78bfa','#34d399','#fb923c','#e879f9'];
+
+const DEFAULTS = {
+  mode: 'ring',
+  ring: { OD: 2550, ID: 2480 },
+  strip: { L: 3000, W: 43 },
+  contour: { W: 43, path: null, report: '' },
+  joint: { type: 'combo', N: 1, n: 10, D: 18, h: 22, r: 1.5, g: 0 },
+  seg: { auto: true, Lmax: 1500, k: 4, phaseDeg: 0 },
+  holes: { on: false, nB: 8, dB: 22, BCD: 2515, ang0: 0 },
+  kerf: 0,
+  colors: [],
+};
+
+function colorOf(st, i) { return (st.colors && st.colors[i]) || PAL[i % PAL.length]; }
+
+/* най-близък ACI цвят (за DXF слоевете) */
+const ACI = [
+  [1, 255, 0, 0], [2, 255, 255, 0], [3, 0, 255, 0], [4, 0, 255, 255], [5, 0, 0, 255],
+  [6, 255, 0, 255], [7, 255, 255, 255], [8, 128, 128, 128], [9, 192, 192, 192],
+  [30, 255, 127, 0], [40, 255, 191, 0], [90, 0, 255, 127], [130, 0, 191, 255],
+  [200, 191, 0, 255], [221, 255, 63, 127],
+];
+function aciOf(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+  if (!m) return 7;
+  const v = parseInt(m[1], 16), r = v >> 16, gg = (v >> 8) & 255, b = v & 255;
+  let best = 7, bd = Infinity;
+  for (const [c, R, G, B] of ACI) {
+    const d = (r - R) ** 2 + (gg - G) ** 2 + (b - B) ** 2;
+    if (d < bd) { bd = d; best = c; }
+  }
+  return best;
+}
+
+/* ---------- изчислителен конвейер (чист, тестван в Node) ---------- */
+function buildPath(st) {
+  if (st.mode === 'ring') {
+    const { OD, ID } = st.ring;
+    if (!(OD > 0) || !(ID > 0) || OD <= ID) return { err: 'Пръстен: изисква се OD > ID > 0.' };
+    return { path: CORE.ringPath(OD, ID) };
+  }
+  if (st.mode === 'strip') {
+    const { L, W } = st.strip;
+    if (!(L > 0) || !(W > 0)) return { err: 'Лента: изискват се L > 0 и W > 0.' };
+    return { path: CORE.stripPath(L, W) };
+  }
+  const c = st.contour;
+  if (!c.path || c.path.pts.length < 2) return { err: 'Контур: качи DXF или въведи точки и натисни „Приложи".' };
+  if (!(c.W > 0)) return { err: 'Контур: задай ширина W > 0.' };
+  return { path: CORE.polyPath(c.path.pts, c.W, c.path.closed, 1.0) };
+}
+
+function midAnchor(path, s) {
+  const { pts, closed } = path, nn = pts.length;
+  if (closed && s.i0 === s.i1) return pts[(s.i0 + Math.floor(nn / 2)) % nn];
+  const steps = closed ? ((s.i1 - s.i0 + nn) % nn) : (s.i1 - s.i0);
+  const mid = closed ? (s.i0 + Math.floor(steps / 2)) % nn : s.i0 + Math.floor(steps / 2);
+  return pts[mid];
+}
+
+function computeAll(st) {
+  const pr = buildPath(st);
+  if (pr.err) return { err: pr.err };
+  const path = pr.path;
+  const L = CORE.pathLength(path.pts, path.closed);
+  let k = st.seg.auto
+    ? CORE.autoJointCount(L, Math.max(1, st.seg.Lmax), path.closed)
+    : Math.round(st.seg.k || 0);
+  k = path.closed ? Math.max(1, k) : Math.max(0, k);
+  k = Math.min(k, 200);                          // защита при мид-типинг в Lmax/k
+
+  const jopts = { ...st.joint, W: path.W };
+  const val = CORE.validateJoint(jopts);
+  const out = { path, L, k, W: path.W, closed: path.closed, val, warnsExtra: [] };
+  if (val.errs.length) return out;
+
+  const phase = path.closed ? (((st.seg.phaseDeg || 0) / 360) % 1 + 1) % 1 : 0;
+  const built = CORE.buildSegments(path, st.joint, k, phase, st.joint.g || 0);
+  path.pts = built.pts;                          // пътят с точните точки на замъците
+  const segs = built.segs;
+  out.segs = segs;
+  out.exploded = CORE.explode(segs, path, Math.max(20, path.W * 0.6));
+  out.anchors = segs.map((s) => midAnchor(path, s));
+
+  /* отвори по делителен диаметър (само за пръстен) */
+  if (st.mode === 'ring' && st.holes && st.holes.on) {
+    const { nB, dB, BCD, ang0 } = st.holes;
+    const Rb = BCD / 2, rH = dB / 2;
+    if (nB >= 1 && rH > 0 && Rb > 0) {
+      const Rin = st.ring.ID / 2, Rout = st.ring.OD / 2;
+      if (Rb - rH < Rin - 1e-9 || Rb + rH > Rout + 1e-9)
+        out.warnsExtra.push(`Отвор Ø${dB} на делителен Ø${BCD} излиза от лентата (ID ${st.ring.ID} / OD ${st.ring.OD}).`);
+      const TAU = 2 * Math.PI;
+      const angAt = (i) => { const p = path.pts[i]; return ((Math.atan2(p.y, p.x) % TAU) + TAU) % TAU; };
+      const holes = [];
+      for (let i = 0; i < Math.round(nB); i++) {
+        const a = ((ang0 * Math.PI / 180 + (TAU * i) / Math.round(nB)) % TAU + TAU) % TAU;
+        const hole = { x: Rb * Math.cos(a), y: Rb * Math.sin(a), r: rH, seg: 0 };
+        for (let sI = 0; sI < segs.length; sI++) {
+          const a0 = angAt(segs[sI].i0);
+          let da = (angAt(segs[sI].i1) - a0 + TAU) % TAU;
+          if (da < 1e-12) da = TAU;              // k=1: пълен пръстен
+          if (((a - a0 + TAU) % TAU) < da) { hole.seg = sI; break; }
+        }
+        holes.push(hole);
+      }
+      // отвор твърде близо до линия на замък?
+      const Rc = (st.ring.OD + st.ring.ID) / 4;
+      const jAngs = segs.map((s) => angAt(s.i1));
+      const clearance = rH + (st.joint.type === 'straight' ? 5 : st.joint.h);
+      let onJoint = false;
+      for (const hh of holes) {
+        const ha = ((Math.atan2(hh.y, hh.x) % TAU) + TAU) % TAU;
+        for (const ja of jAngs) {
+          let d = Math.abs(ha - ja); if (d > Math.PI) d = TAU - d;
+          if (d * Rc < clearance) { onJoint = true; break; }
+        }
+        if (onJoint) break;
+      }
+      if (onJoint)
+        out.warnsExtra.push('Отвор попада върху замък — завърти отворите (начален ъгъл) или фазата на замъците.');
+      out.holes = holes;
+    }
+  }
+  if ((st.kerf || 0) / 2 > st.joint.r && st.joint.type !== 'straight')
+    out.warnsExtra.push(`kerf/2 = ${(st.kerf / 2).toFixed(2)} mm > r_min = ${st.joint.r} mm — компенсираният контур ще се самопресече в радиусите.`);
+
+  const Rc = st.mode === 'ring' ? (st.ring.OD + st.ring.ID) / 4 : null;
+  out.metrics = segs.map((s, i) => {
+    let arc = CORE.segArcLength(path, s.i0, s.i1);
+    if (path.closed && s.i0 === s.i1) arc = L;
+    const b = CORE.bbox(out.exploded[i].ring);   // габарит на изправената заготовка
+    return {
+      i: i + 1, arc,
+      ang: Rc ? (arc / Rc) * 180 / Math.PI : null,
+      bw: b.w, bh: b.h,
+      area: Math.abs(CORE.polyArea(s.ring)),
+    };
+  });
+  const minArc = Math.min(...out.metrics.map((m) => m.arc));
+  out.minArc = minArc; out.maxArc = Math.max(...out.metrics.map((m) => m.arc));
+  if (st.joint.type !== 'straight' && minArc < 3 * st.joint.h)
+    out.warnsExtra.push(`Най-късият сегмент е ${minArc.toFixed(0)} mm при издаване h=${st.joint.h} mm — замъците почти се допират. Намали k или h.`);
+  if (st.joint.type !== 'straight' && (st.joint.g || 0) === 0)
+    out.warnsExtra.push('Луфт g = 0: мъжко и женско са идентични — ePTFE се напъхва стегнато. За свободен монтаж дай g = 0.1–0.3 mm.');
+  if (st.joint.type !== 'straight' && out.segs) {
+    const pp = path.pts, nn = pp.length;
+    const tang = (i) => { const t = CORE.tangentAt(pp, Math.max(0, Math.min(nn - 1, i)), path.closed); return Math.atan2(t.y, t.x); };
+    const jIdx = out.segs.map((s) => s.i1).filter((v, ix) => path.closed || ix < out.segs.length - 1);
+    for (const ji of jIdx) {
+      const a1 = tang(path.closed ? (ji - 3 + nn) % nn : ji - 3);
+      const a2 = tang(path.closed ? (ji + 3) % nn : ji + 3);
+      let dA = Math.abs(a1 - a2); if (dA > Math.PI) dA = 2 * Math.PI - dA;
+      if (dA > 20 * Math.PI / 180) {
+        out.warnsExtra.push('Замък попада върху ъгъл / силна кривина на контура — премести го с фазата или промени k.');
+        break;
+      }
+    }
+  }
+  return out;
+}
+
+/* ---------- изходи ---------- */
+function fmtParams(st, res) {
+  const j = st.joint;
+  const geo = st.mode === 'ring' ? `пръстен OD${st.ring.OD}/ID${st.ring.ID}`
+    : st.mode === 'strip' ? `лента ${st.strip.L}×${st.strip.W}`
+    : `контур W=${st.contour.W} (${res.closed ? 'затворен' : 'отворен'})`;
+  return `${geo}; замък=${j.type} N=${j.N} n=${j.n} D=${j.D} h=${j.h} r=${j.r} g=${j.g}; k=${res.k}`;
+}
+
+function buildCSV(st, res) {
+  const r = ['\uFEFF# AVKO Joint Lab v' + VER];
+  r.push('# ' + fmtParams(st, res));
+  r.push('# Осева дължина общо;' + res.L.toFixed(2) + ';mm');
+  r.push('№;Осева дължина [mm];Ъгъл [°];Габарит X [mm];Габарит Y [mm];Площ [mm²];Отвори');
+  for (const m of res.metrics) {
+    const nh = res.holes ? res.holes.filter((h) => h.seg === m.i - 1).length : 0;
+    r.push([m.i, m.arc.toFixed(2), m.ang == null ? '' : m.ang.toFixed(2),
+      m.bw.toFixed(1), m.bh.toFixed(1), m.area.toFixed(0), nh].join(';'));
+  }
+  return r.join('\r\n') + '\r\n';
+}
+
+// segs: сглобени или разложени (разложените носят {ang, dx, dy})
+function dxfEnts(st, segs, anchors, W, withCenterline, path, holes) {
+  const ents = [];
+  const th = Math.max(6, Math.min(30, W * 0.5));
+  const kerf = Math.max(0, st.kerf || 0);
+  segs.forEach((s, i) => {
+    let ring = s.ring;
+    if (kerf > 0) {
+      // навън е срещу лявата нормала при CCW обхождане → знак от ориентацията
+      const d = (CORE.polyArea(ring) > 0 ? -1 : 1) * kerf / 2;
+      ring = CORE.offsetPolyline(ring, d, true);
+    }
+    ents.push({ layer: 'KONTUR_' + (i + 1), color: aciOf(colorOf(st, i)), type: 'poly', pts: ring, closed: true });
+    const a = CORE.segXf(s, anchors[i]);
+    ents.push({ layer: 'ORDER', color: 8, type: 'text', x: a.x - th * 0.3, y: a.y - th * 0.5, h: th, text: String(i + 1) });
+  });
+  if (holes) for (const hh of holes) {
+    const c = CORE.segXf(segs[hh.seg] || segs[0], hh);
+    ents.push({ layer: 'OTVORI', color: 1, type: 'circle', x: c.x, y: c.y, r: Math.max(0.01, hh.r - kerf / 2) });
+  }
+  if (withCenterline && path)
+    ents.push({ layer: 'OSEVA', color: 9, type: 'poly', pts: path.pts, closed: path.closed });
+  return CORE.buildDXF(ents);
+}
+function buildDXFAssembled(st, res) {
+  return dxfEnts(st, res.segs, res.anchors, res.W, true, res.path, res.holes);
+}
+function buildDXFExploded(st, res) {
+  return dxfEnts(st, res.exploded, res.anchors, res.W, false, null, res.holes);
+}
+
+/* ---------- ръчни точки ---------- */
+function parsePoints(text) {
+  const pts = [];
+  for (const ln of (text || '').split(/\n/)) {
+    const t = ln.trim();
+    if (!t || t.startsWith('#')) continue;
+    const m = t.split(/[,;\s]+/).map(Number);
+    if (m.length < 2 || m.some((x) => !isFinite(x))) return { err: 'Неразчетен ред: "' + t + '"' };
+    pts.push({ x: m[0], y: m[1] });
+  }
+  if (pts.length < 2) return { err: 'Трябват поне 2 точки.' };
+  return { pts };
+}
+
+/* ---------- DXF импорт (осеви линии) ---------- */
+function dxfParse(text) {
+  const raw = text.split(/\r\n|\n|\r/);
+  const pairs = [];
+  for (let i = 0; i + 1 < raw.length; i += 2) {
+    const c = parseInt(raw[i], 10);
+    if (Number.isNaN(c)) continue;
+    pairs.push([c, raw[i + 1].trim()]);
+  }
+  const ents = [];
+  let i = 0, inE = false;
+  while (i < pairs.length) {
+    const [c, v] = pairs[i];
+    if (c === 0 && v === 'SECTION' && pairs[i + 1] && pairs[i + 1][0] === 2) { inE = pairs[i + 1][1] === 'ENTITIES'; i += 2; continue; }
+    if (c === 0 && v === 'ENDSEC') { inE = false; i++; continue; }
+    if (inE && c === 0) {
+      const type = v, rec = []; i++;
+      while (i < pairs.length && pairs[i][0] !== 0) { rec.push(pairs[i]); i++; }
+      ents.push({ type, rec });
+      continue;
+    }
+    i++;
+  }
+  const g1 = (rec, code) => { const f = rec.find((p) => p[0] === code); return f ? parseFloat(f[1]) : undefined; };
+
+  const paths = [], skipped = {};
+  const CH = 0.02;                                   // хордова толеранция, mm
+  const arcSamp = (cx, cy, R, a0, sweep, out, withStart) => {
+    let st = 2 * Math.acos(Math.max(-1, 1 - CH / Math.max(R, 1e-6)));
+    if (!isFinite(st) || st <= 0) st = 0.05;
+    st = Math.min(st, 0.12);
+    const nSt = Math.max(2, Math.ceil(Math.abs(sweep) / st));
+    for (let s = withStart ? 0 : 1; s <= nSt; s++) {
+      const a = a0 + (sweep * s) / nSt;
+      out.push({ x: cx + R * Math.cos(a), y: cy + R * Math.sin(a) });
+    }
+  };
+
+  let iE = 0;
+  while (iE < ents.length) {
+    const e = ents[iE];
+    if (e.type === 'LINE') {
+      paths.push({ pts: [{ x: g1(e.rec, 10), y: g1(e.rec, 20) }, { x: g1(e.rec, 11), y: g1(e.rec, 21) }], closed: false });
+    } else if (e.type === 'CIRCLE') {
+      const cx = g1(e.rec, 10), cy = g1(e.rec, 20), R = g1(e.rec, 40);
+      const pts = []; arcSamp(cx, cy, R, 0, 2 * Math.PI, pts, true); pts.pop();
+      paths.push({ pts, closed: true });
+    } else if (e.type === 'ARC') {
+      const cx = g1(e.rec, 10), cy = g1(e.rec, 20), R = g1(e.rec, 40);
+      let a0 = (g1(e.rec, 50) || 0) * Math.PI / 180, a1 = (g1(e.rec, 51) || 0) * Math.PI / 180;
+      if (a1 <= a0) a1 += 2 * Math.PI;
+      const pts = []; arcSamp(cx, cy, R, a0, a1 - a0, pts, true);
+      paths.push({ pts, closed: false });
+    } else if (e.type === 'LWPOLYLINE') {
+      const vs = []; let cur = null;
+      for (const [c, v] of e.rec) {
+        if (c === 10) { cur = { x: parseFloat(v), y: 0, b: 0 }; vs.push(cur); }
+        else if (c === 20 && cur) cur.y = parseFloat(v);
+        else if (c === 42 && cur) cur.b = parseFloat(v);
+      }
+      const closed = ((g1(e.rec, 70) || 0) & 1) === 1;
+      paths.push(lwExpand(vs, closed, arcSamp));
+    } else if (e.type === 'POLYLINE') {
+      const closed = ((g1(e.rec, 70) || 0) & 1) === 1;
+      const vs = []; iE++;
+      while (iE < ents.length && ents[iE].type !== 'SEQEND') {
+        if (ents[iE].type === 'VERTEX')
+          vs.push({ x: g1(ents[iE].rec, 10), y: g1(ents[iE].rec, 20), b: g1(ents[iE].rec, 42) || 0 });
+        iE++;
+      }
+      paths.push(lwExpand(vs, closed, arcSamp));
+    } else if (!['SEQEND', 'VERTEX'].includes(e.type)) {
+      skipped[e.type] = (skipped[e.type] || 0) + 1;
+    }
+    iE++;
+  }
+
+  const chains = chainPaths(paths.filter((p) => p.pts.length >= 2 && p.pts.every((q) => isFinite(q.x) && isFinite(q.y))));
+  chains.forEach((c) => (c.len = CORE.pathLength(c.pts, c.closed)));
+  chains.sort((a, b) => b.len - a.len);
+  return { chains, nEnts: paths.length, skipped };
+}
+
+function lwExpand(vs, closed, arcSamp) {
+  const pts = vs.length ? [{ x: vs[0].x, y: vs[0].y }] : [];
+  const nSeg = closed ? vs.length : vs.length - 1;
+  for (let s = 0; s < nSeg; s++) {
+    const p = vs[s], q = vs[(s + 1) % vs.length];
+    const b = p.b || 0;
+    if (!b) { pts.push({ x: q.x, y: q.y }); continue; }
+    const d = Math.hypot(q.x - p.x, q.y - p.y);
+    if (d < 1e-9) continue;
+    const th = 4 * Math.atan(b);
+    const u = { x: (q.x - p.x) / d, y: (q.y - p.y) / d };
+    const h0 = (d / 2) / Math.tan(th / 2);
+    const C = { x: (p.x + q.x) / 2 - u.y * h0, y: (p.y + q.y) / 2 + u.x * h0 };
+    const R = Math.hypot(p.x - C.x, p.y - C.y);
+    arcSamp(C.x, C.y, R, Math.atan2(p.y - C.y, p.x - C.x), th, pts, false);
+  }
+  if (closed && pts.length > 2) pts.pop();
+  return { pts, closed };
+}
+
+function chainPaths(paths, tol = 0.5) {
+  const open = paths.filter((p) => !p.closed).map((p) => p.pts.slice());
+  const done = paths.filter((p) => p.closed).map((p) => ({ pts: p.pts, closed: true }));
+  const d = (P, Q) => Math.hypot(P.x - Q.x, P.y - Q.y);
+  let merged = true;
+  while (merged) {
+    merged = false;
+    outer:
+    for (let a = 0; a < open.length; a++)
+      for (let b = 0; b < open.length; b++) {
+        if (a === b) continue;
+        const A = open[a], B = open[b];
+        if (d(A[A.length - 1], B[0]) < tol) { open[a] = A.concat(B.slice(1)); }
+        else if (d(A[A.length - 1], B[B.length - 1]) < tol) { open[a] = A.concat(B.slice(0, -1).reverse()); }
+        else if (d(A[0], B[B.length - 1]) < tol) { open[a] = B.concat(A.slice(1)); }
+        else if (d(A[0], B[0]) < tol) { open[a] = A.slice().reverse().concat(B.slice(1)); }
+        else continue;
+        open.splice(b, 1); merged = true; break outer;
+      }
+  }
+  for (const P of open) {
+    if (P.length > 3 && d(P[0], P[P.length - 1]) < tol) { P.pop(); done.push({ pts: P, closed: true }); }
+    else done.push({ pts: P, closed: false });
+  }
+  return done;
+}
+
+/* ================== UI (само в браузър) ================== */
+let ui = null, state = null, lastRes = null, viewMode = 'asm';
+let view = { cx: 0, cy: 0, s: 0.2 };
+let hlSeg = null;                                // подсветен сегмент (таблица ↔ чертеж)
+
+function $(id) { return document.getElementById(id); }
+
+function init() {
+  state = JSON.parse(JSON.stringify(DEFAULTS));
+  ui = {
+    cv: $('cv'), info: $('info'), tb: $('tbSegs'), val: $('valBox'), jprev: $('jprev'),
+    pages: { ring: $('pgRing'), strip: $('pgStrip'), contour: $('pgCnt') },
+    tabs: { ring: $('tabRing'), strip: $('tabStrip'), contour: $('tabCnt') },
+  };
+  for (const m of ['ring', 'strip', 'contour'])
+    ui.tabs[m].addEventListener('click', () => { state.mode = m; syncTabs(); recompute(true); });
+
+  const bind = (id, fn) => $(id).addEventListener('input', () => { fn(); recompute(); });
+  bind('inOD', () => state.ring.OD = +$('inOD').value);
+  bind('inID', () => state.ring.ID = +$('inID').value);
+  bind('inL', () => state.strip.L = +$('inL').value);
+  bind('inW', () => state.strip.W = +$('inW').value);
+  bind('inCW', () => state.contour.W = +$('inCW').value);
+  bind('selType', () => state.joint.type = $('selType').value);
+  bind('inN', () => state.joint.N = Math.max(1, Math.round(+$('inN').value)));
+  bind('inNn', () => state.joint.n = +$('inNn').value);
+  bind('inD', () => state.joint.D = +$('inD').value);
+  bind('inH', () => state.joint.h = +$('inH').value);
+  bind('inR', () => state.joint.r = +$('inR').value);
+  bind('inG', () => state.joint.g = +$('inG').value);
+  bind('inLmax', () => state.seg.Lmax = +$('inLmax').value);
+  bind('inK', () => {
+    const v = Math.round(+$('inK').value);
+    if (!isFinite(v) || $('inK').value === '') return;   // мид-тайпинг: пази старата стойност
+    state.seg.k = Math.max(0, v);
+    if (state.seg.auto) { state.seg.auto = false; $('cbAuto').checked = false; }
+  });
+  bind('inPhase', () => { state.seg.phaseDeg = +$('inPhase').value; $('phaseVal').textContent = state.seg.phaseDeg + '°'; });
+  $('cbAuto').addEventListener('change', () => {
+    state.seg.auto = $('cbAuto').checked;
+    recompute();
+  });
+  $('cbHoles').addEventListener('change', () => {
+    state.holes.on = $('cbHoles').checked;
+    $('pgHoles').style.display = state.holes.on ? '' : 'none';
+    recompute();
+  });
+  bind('inHN', () => state.holes.nB = Math.max(1, Math.round(+$('inHN').value) || 1));
+  bind('inHD', () => state.holes.dB = +$('inHD').value);
+  bind('inHBCD', () => state.holes.BCD = +$('inHBCD').value);
+  bind('inHA', () => state.holes.ang0 = +$('inHA').value);
+  bind('inKerf', () => state.kerf = Math.max(0, +$('inKerf').value || 0));
+
+  $('btnApplyPts').addEventListener('click', () => {
+    const r = parsePoints($('taPts').value);
+    if (r.err) { $('cntReport').textContent = '✗ ' + r.err; return; }
+    state.contour.path = { pts: r.pts, closed: $('cbClosed').checked };
+    $('cntReport').textContent = `✓ ${r.pts.length} точки, ${$('cbClosed').checked ? 'затворен' : 'отворен'} контур.`;
+    state.mode = 'contour'; syncTabs(); recompute(true);
+  });
+  $('cbClosed').addEventListener('change', () => {
+    if (state.contour.path) { state.contour.path.closed = $('cbClosed').checked; syncTabs(); recompute(true); }
+  });
+  $('fileDXF').addEventListener('change', (ev) => {
+    const f = ev.target.files[0];
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      try {
+        const { chains, nEnts, skipped } = dxfParse(String(rd.result));
+        if (!chains.length) { $('cntReport').textContent = '✗ Не намерих използваеми обекти в DXF.'; return; }
+        const c = chains[0];
+        state.contour.path = { pts: c.pts, closed: c.closed };
+        $('cbClosed').checked = c.closed;
+        let msg = `✓ ${nEnts} обекта → ${chains.length} верига(и); използвам най-дългата: ${c.len.toFixed(0)} mm, ${c.closed ? 'затворена' : 'отворена'}.`;
+        const sk = Object.entries(skipped).map(([k, v]) => k + '×' + v).join(', ');
+        if (sk) msg += ' Пропуснати: ' + sk + '.';
+        $('cntReport').textContent = msg;
+        state.mode = 'contour'; syncTabs(); recompute(true);
+      } catch (e) { $('cntReport').textContent = '✗ Грешка при четене: ' + e.message; }
+    };
+    rd.readAsText(f);
+  });
+
+  $('btnVAsm').addEventListener('click', () => setView('asm'));
+  $('btnVExp').addEventListener('click', () => setView('exp'));
+  $('btnFit').addEventListener('click', () => { fit(); draw(); });
+  $('btnDXFex').addEventListener('click', () => { if (ok()) dl(fname('exploded', 'dxf'), buildDXFExploded(state, lastRes), 'application/dxf'); });
+  $('btnDXFas').addEventListener('click', () => { if (ok()) dl(fname('assembled', 'dxf'), buildDXFAssembled(state, lastRes), 'application/dxf'); });
+  $('btnCSV').addEventListener('click', () => { if (ok()) dl(fname('spec', 'csv'), buildCSV(state, lastRes), 'text/csv'); });
+
+  setupCanvas();
+  syncTabs();
+  recompute(true);
+  window.addEventListener('resize', () => { sizeCanvas(); draw(); drawJoint(); });
+}
+
+function ok() { return lastRes && lastRes.segs && lastRes.segs.length; }
+function fname(kind, ext) { return `JointLab_${state.mode}_k${lastRes.k}_${kind}.${ext}`; }
+function dl(name, text, mime) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: mime }));
+  a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+function setView(m) {
+  viewMode = m;
+  $('btnVAsm').classList.toggle('on', m === 'asm');
+  $('btnVExp').classList.toggle('on', m === 'exp');
+  fit(); draw();
+}
+function syncTabs() {
+  for (const m of ['ring', 'strip', 'contour']) {
+    ui.tabs[m].classList.toggle('on', state.mode === m);
+    ui.pages[m].style.display = state.mode === m ? '' : 'none';
+  }
+  // фазата има смисъл само за затворен път
+  const closed = state.mode === 'ring' ||
+    (state.mode === 'contour' && state.contour.path && state.contour.path.closed);
+  $('rowPhase').style.display = closed ? '' : 'none';
+  $('fsHoles').style.display = state.mode === 'ring' ? '' : 'none';
+}
+
+function recompute(refit) {
+  lastRes = computeAll(state);
+  if (state.mode === 'ring' && !lastRes.err) {
+    const R = (state.ring.OD + state.ring.ID) / 4;
+    $('ringInfo').textContent = `осева R = ${R.toFixed(1)} mm · W = ${lastRes.W.toFixed(1)} mm · обиколка = ${lastRes.L.toFixed(0)} mm`;
+  }
+  if (state.seg.auto && lastRes.k != null) state.seg.k = lastRes.k;
+  if (document.activeElement !== $('inK')) $('inK').value = state.seg.k;
+  renderVal();
+  renderTable();
+  renderInfo();
+  drawJoint();
+  if ((refit || viewNeverFit) && ok()) { fit(); viewNeverFit = false; }
+  draw();
+}
+let viewNeverFit = true;
+
+function renderVal() {
+  const box = ui.val; box.innerHTML = '';
+  const add = (cls, t) => { const d = document.createElement('div'); d.className = cls; d.textContent = t; box.appendChild(d); };
+  if (lastRes.err) { add('e', lastRes.err); return; }
+  for (const e of lastRes.val.errs) add('e', e);
+  for (const w of lastRes.val.warns) add('w', w);
+  for (const w of lastRes.warnsExtra || []) add('w', w);
+  if (!lastRes.val.errs.length && state.joint.type !== 'straight')
+    add('k', `Замъкът заключва: макс. ширина на зъба ${lastRes.val.wMax.toFixed(1)} mm > шийка ${state.joint.n} mm.`);
+}
+
+function renderTable() {
+  const tb = ui.tb; tb.innerHTML = '';
+  if (!ok()) return;
+  lastRes.metrics.forEach((m, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><input type="color" class="swatch" value="${colorOf(state, i)}" title="Цвят на сегмент ${m.i}">№${m.i}</td>` +
+      `<td>${m.arc.toFixed(1)}</td><td>${m.ang == null ? '—' : m.ang.toFixed(1)}</td>` +
+      `<td>${m.bw.toFixed(0)} × ${m.bh.toFixed(0)}</td><td>${m.area.toFixed(0)}</td>`;
+    tr.querySelector('input.swatch').addEventListener('input', (ev) => {
+      state.colors[i] = ev.target.value;
+      draw();
+    });
+    tr.addEventListener('mouseenter', () => { hlSeg = i; draw(); });
+    tr.addEventListener('mouseleave', () => { if (hlSeg === i) { hlSeg = null; draw(); } });
+    tb.appendChild(tr);
+  });
+}
+
+function selectRow(i) {
+  const rows = ui.tb.querySelectorAll('tr');
+  rows.forEach((tr, j) => tr.classList.toggle('sel', j === i));
+  if (i != null && rows[i]) rows[i].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+function renderInfo() {
+  if (lastRes.err) { ui.info.textContent = ''; return; }
+  ui.info.textContent = `L=${lastRes.L.toFixed(0)} mm · замъци k=${lastRes.k} · сегменти ${lastRes.segs ? lastRes.segs.length : 0}` +
+    (ok() ? ` · сегмент ${lastRes.minArc.toFixed(0)}–${lastRes.maxArc.toFixed(0)} mm` : '');
+}
+
+/* ---------- преглед на замъчния профил ---------- */
+function drawJoint() {
+  const c = ui.jprev, ctx = c.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const wCss = c.clientWidth || 300, hCss = c.clientHeight || 110;
+  c.width = wCss * dpr; c.height = hCss * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = '#10131a'; ctx.fillRect(0, 0, wCss, hCss);
+  const W = lastRes && lastRes.W ? lastRes.W : 43;
+  const prof = CORE.jointProfile({ ...state.joint, W });
+  const b = CORE.bbox(prof);
+  const pad = 12;
+  const sc = Math.min((hCss - 2 * pad) / Math.max(W, 1), (wCss * 0.5) / Math.max(b.x1 - Math.min(b.x0, 0) + state.joint.h * 0.2, 8));
+  const X = (u) => wCss * 0.35 + u * sc, Y = (v) => hCss / 2 - v * sc;
+  ctx.strokeStyle = '#3a4250'; ctx.setLineDash([5, 4]); ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(6, Y(-W / 2)); ctx.lineTo(wCss - 6, Y(-W / 2));
+  ctx.moveTo(6, Y(W / 2)); ctx.lineTo(wCss - 6, Y(W / 2)); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(45,212,191,.10)';
+  ctx.beginPath(); ctx.moveTo(6, Y(-W / 2));
+  for (const p of prof) ctx.lineTo(X(p.x), Y(p.y));
+  ctx.lineTo(6, Y(W / 2)); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#facc15'; ctx.lineWidth = 2;
+  ctx.beginPath(); prof.forEach((p, i) => i ? ctx.lineTo(X(p.x), Y(p.y)) : ctx.moveTo(X(p.x), Y(p.y))); ctx.stroke();
+  ctx.fillStyle = '#8a93a0'; ctx.font = '10px ui-monospace,monospace';
+  ctx.fillText('W=' + W.toFixed(1), 8, Y(W / 2) - 4);
+}
+
+/* ---------- главен canvas ---------- */
+function sizeCanvas() {
+  const c = ui.cv, dpr = window.devicePixelRatio || 1;
+  c.width = c.clientWidth * dpr; c.height = c.clientHeight * dpr;
+}
+function fit() {
+  if (!ok()) return;
+  const segs = viewMode === 'exp' ? lastRes.exploded : lastRes.segs;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const s of segs) { const b = CORE.bbox(s.ring);
+    x0 = Math.min(x0, b.x0); y0 = Math.min(y0, b.y0); x1 = Math.max(x1, b.x1); y1 = Math.max(y1, b.y1); }
+  const c = ui.cv;
+  view.cx = (x0 + x1) / 2; view.cy = (y0 + y1) / 2;
+  view.s = 0.92 * Math.min(c.clientWidth / Math.max(x1 - x0, 1), c.clientHeight / Math.max(y1 - y0, 1));
+}
+function draw() {
+  const c = ui.cv, ctx = c.getContext('2d'), dpr = window.devicePixelRatio || 1;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const wC = c.clientWidth, hC = c.clientHeight;
+  ctx.fillStyle = '#0f1115'; ctx.fillRect(0, 0, wC, hC);
+  if (!ok()) {
+    ctx.fillStyle = '#8a93a0'; ctx.font = '13px system-ui';
+    ctx.fillText(lastRes && lastRes.err ? lastRes.err : 'Коригирай параметрите на замъка (виж съобщенията вляво).', 16, 28);
+    return;
+  }
+  const X = (x) => (x - view.cx) * view.s + wC / 2;
+  const Y = (y) => hC / 2 - (y - view.cy) * view.s;
+  const segs = viewMode === 'exp' ? lastRes.exploded : lastRes.segs;
+
+  if (viewMode === 'asm') {                        // осева линия
+    ctx.strokeStyle = '#3a4250'; ctx.setLineDash([8, 5]); ctx.lineWidth = 1;
+    ctx.beginPath();
+    lastRes.path.pts.forEach((p, i) => i ? ctx.lineTo(X(p.x), Y(p.y)) : ctx.moveTo(X(p.x), Y(p.y)));
+    if (lastRes.closed) ctx.closePath();
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+  segs.forEach((s, i) => {
+    const col = colorOf(state, i);
+    const dim = hlSeg != null && hlSeg !== i;
+    ctx.beginPath();
+    s.ring.forEach((p, j) => j ? ctx.lineTo(X(p.x), Y(p.y)) : ctx.moveTo(X(p.x), Y(p.y)));
+    ctx.closePath();
+    ctx.fillStyle = col + (hlSeg === i ? '66' : dim ? '14' : '40'); ctx.fill();
+    ctx.strokeStyle = col; ctx.lineWidth = hlSeg === i ? 2.6 : dim ? 0.8 : 1.4; ctx.stroke();
+  });
+  if (lastRes.holes) {                             // отвори по делителния Ø
+    ctx.strokeStyle = '#8a93a0'; ctx.lineWidth = 1.2;
+    for (const hh of lastRes.holes) {
+      const seg = segs[hh.seg] || segs[0];
+      const c0 = viewMode === 'exp' ? CORE.segXf(seg, hh) : hh;
+      ctx.beginPath(); ctx.arc(X(c0.x), Y(c0.y), Math.max(1, hh.r * view.s), 0, 7); ctx.stroke();
+      const cr = 3;                                // кръстче в центъра
+      ctx.beginPath();
+      ctx.moveTo(X(c0.x) - cr, Y(c0.y)); ctx.lineTo(X(c0.x) + cr, Y(c0.y));
+      ctx.moveTo(X(c0.x), Y(c0.y) - cr); ctx.lineTo(X(c0.x), Y(c0.y) + cr);
+      ctx.stroke();
+    }
+  }
+  segs.forEach((s, i) => {                         // номера
+    const a = viewMode === 'exp' ? CORE.segXf(s, lastRes.anchors[i]) : lastRes.anchors[i];
+    const px = X(a.x), py = Y(a.y);
+    ctx.fillStyle = '#0f1115'; ctx.beginPath(); ctx.arc(px, py, 11, 0, 7); ctx.fill();
+    ctx.strokeStyle = colorOf(state, i); ctx.lineWidth = 1.4; ctx.stroke();
+    ctx.fillStyle = '#e6e9ee'; ctx.font = '600 11px ui-monospace,monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(i + 1), px, py + 0.5);
+    ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+  });
+  drawScaleBar(ctx, wC, hC);
+}
+
+function drawScaleBar(ctx, wC, hC) {
+  const target = 90;                               // px
+  const raw = target / view.s;                     // mm
+  const pow = Math.pow(10, Math.floor(Math.log10(raw)));
+  let nice = pow;
+  for (const mlt of [1, 2, 5, 10]) if (mlt * pow <= raw) nice = mlt * pow;
+  const px = nice * view.s;
+  const x0 = 14, y0 = hC - 16;
+  ctx.strokeStyle = '#8a93a0'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0 - 4); ctx.lineTo(x0, y0);
+  ctx.lineTo(x0 + px, y0); ctx.lineTo(x0 + px, y0 - 4);
+  ctx.stroke();
+  ctx.fillStyle = '#8a93a0'; ctx.font = '11px ui-monospace,monospace';
+  ctx.fillText(nice >= 1000 ? (nice / 1000) + ' m' : nice + ' mm', x0 + 4, y0 - 6);
+}
+
+function inPoly(p, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const a = ring[i], b = ring[j];
+    if ((a.y > p.y) !== (b.y > p.y) &&
+        p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+  }
+  return inside;
+}
+
+function pickSeg(w) {
+  if (!ok()) return null;
+  const segs = viewMode === 'exp' ? lastRes.exploded : lastRes.segs;
+  for (let i = 0; i < segs.length; i++) if (inPoly(w, segs[i].ring)) return i;
+  return null;
+}
+
+const clampS = (s) => Math.min(1e3, Math.max(1e-4, s));
+
+function setupCanvas() {
+  sizeCanvas();
+  const c = ui.cv;
+  const ptr = new Map();
+  let panFrom = null, pinch0 = null, downAt = null, moved = 0;
+  const world = (ev) => {
+    const r = c.getBoundingClientRect();
+    return { x: (ev.clientX - r.left - c.clientWidth / 2) / view.s + view.cx,
+             y: view.cy - (ev.clientY - r.top - c.clientHeight / 2) / view.s };
+  };
+  c.addEventListener('wheel', (ev) => {
+    ev.preventDefault();
+    const w = world(ev);
+    const f = clampS(view.s * Math.exp(-ev.deltaY * 0.0012)) / view.s;
+    view.s *= f;
+    view.cx = w.x - (w.x - view.cx) / f;
+    view.cy = w.y - (w.y - view.cy) / f;
+    draw();
+  }, { passive: false });
+  c.addEventListener('pointerdown', (ev) => {
+    c.setPointerCapture(ev.pointerId);
+    ptr.set(ev.pointerId, ev);
+    if (ptr.size === 1) { panFrom = { x: ev.clientX, y: ev.clientY }; downAt = { x: ev.clientX, y: ev.clientY }; moved = 0; }
+    if (ptr.size === 2) {
+      const [a, b] = [...ptr.values()];
+      pinch0 = { d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), s: view.s };
+      panFrom = null;
+    }
+  });
+  c.addEventListener('pointermove', (ev) => {
+    const w = world(ev);
+    $('coords').textContent = `x ${w.x.toFixed(1)} · y ${w.y.toFixed(1)} mm  `;
+    if (!ptr.has(ev.pointerId)) return;
+    ptr.set(ev.pointerId, ev);
+    if (ptr.size === 1 && panFrom) {
+      moved += Math.abs(ev.clientX - panFrom.x) + Math.abs(ev.clientY - panFrom.y);
+      view.cx -= (ev.clientX - panFrom.x) / view.s;
+      view.cy += (ev.clientY - panFrom.y) / view.s;
+      panFrom = { x: ev.clientX, y: ev.clientY };
+      draw();
+    } else if (ptr.size === 2 && pinch0) {
+      const [a, b] = [...ptr.values()];
+      const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      view.s = clampS(pinch0.s * (d / pinch0.d));
+      draw();
+    }
+  });
+  const up = (ev) => {
+    if (ptr.size === 1 && downAt && moved < 5) {   // клик (не влачене) → избор на сегмент
+      const i = pickSeg(world(ev));
+      hlSeg = i;
+      selectRow(i);
+      draw();
+    }
+    ptr.delete(ev.pointerId);
+    if (ptr.size < 2) pinch0 = null;
+    if (!ptr.size) { panFrom = null; downAt = null; }
+  };
+  c.addEventListener('pointerup', up); c.addEventListener('pointercancel', up);
+  c.addEventListener('pointerleave', () => { $('coords').textContent = ''; });
+  c.addEventListener('dblclick', () => { fit(); draw(); });
+}
+
+if (typeof document !== 'undefined')
+  window.addEventListener('DOMContentLoaded', init);
+
+return { VER, DEFAULTS, computeAll, buildCSV, buildDXFExploded, buildDXFAssembled, parsePoints, dxfParse, midAnchor };
+})();
+if (typeof module !== 'undefined') module.exports = App;
+</script>
+</body>
+</html>
