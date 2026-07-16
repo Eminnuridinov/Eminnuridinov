@@ -4,31 +4,68 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0f1115">
-<title>AVKO GeoLab v1.2</title>
+<title>AVKO GeoLab v2.0</title>
 <style>
-:root{--bg:#0f1115;--panel:#181b22;--panel2:#1f242d;--line:#2a313c;--teal:#2dd4bf;--blue:#5aa9e6;--amber:#facc15;--red:#f87171;--text:#e6e9ee;--muted:#8a93a0}
+:root{--bg:#0b0d12;--panel:#12161f;--panel2:#1a2029;--line:#252d3a;--line2:#354158;
+ --teal:#2dd4bf;--blue:#5b8def;--amber:#facc15;--red:#f87171;
+ --text:#e8ebf0;--muted:#8a93a0;--faint:#5e6875;--r:12px}
 *{box-sizing:border-box}
-html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif}
-.mono,input,textarea,.v,.f,.cap,pre{font-family:ui-monospace,SFMono-Regular,Consolas,Menlo,monospace}
-header{padding:12px 14px 8px;border-bottom:1px solid var(--line);background:var(--panel)}
-.hrow{display:flex;align-items:center;gap:10px}
-h1{margin:0;font-size:18px;font-weight:700;letter-spacing:.3px}
-.badge{border:1px solid var(--teal);color:var(--teal);border-radius:6px;font-size:11px;padding:2px 7px;font-family:ui-monospace,Consolas,monospace}
-.sub{color:var(--muted);font-size:11.5px;margin-top:3px}
-.wrap{max-width:600px;margin:0 auto;padding:10px 10px 30px}
-.seg{display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px;margin:8px 0}
-.seg button{flex:1;background:transparent;border:0;color:var(--muted);padding:8px 6px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;min-height:36px}
-.seg button.on{background:rgba(45,212,191,.12);color:var(--teal)}
-.seg.small button{padding:6px 4px;min-height:32px;font-size:12px}
-.seg.tiny{margin:0;padding:3px}
-.seg.tiny button{padding:3px 10px;min-height:26px;font-size:11px;flex:0 0 auto}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0}
+html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,"Segoe UI",Roboto,sans-serif}
+.mono,input,textarea,.v,.f,.cap,pre,.tv{font-family:ui-monospace,SFMono-Regular,Consolas,Menlo,monospace}
+.hide{display:none!important}
+.app{display:flex;flex-direction:column;height:100vh}
+
+/* ---------- топбар ---------- */
+.topbar{display:flex;align-items:center;gap:14px;padding:9px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:8px}
+.brand h1{margin:0;font-size:17px;font-weight:800;letter-spacing:.4px}
+.brand .ver{border:1px solid var(--teal);color:var(--teal);border-radius:6px;font-size:10.5px;padding:1px 6px;font-family:ui-monospace,Consolas,monospace}
+.seg{display:flex;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:3px}
+.seg button{background:transparent;border:0;color:var(--muted);padding:7px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;min-height:34px}
+.seg button.on{background:rgba(45,212,191,.14);color:var(--teal)}
+.seg.small{width:100%}
+.seg.small button{flex:1;padding:6px 8px;min-height:30px;font-size:12px}
+.seg.tiny{padding:2px;margin:0}
+.seg.tiny button{padding:3px 10px;min-height:24px;font-size:11px}
+.actions{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.actions button{display:flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:9px;padding:7px 11px;font-size:12.5px;font-weight:600;cursor:pointer;min-height:34px}
+.actions button:hover:not(:disabled){border-color:var(--line2)}
+.actions button.primary{border-color:var(--teal);color:var(--teal);background:rgba(45,212,191,.10)}
+.actions button:disabled{opacity:.35;cursor:not-allowed}
+
+/* ---------- лента „нищо не се записва“ ---------- */
+.notice{display:flex;align-items:center;gap:8px;padding:5px 14px;background:rgba(45,212,191,.06);border-bottom:1px solid var(--line);color:var(--muted);font-size:11.5px}
+.notice b{color:var(--teal);font-weight:600}
+.notice button{margin-left:auto;background:none;border:0;color:var(--faint);cursor:pointer;font-size:13px;padding:2px 6px}
+.notice button:hover{color:var(--text)}
+
+/* ---------- работен плот ---------- */
+.work{flex:1;min-height:0;display:grid;grid-template-columns:340px minmax(0,1fr) 330px}
+.panel{overflow-y:auto;min-height:0;padding:12px}
+.panel.left{border-right:1px solid var(--line)}
+.panel.right{border-left:1px solid var(--line);background:var(--panel)}
+.stage{display:flex;flex-direction:column;min-width:0;min-height:0;
+ background:radial-gradient(circle at 1px 1px,#1b2230 1px,transparent 1.4px) 0 0/26px 26px,var(--bg)}
+.stagehead{display:flex;align-items:center;gap:8px;padding:8px 12px}
+#vizCap{flex:1;min-width:0;color:var(--muted);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;margin:0}
+.zctl{display:flex;gap:4px}
+.zctl button{width:30px;height:28px;background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:7px;cursor:pointer;font-size:14px;line-height:1}
+.zctl button:hover{color:var(--text);border-color:var(--line2)}
+#viz{flex:1;width:100%;min-height:0;display:block;cursor:grab;touch-action:none}
+#viz:active{cursor:grabbing}
+.legend{display:flex;align-items:center;gap:14px;padding:6px 12px 10px;color:var(--muted);font-size:11px;flex-wrap:wrap}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.legend .hint{margin-left:auto;color:var(--faint)}
+
+/* ---------- карти и полета ---------- */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:12px;margin:0 0 12px}
+.panel.right .card{background:var(--panel2)}
 .card h2{margin:0 0 10px;font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);font-weight:700}
-.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
-.chip{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:7px 10px;font-size:12px;cursor:pointer;min-height:32px}
-.chip.on{border-color:var(--teal);color:var(--teal);background:rgba(45,212,191,.10)}
-.chip{display:flex;align-items:center;gap:7px}
-.chip svg{width:26px;height:22px;flex:0 0 26px;display:block}
+.chips{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
+.chip{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:10px;padding:8px 4px 6px;font-size:10.5px;line-height:1.2;cursor:pointer;text-align:center;min-height:36px}
+.chip:hover{border-color:var(--line2);color:var(--text)}
+.chip.on{border-color:var(--teal);color:var(--teal);background:rgba(45,212,191,.08)}
+.chip svg{width:34px;height:26px;display:block}
 .chip svg .sil{fill:rgba(138,147,160,.18);stroke:#8a93a0;stroke-width:1.4;vector-effect:non-scaling-stroke}
 .chip.on svg .sil{fill:rgba(45,212,191,.16);stroke:var(--teal)}
 .sketchbox{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:6px;margin-bottom:10px}
@@ -49,87 +86,97 @@ button.mini,button.primary,button.plain{background:var(--panel2);border:1px soli
 button.primary{border-color:var(--teal);color:var(--teal);background:rgba(45,212,191,.10)}
 button:disabled{opacity:.4;cursor:not-allowed}
 details.help{margin-top:10px;color:var(--muted);font-size:12px}
+details.help summary{cursor:pointer}
 details.help pre{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px;overflow:auto;font-size:11.5px;line-height:1.6;color:var(--text)}
-.viz-card{position:sticky;top:8px;z-index:5}
-.vizhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
-.vizhead h2{margin:0}
-#viz{width:100%;height:auto;max-height:44vh;display:block;background:var(--panel2);border:1px solid var(--line);border-radius:10px}
-.cap{color:var(--muted);font-size:11px;margin-top:6px;text-align:center}
-.msg{border-radius:9px;padding:9px 11px;font-size:12.5px;margin:8px 0}
+details.help .note{display:block;margin-top:6px}
+
+/* ---------- резултати ---------- */
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.tile{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 11px 8px 13px;position:relative;overflow:hidden}
+.tile::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--teal)}
+.tile .tl{font-size:10px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;font-weight:600}
+.tile .tv{font-size:15.5px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .tu{font-size:10.5px;color:var(--muted);margin-left:4px;font-weight:500}
+.msg{border-radius:9px;padding:9px 11px;font-size:12.5px;margin:0 0 8px}
 .msg.err{background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.5);color:#fecaca}
 .msg.warn{background:rgba(250,204,21,.10);border:1px solid rgba(250,204,21,.45);color:#fde68a}
 .rows{display:flex;flex-direction:column}
-.row{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:7px 0;border-bottom:1px solid var(--line)}
+.row{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:6px 0;border-bottom:1px solid var(--line)}
 .row:last-child{border-bottom:0}
 .row .k{font-size:12.5px;color:var(--text)}
-.row .v{font-size:14px;text-align:right;white-space:nowrap}
+.row .v{font-size:13.5px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .row .v .u{color:var(--muted);font-size:11px}
 .row .f{grid-column:1/-1;color:var(--muted);font-size:10.5px}
-.hide{display:none!important}
-footer{color:var(--muted);font-size:11px;text-align:center;padding:14px 0 6px}
-@media(min-width:900px){
- .wrap{max-width:1180px;height:calc(100vh - 58px);display:flex;flex-direction:column;padding-bottom:0}
- .layout{display:grid;grid-template-columns:430px 1fr;gap:14px;flex:1;min-height:0}
- .col{overflow-y:auto;min-height:0;padding-right:4px;padding-bottom:20px}
- #viz{max-height:52vh}
- footer{padding:8px 0}
-}
-/* информация „не се записва нищо“ */
-.privacy{display:flex;align-items:flex-start;gap:8px;background:rgba(45,212,191,.07);border:1px solid rgba(45,212,191,.35);color:var(--text);border-radius:10px;padding:9px 11px;margin:8px 0;font-size:12px;line-height:1.5}
-.privacy b{color:var(--teal)}
-.privacy svg{width:18px;height:18px;flex:0 0 18px;margin-top:1px;stroke:var(--teal);fill:none;stroke-width:1.7}
+.foot{color:var(--faint);font-size:11px;text-align:center;padding:10px 0 4px}
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:var(--panel2);border:1px solid var(--teal);color:var(--teal);border-radius:10px;padding:10px 16px;font-size:13px;font-weight:600;box-shadow:0 6px 24px rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:50}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-.exp-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.exp-grid button{width:100%}
-/* печат → чист лист (PDF през браузъра) */
+
+/* ---------- мобилен изглед ---------- */
+@media(max-width:1099px){
+ html,body,.app{height:auto}
+ .topbar{gap:8px;padding:8px 10px}
+ #modeSeg{order:3;width:100%}
+ #modeSeg button{flex:1}
+ .actions button{padding:7px 9px;font-size:12px}
+ .work{display:flex;flex-direction:column}
+ .stage{order:-1;height:44vh;position:sticky;top:0;z-index:6;border-bottom:1px solid var(--line);
+  background:radial-gradient(circle at 1px 1px,#1b2230 1px,transparent 1.4px) 0 0/26px 26px,var(--bg)}
+ .panel{border:0!important;overflow:visible}
+ .panel.right{order:2;background:transparent}
+ .legend .hint{display:none}
+}
+
+/* ---------- печат (PDF) ---------- */
 @media print{
- :root{--bg:#fff;--panel:#fff;--panel2:#fff;--line:#c8ccd4;--text:#111;--muted:#555}
- html,body{background:#fff;color:#111}
- header{border-bottom:1px solid #c8ccd4}
- .seg,.chips,.rowbtns,.exp-grid,.privacy,details.help,#modeSeg,.vizhead .seg,#figSketch,.rowbtns *{display:none!important}
- .card{break-inside:avoid;border:1px solid #c8ccd4;box-shadow:none}
- #viz{border:1px solid #c8ccd4;max-height:none}
- .wrap{max-width:100%!important;height:auto!important;display:block!important}
- .layout{display:block!important}
- .col{overflow:visible!important;height:auto!important}
- .no-print{display:none!important}
+ :root{--bg:#fff;--panel:#fff;--panel2:#fff;--line:#c8ccd4;--line2:#c8ccd4;--text:#111;--muted:#555;--faint:#777}
+ html,body,.app{height:auto;background:#fff;color:#111}
+ .topbar .actions,#modeSeg,.notice,.panel.left,.zctl,#vizSeg,.legend .hint,.toast{display:none!important}
+ .work{display:block;height:auto}
+ .stage{background:#fff}
+ #viz{height:110mm;border:1px solid #c8ccd4;border-radius:8px}
+ .panel{overflow:visible;border:0!important}
+ .card{break-inside:avoid;border:1px solid #c8ccd4}
+ .tile{border:1px solid #c8ccd4}
+ .tile::before{background:#0e9488}
 }
 </style>
 </head>
 <body>
-<header>
- <div class="hrow"><h1>AVKO GeoLab</h1><span class="badge">v1.2</span></div>
- <div class="sub">2D профили · свойства на сечение · тела (extrude / revolve) · DXF/CSV/SVG · печат PDF · offline, без реклами</div>
-</header>
-<div class="wrap">
- <div class="privacy">
-  <svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
-  <div><b>Нищо не се записва на този компютър.</b> Инструментът работи изцяло в браузъра (в паметта). Файл се създава <b>само</b> когато натиснеш бутон за експорт (DXF, CSV, SVG) или „Печат/PDF“ — тогава отива в папка „Изтегляния“. Затвориш ли таба, всичко изчезва.</div>
- </div>
- <div class="seg" id="modeSeg">
+<div class="app">
+<header class="topbar">
+ <div class="brand"><h1>AVKO GeoLab</h1><span class="ver">v2.0</span></div>
+ <nav class="seg" id="modeSeg">
   <button id="btnModeCat" class="on">Каталог</button>
   <button id="btnModeProf">Профил</button>
   <button id="btnModeBody">Тяло</button>
+ </nav>
+ <div class="actions">
+  <button id="btnDXF" class="primary" title="Записва .dxf в „Изтегляния“ — само при натискане">⬇ DXF</button>
+  <button id="btnCSV" title="Записва .csv с всички резултати — само при натискане">⬇ CSV</button>
+  <button id="btnSVG" title="Записва схемата като .svg — само при натискане">⬇ SVG</button>
+  <button id="btnPrint" title="Системен печат — там избери „Запиши като PDF“">🖨 Печат</button>
+  <button id="btnCopy" title="Копира всички резултати в клипборда — без файл на диска">📋 Копирай</button>
  </div>
- <main class="layout">
-  <section class="col">
-   <div class="card" id="cardCatalog">
-    <h2>Фигура</h2>
-    <div class="chips" id="figChips"></div>
-    <div class="sketchbox" id="figSketch"></div>
-    <div class="grid2" id="figFields"></div>
-    <div class="rowbtns"><button class="mini" id="btnToProfile">→ отвори като Профил (команди)</button></div>
+</header>
+<div class="notice" id="notice">🛡<span><b>Нищо не се записва на този компютър.</b> Работи изцяло в паметта на браузъра — файл се създава само при натискане на бутон за експорт (папка „Изтегляния“). Затвориш ли таба, всичко изчезва.</span><button id="noticeX" title="Скрий">✕</button></div>
+<main class="work">
+ <aside class="panel left">
+  <div class="card" id="cardCatalog">
+   <h2>Фигура</h2>
+   <div class="chips" id="figChips"></div>
+   <div class="sketchbox" id="figSketch"></div>
+   <div class="grid2" id="figFields"></div>
+   <div class="rowbtns"><button class="mini" id="btnToProfile">→ отвори като Профил (команди)</button></div>
+  </div>
+  <div class="card hide" id="cardProfile">
+   <h2>Профил — команди</h2>
+   <div class="chips" id="exChips">
+    <button class="chip" data-ex="plate">Плоча с отвори</button>
+    <button class="chip" data-ex="flange">Фланец</button>
+    <button class="chip" data-ex="arc">Контур с дъга</button>
    </div>
-   <div class="card hide" id="cardProfile">
-    <h2>Профил — команди</h2>
-    <div class="chips" id="exChips">
-     <button class="chip" data-ex="plate">Плоча с отвори</button>
-     <button class="chip" data-ex="flange">Фланец</button>
-     <button class="chip" data-ex="arc">Контур с дъга</button>
-    </div>
-    <textarea id="taScript" rows="10" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
-    <details class="help"><summary>Команди — справка</summary>
+   <textarea id="taScript" rows="10" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+   <details class="help"><summary>Команди — справка</summary>
 <pre>RECT b h            правоъгълник от (0,0)
 CIRCLE D200 | R100  кръгъл контур, център (0,0)
 START x y           начало на свободен контур
@@ -140,51 +187,54 @@ FILLET r            закръгля всички прави ъгли
 HOLE x y D20 | R10  кръгъл отвор
 BOLTS n BC140 D18 [A0]  n отвора на болтова окр. Ø140
 ; коментар          мерни единици: mm, десетична , или .</pre>
-    </details>
+   </details>
+  </div>
+  <div class="card hide" id="cardBody">
+   <h2>Тяло</h2>
+   <div class="lbl">Източник на профила</div>
+   <div class="seg small"><button id="btnSrcCat" class="on">Каталог</button><button id="btnSrcProf">Профил</button></div>
+   <div class="lbl">Операция</div>
+   <div class="seg small"><button id="btnOpExt" class="on">EXTRUDE</button><button id="btnOpRev">REVOLVE</button></div>
+   <div class="grid2" style="margin-top:8px">
+    <label id="lblH"><span class="lt"><i class="dot g"></i>Височина h, mm</span><input type="number" id="inpH" value="10" step="any"></label>
+    <label><span class="lt"><i class="dot y"></i>Материал</span><select id="selMat"></select></label>
+    <label><span class="lt"><i class="dot y"></i>Плътност ρ, kg/m³</span><input type="number" id="inpRho" value="7850" step="any"></label>
+    <div class="note hide" id="revNote">REVOLVE: ос Y през x=0, пълни 360° (Папус). Профилът и отворите трябва да са изцяло при x ≥ 0.</div>
    </div>
-   <div class="card hide" id="cardBody">
-    <h2>Тяло</h2>
-    <div class="lbl">Източник на профила</div>
-    <div class="seg small"><button id="btnSrcCat" class="on">Каталог</button><button id="btnSrcProf">Профил</button></div>
-    <div class="lbl">Операция</div>
-    <div class="seg small"><button id="btnOpExt" class="on">EXTRUDE</button><button id="btnOpRev">REVOLVE</button></div>
-    <div class="grid2" style="margin-top:8px">
-     <label id="lblH"><span class="lt"><i class="dot g"></i>Височина h, mm</span><input type="number" id="inpH" value="10" step="any"></label>
-     <label><span class="lt"><i class="dot y"></i>Материал</span><select id="selMat"></select></label>
-     <label><span class="lt"><i class="dot y"></i>Плътност ρ, kg/m³</span><input type="number" id="inpRho" value="7850" step="any"></label>
-     <div class="note hide" id="revNote">REVOLVE: ос Y през x=0, пълни 360° (Папус). Профилът и отворите трябва да са изцяло при x ≥ 0.</div>
-    </div>
-   </div>
-   <div class="card">
-    <h2>Експорт · записва само при натискане</h2>
-    <div class="exp-grid">
-     <button id="btnDXF" class="primary">⬇ DXF (R12)</button>
-     <button id="btnCSV" class="plain">⬇ CSV (данни)</button>
-     <button id="btnSVG" class="plain">⬇ SVG (схема)</button>
-     <button id="btnPrint" class="plain">🖨 Печат / PDF</button>
-     <button id="btnCopy" class="plain" style="grid-column:1/-1">📋 Копирай резултатите</button>
-    </div>
-    <div class="note" style="margin-top:10px">DXF: контур → слой KONTUR (POLYLINE, дъгите като bulge; кръг → CIRCLE), отвори → слой OTVOR (CIRCLE). Елипсата се експортира като полилиния. Само 2D геометрия.<br>SVG = текущата схема (за вмъкване в документ). „Печат/PDF“ отваря системния диалог — там избери „Запиши като PDF“. „Копирай“ слага всички числа в клипборда — без файл на диска.</div>
-   </div>
-  </section>
-  <section class="col">
-   <div class="card viz-card">
-    <div class="vizhead"><h2>Схема</h2><div class="seg tiny hide" id="vizSeg"><button id="btnViz2D">2D</button><button id="btnViz3D" class="on">3D</button></div></div>
-    <svg id="viz" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"></svg>
-    <div class="cap" id="vizCap">—</div>
-   </div>
-   <div id="msgs"></div>
-   <div class="card" id="resSection"><h2>Сечение</h2><div class="rows" id="rowsA"></div></div>
-   <div class="card" id="resInertia"><h2>Инерционни характеристики</h2><div class="rows" id="rowsI"></div></div>
-   <div class="card hide" id="resBody"><h2>Тяло</h2><div class="rows" id="rowsB"></div></div>
-  </section>
- </main>
- <footer>AVKO GeoLab · единичен файл · работи офлайн · без реклами · mm</footer>
+  </div>
+  <details class="help"><summary>Какво съдържа експортът?</summary>
+   <div class="note">DXF: контур → слой KONTUR (POLYLINE, дъгите като bulge; кръг → CIRCLE), отвори → слой OTVOR (CIRCLE). Елипсата се експортира като полилиния. Само 2D геометрия.<br>SVG = текущата схема (за вмъкване в документ). „Печат“ отваря системния диалог — там избери „Запиши като PDF“. „Копирай“ слага всички числа в клипборда — без файл на диска.</div>
+  </details>
+ </aside>
+ <section class="stage">
+  <div class="stagehead">
+   <div class="cap" id="vizCap">—</div>
+   <div class="seg tiny hide" id="vizSeg"><button id="btnViz2D">2D</button><button id="btnViz3D" class="on">3D</button></div>
+   <div class="zctl"><button id="btnZIn" title="Приближи">+</button><button id="btnZOut" title="Отдалечи">−</button><button id="btnZFit" title="Побери цялата схема (или двоен клик)">⌂</button></div>
+  </div>
+  <svg id="viz" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"></svg>
+  <div class="legend">
+   <span><i style="background:#2dd4bf"></i>контур</span>
+   <span><i style="background:#5b8def"></i>отвор</span>
+   <span><i style="background:#facc15"></i>гл. оси · ЦТ</span>
+   <span><i style="background:#8a93a0"></i>размери</span>
+   <span class="hint">колело = мащаб · влачене = местене · двоен клик = побери</span>
+  </div>
+ </section>
+ <aside class="panel right">
+  <div class="tiles" id="tiles"></div>
+  <div id="msgs"></div>
+  <div class="card" id="resSection"><h2>Сечение</h2><div class="rows" id="rowsA"></div></div>
+  <div class="card" id="resInertia"><h2>Инерционни характеристики</h2><div class="rows" id="rowsI"></div></div>
+  <div class="card hide" id="resBody"><h2>Тяло</h2><div class="rows" id="rowsB"></div></div>
+  <div class="foot">AVKO GeoLab · единичен файл · работи офлайн · без реклами · mm</div>
+ </aside>
+</main>
 </div>
 <script>
 "use strict";
 /* ================= AVKO GeoLab v1.1 — ядро ================= */
-const VERSION="1.1";
+const VERSION="2.0";
 const COMPUTE_TOL=0.0005;   // sagitta [mm] за полигонизация при смятане
 const EPS=1e-9;
 
@@ -834,7 +884,7 @@ function buildViz2D(sp,contour,holes,showAxis){
  s+=`<path d="${svgPolyPath(ringV,true)}" fill="rgba(45,212,191,.08)" stroke="#2dd4bf" stroke-width="${sw}" stroke-linejoin="round"/>`;
  // отвори
  for(const h of (holes||[]))
-  s+=`<circle cx="${h.x.toFixed(3)}" cy="${(-h.y).toFixed(3)}" r="${h.r.toFixed(3)}" fill="#0f1115" stroke="#5aa9e6" stroke-width="${sw}"/>`;
+  s+=`<circle cx="${h.x.toFixed(3)}" cy="${(-h.y).toFixed(3)}" r="${h.r.toFixed(3)}" fill="#0b0d12" stroke="#5b8def" stroke-width="${sw}"/>`;
  // размерни линии — габарит
  const dy=-bb.y0+off*0.62,dx=bb.x0-off*0.62,tick=fs*0.5;
  s+=`<g stroke="#8a93a0" stroke-width="${sw*0.55}" fill="#8a93a0" font-size="${fs}" font-family="ui-monospace,Consolas,monospace">`;
@@ -911,7 +961,7 @@ function buildViz3D(sp,contour,holes,body){
  let X0=1/0,Y0=1/0,X1=-1/0,Y1=-1/0;
  for(const g of polys)for(const p of g.p){if(p[0]<X0)X0=p[0];if(p[0]>X1)X1=p[0];if(p[1]<Y0)Y0=p[1];if(p[1]>Y1)Y1=p[1];}
  const Wv=X1-X0||1,Hv=Y1-Y0||1,pad=Math.hypot(Wv,Hv)*0.07,sw=Math.max(Math.hypot(Wv,Hv)*0.0035,0.2);
- const col={t:"#2dd4bf",m:"rgba(138,147,160,.55)",b:"#5aa9e6",a:"#facc15"};
+ const col={t:"#2dd4bf",m:"rgba(138,147,160,.55)",b:"#5b8def",a:"#facc15"};
  let s="";
  for(const g of polys){
   const d="M"+g.p.map(p=>p[0].toFixed(3)+" "+p[1].toFixed(3)).join("L");
@@ -1015,13 +1065,67 @@ function renderMsgs(errs,warns){
 }
 function renderViz(S,body){
  const viz=byId("viz"),cap=byId("vizCap");
- if(!S||!S.sp){viz.innerHTML="";viz.setAttribute("viewBox","0 0 100 100");cap.textContent="—";return;}
+ if(!S||!S.sp){viz.innerHTML="";viz.setAttribute("viewBox","0 0 100 100");viz.dataset.fit="0 0 100 100";cap.textContent="—";return;}
  let out;
  if(state.mode==="body"&&state.viz3d&&body&&!body.errsShown)out=buildViz3D(S.sp,S.contour,S.holes,body);
  else out=buildViz2D(S.sp,S.contour,S.holes,state.mode==="body"&&state.body.op==="rev");
  viz.innerHTML=out.inner;
  viz.setAttribute("viewBox",out.viewBox);
+ viz.dataset.fit=out.viewBox;
  cap.textContent=out.cap;
+}
+/* плочки с ключови стойности */
+function renderTiles(sp,body){
+ const el=byId("tiles");if(!el)return;
+ if(!sp){el.innerHTML="";return;}
+ const T=(l,v,u)=>`<div class="tile"><div class="tl">${l}</div><div class="tv">${v}<span class="tu">${u}</span></div></div>`;
+ let h;
+ if(state.mode==="body"&&body){
+  const rho=parseNum(byId("inpRho").value);
+  const m=isFinite(rho)&&rho>0?rho*body.V*1e-6:NaN;
+  h=T("Площ A",fmt(sp.A),"mm²")
+   +T("Обем V",fmt(body.V/1000,2),"cm³")
+   +T("Повърхнина S",fmt(body.S),"mm²")
+   +T("Маса m",isFinite(m)?(m<1000?fmt(m,2):fmt(m/1000,3)):"—",isFinite(m)?(m<1000?"g":"kg"):"");
+ }else{
+  h=T("Площ A",fmt(sp.A),"mm²")+T("Ix",fmt(sp.Ixc),"mm⁴")+T("Iy",fmt(sp.Iyc),"mm⁴")+T("Wx",fmt(sp.Wx),"mm³");
+ }
+ el.innerHTML=h;
+}
+/* зуум и пан на схемата */
+function setupStage(){
+ const svg=byId("viz");
+ const get=()=>svg.getAttribute("viewBox").split(/\s+/).map(Number);
+ const set=v=>svg.setAttribute("viewBox",v.join(" "));
+ function zoomAt(f,fx,fy){
+  const v=get(),nw=v[2]*f,nh=v[3]*f;
+  if(nw<1e-6||nw>1e8)return;
+  set([v[0]+(v[2]-nw)*fx,v[1]+(v[3]-nh)*fy,nw,nh]);
+ }
+ svg.addEventListener("wheel",e=>{
+  e.preventDefault();
+  const r=svg.getBoundingClientRect();
+  zoomAt(e.deltaY>0?1.15:1/1.15,(e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height);
+ },{passive:false});
+ let drag=null;
+ svg.addEventListener("pointerdown",e=>{
+  drag={x:e.clientX,y:e.clientY,v:get()};
+  try{svg.setPointerCapture(e.pointerId);}catch(_){}
+ });
+ svg.addEventListener("pointermove",e=>{
+  if(!drag)return;
+  const r=svg.getBoundingClientRect();
+  const k=Math.max(drag.v[2]/r.width,drag.v[3]/r.height);
+  set([drag.v[0]-(e.clientX-drag.x)*k,drag.v[1]-(e.clientY-drag.y)*k,drag.v[2],drag.v[3]]);
+ });
+ const end=()=>{drag=null;};
+ svg.addEventListener("pointerup",end);
+ svg.addEventListener("pointercancel",end);
+ const fit=()=>{if(svg.dataset.fit)svg.setAttribute("viewBox",svg.dataset.fit);};
+ svg.addEventListener("dblclick",fit);
+ byId("btnZIn").addEventListener("click",()=>zoomAt(1/1.3,0.5,0.5));
+ byId("btnZOut").addEventListener("click",()=>zoomAt(1.3,0.5,0.5));
+ byId("btnZFit").addEventListener("click",fit);
 }
 function updateVis(){
  const m=state.mode;
@@ -1068,6 +1172,7 @@ function recompute(){
  renderMsgs(errs,warns);
  renderRows(ok?S.sp:null,S.F);
  renderViz(ok?S:null,body);
+ renderTiles(ok?S.sp:null,body);
  byId("btnDXF").disabled=!ok;
  byId("btnCSV").disabled=!ok;
  byId("btnSVG").disabled=!ok;
@@ -1118,7 +1223,7 @@ function exportSVG(){
  clone.setAttribute("height",Math.round(800/(aspect||1)));
  const rect=document.createElementNS("http://www.w3.org/2000/svg","rect");
  rect.setAttribute("x",vb[0]);rect.setAttribute("y",vb[1]);
- rect.setAttribute("width",vb[2]);rect.setAttribute("height",vb[3]);rect.setAttribute("fill","#0f1115");
+ rect.setAttribute("width",vb[2]);rect.setAttribute("height",vb[3]);rect.setAttribute("fill","#0b0d12");
  clone.insertBefore(rect,clone.firstChild);
  const xml='<?xml version="1.0" encoding="UTF-8"?>\n'+new XMLSerializer().serializeToString(clone);
  download(`geolab_${state.last.tag}_${dateStr()}.svg`,xml,"image/svg+xml;charset=utf-8");
@@ -1215,6 +1320,8 @@ function init(){
  byId("btnSVG").addEventListener("click",exportSVG);
  byId("btnPrint").addEventListener("click",()=>window.print());
  byId("btnCopy").addEventListener("click",copyResults);
+ byId("noticeX").addEventListener("click",()=>byId("notice").classList.add("hide"));
+ setupStage();
  byId("btnToProfile").addEventListener("click",()=>{
   const sc=catalogToScript(state.fig,readFigVals());
   if(!sc){renderMsgs([{line:0,msg:"Тази фигура не може да се представи като команди (елипса → полилиния)"}],[]);return;}
