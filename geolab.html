@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0f1115">
-<title>AVKO GeoLab v2.0</title>
+<title>AVKO GeoLab v2.1</title>
 <style>
 :root{--bg:#0b0d12;--panel:#12161f;--panel2:#1a2029;--line:#252d3a;--line2:#354158;
  --teal:#2dd4bf;--blue:#5b8def;--amber:#facc15;--red:#f87171;
@@ -111,6 +111,16 @@ details.help .note{display:block;margin-top:6px}
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:var(--panel2);border:1px solid var(--teal);color:var(--teal);border-radius:10px;padding:10px 16px;font-size:13px;font-weight:600;box-shadow:0 6px 24px rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:50}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
+/* ---------- чертане с мишката ---------- */
+.drawbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 12px;border-bottom:1px solid var(--line);background:var(--panel);font-size:11.5px;color:var(--muted)}
+.drawbar .db{display:flex;align-items:center;gap:5px;white-space:nowrap}
+.drawbar input[type=number]{width:58px;min-height:26px;padding:3px 6px;font-size:12px}
+.drawbar select{width:auto;min-height:26px;padding:3px 6px;font-size:12px}
+.dbtn{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer;min-height:26px}
+.dbtn.primary{border-color:var(--teal);color:var(--teal);background:rgba(45,212,191,.10)}
+.dbtn:hover{border-color:var(--line2)}
+#viz.drawing{cursor:crosshair}
+
 /* ---------- мобилен изглед ---------- */
 @media(max-width:1099px){
  html,body,.app{height:auto}
@@ -144,7 +154,7 @@ details.help .note{display:block;margin-top:6px}
 <body>
 <div class="app">
 <header class="topbar">
- <div class="brand"><h1>AVKO GeoLab</h1><span class="ver">v2.0</span></div>
+ <div class="brand"><h1>AVKO GeoLab</h1><span class="ver">v2.1</span></div>
  <nav class="seg" id="modeSeg">
   <button id="btnModeCat" class="on">Каталог</button>
   <button id="btnModeProf">Профил</button>
@@ -175,6 +185,7 @@ details.help .note{display:block;margin-top:6px}
     <button class="chip" data-ex="flange">Фланец</button>
     <button class="chip" data-ex="arc">Контур с дъга</button>
    </div>
+   <div class="rowbtns" style="margin:0 0 8px"><button class="mini" id="btnDraw" style="flex:1" title="Кликаш точки върху платното — линии, дъги, отвори, закръгление. При „Затвори“ замества текущите команди.">✏ Начертай с мишката</button></div>
    <textarea id="taScript" rows="10" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
    <details class="help"><summary>Команди — справка</summary>
 <pre>RECT b h            правоъгълник от (0,0)
@@ -212,6 +223,20 @@ BOLTS n BC140 D18 [A0]  n отвора на болтова окр. Ø140
    <div class="seg tiny hide" id="vizSeg"><button id="btnViz2D">2D</button><button id="btnViz3D" class="on">3D</button></div>
    <div class="zctl"><button id="btnZIn" title="Приближи">+</button><button id="btnZOut" title="Отдалечи">−</button><button id="btnZFit" title="Побери цялата схема (или двоен клик)">⌂</button></div>
   </div>
+  <div class="drawbar hide" id="drawbar">
+   <div class="seg tiny">
+    <button id="tLine" class="on" title="Права отсечка до следващата точка">─ Линия</button>
+    <button id="tArc" title="Дъга до следващата точка (радиус + посока)">◠ Дъга</button>
+    <button id="tHole" title="Кръгъл отвор — клик в центъра">◎ Отвор</button>
+   </div>
+   <span class="db hide" id="dbArc">R<input id="dArcR" type="number" value="20" step="any" title="Радиус на дъгата, mm"><span class="seg tiny"><button id="dCCW" class="on" title="Обратно на часовника">CCW</button><button id="dCW" title="По часовника">CW</button></span></span>
+   <span class="db hide" id="dbHole">Ø<input id="dHoleD" type="number" value="10" step="any" title="Диаметър на отвора, mm"></span>
+   <span class="db">стъпка<select id="dSnap"><option>1</option><option>2</option><option selected>5</option><option>10</option></select>mm</span>
+   <span class="db">закръгл. r<input id="dFil" type="number" value="0" step="any" title="FILLET върху всички прави ъгли при затваряне (0 = без)"></span>
+   <button class="dbtn" id="dUndo" title="Назад (Ctrl+Z)">↶</button>
+   <button class="dbtn primary" id="dClose" title="Затвори контура (Enter или клик върху стартовата точка)">✔ Затвори</button>
+   <button class="dbtn" id="dCancel" title="Изход без запис (Esc)">✕</button>
+  </div>
   <svg id="viz" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"></svg>
   <div class="legend">
    <span><i style="background:#2dd4bf"></i>контур</span>
@@ -234,7 +259,7 @@ BOLTS n BC140 D18 [A0]  n отвора на болтова окр. Ø140
 <script>
 "use strict";
 /* ================= AVKO GeoLab v1.1 — ядро ================= */
-const VERSION="2.0";
+const VERSION="2.1";
 const COMPUTE_TOL=0.0005;   // sagitta [mm] за полигонизация при смятане
 const EPS=1e-9;
 
@@ -1064,6 +1089,7 @@ function renderMsgs(errs,warns){
  +(warns||[]).map(w=>`<div class="msg warn">⚠ ${esc(w)}</div>`).join("");
 }
 function renderViz(S,body){
+ if(DRAW.on)return;
  const viz=byId("viz"),cap=byId("vizCap");
  if(!S||!S.sp){viz.innerHTML="";viz.setAttribute("viewBox","0 0 100 100");viz.dataset.fit="0 0 100 100";cap.textContent="—";return;}
  let out;
@@ -1092,6 +1118,153 @@ function renderTiles(sp,body){
  }
  el.innerHTML=h;
 }
+/* ---------- чертане с мишката ---------- */
+const DRAW={on:false,tool:"line",acts:[],start:null,cur:null,mouse:null};
+function drawStep(){return parseFloat(byId("dSnap").value)||5;}
+function vizToModel(e){
+ const svg=byId("viz"),r=svg.getBoundingClientRect();
+ const vb=svg.getAttribute("viewBox").split(/\s+/).map(Number);
+ const s=Math.min(r.width/vb[2],r.height/vb[3]);
+ const ox=(r.width-vb[2]*s)/2,oy=(r.height-vb[3]*s)/2;
+ return [vb[0]+(e.clientX-r.left-ox)/s,-(vb[1]+(e.clientY-r.top-oy)/s)];
+}
+function drawSnap(p,e){
+ const st=drawStep();let x=p[0],y=p[1];
+ if(DRAW.start&&DRAW.acts.some(a=>a.kind==="seg")&&
+    Math.hypot(x-DRAW.start.x,y-DRAW.start.y)<st*0.75)
+  return{x:DRAW.start.x,y:DRAW.start.y,close:true};
+ if(e&&e.shiftKey&&DRAW.cur){
+  const dx=x-DRAW.cur[0],dy=y-DRAW.cur[1];
+  const ang=Math.round(Math.atan2(dy,dx)/(Math.PI/4))*(Math.PI/4);
+  const len=Math.max(st,Math.round(Math.hypot(dx,dy)/st)*st);
+  x=DRAW.cur[0]+len*Math.cos(ang);y=DRAW.cur[1]+len*Math.sin(ang);
+ }else{x=Math.round(x/st)*st;y=Math.round(y/st)*st;}
+ return{x:+x.toFixed(4),y:+y.toFixed(4)};
+}
+function drawArcPath(x0,y0,x1,y1,R,dir){
+ const c=Math.hypot(x1-x0,y1-y0),Reff=Math.max(R||0,c/2);
+ return`A${nn(Reff)} ${nn(Reff)} 0 0 ${dir==="CCW"?0:1} ${x1} ${-y1}`;
+}
+function drawPreview(){
+ if(!DRAW.on)return;
+ const svg=byId("viz");
+ const vb=svg.getAttribute("viewBox").split(/\s+/).map(Number);
+ const st=drawStep(),sw=vb[2]/240;
+ let s="";
+ if(vb[2]/st<=180){
+  let g="";
+  for(let x=Math.ceil(vb[0]/st)*st;x<=vb[0]+vb[2];x+=st)g+=`M${nn(x)} ${nn(vb[1])}v${nn(vb[3])}`;
+  for(let y=Math.ceil(vb[1]/st)*st;y<=vb[1]+vb[3];y+=st)g+=`M${nn(vb[0])} ${nn(y)}h${nn(vb[2])}`;
+  s+=`<path d="${g}" stroke="rgba(138,147,160,.13)" stroke-width="${sw*0.5}" fill="none"/>`;
+ }
+ s+=`<path d="M${nn(vb[0])} 0H${nn(vb[0]+vb[2])}M0 ${nn(vb[1])}V${nn(vb[1]+vb[3])}" stroke="rgba(138,147,160,.4)" stroke-width="${sw*0.7}" fill="none"/>`;
+ if(DRAW.start){
+  let d=`M${DRAW.start.x} ${-DRAW.start.y}`,px=DRAW.start.x,py=DRAW.start.y;
+  for(const a of DRAW.acts){
+   if(a.kind!=="seg")continue;
+   d+=a.t==="L"?`L${a.x} ${-a.y}`:drawArcPath(px,py,a.x,a.y,a.R,a.dir);
+   px=a.x;py=a.y;
+  }
+  s+=`<path d="${d}" fill="none" stroke="#2dd4bf" stroke-width="${sw*1.4}" stroke-linejoin="round"/>`;
+  s+=`<circle cx="${DRAW.start.x}" cy="${-DRAW.start.y}" r="${sw*3}" fill="none" stroke="#facc15" stroke-width="${sw}"/>`;
+ }
+ for(const a of DRAW.acts)if(a.kind==="hole")
+  s+=`<circle cx="${a.x}" cy="${-a.y}" r="${a.r}" fill="none" stroke="#5b8def" stroke-width="${sw*1.2}"/>`;
+ if(DRAW.mouse){
+  const m=DRAW.mouse,dash=`stroke-dasharray="${sw*3.5} ${sw*2.5}"`;
+  if(DRAW.tool==="hole"){
+   const D=parseFloat(byId("dHoleD").value)||10;
+   s+=`<circle cx="${m.x}" cy="${-m.y}" r="${D/2}" fill="none" stroke="#5b8def" ${dash} stroke-width="${sw}"/>`;
+  }else if(DRAW.cur&&(m.x!==DRAW.cur[0]||m.y!==DRAW.cur[1])){
+   if(DRAW.tool==="line")s+=`<line x1="${DRAW.cur[0]}" y1="${-DRAW.cur[1]}" x2="${m.x}" y2="${-m.y}" stroke="#facc15" ${dash} stroke-width="${sw}"/>`;
+   else s+=`<path d="M${DRAW.cur[0]} ${-DRAW.cur[1]}${drawArcPath(DRAW.cur[0],DRAW.cur[1],m.x,m.y,parseFloat(byId("dArcR").value),byId("dCCW").classList.contains("on")?"CCW":"CW")}" fill="none" stroke="#facc15" ${dash} stroke-width="${sw}"/>`;
+  }
+  s+=`<circle cx="${m.x}" cy="${-m.y}" r="${sw*2}" fill="${m.close?"#2dd4bf":"#facc15"}"/>`;
+ }
+ svg.innerHTML=s;
+}
+function drawCap(m){
+ let t=m?`x = ${nn(m.x)}   y = ${nn(m.y)}`:"";
+ if(m&&DRAW.cur&&!m.close&&DRAW.tool!=="hole"){
+  const dx=m.x-DRAW.cur[0],dy=m.y-DRAW.cur[1];
+  t+=`   ·   L = ${fmt(Math.hypot(dx,dy),2)} mm   ∠ = ${fmt(Math.atan2(dy,dx)*180/Math.PI,1)}°`;
+ }
+ if(m&&m.close)t+="   ·   клик = затваряне на контура";
+ byId("vizCap").textContent=t||"Кликай, за да поставяш точки · Shift = 0/45/90° · клик върху старта или Enter затваря · Esc отказва";
+}
+function drawClick(e){
+ if(!DRAW.on)return;
+ const p=drawSnap(vizToModel(e),e);
+ if(DRAW.tool==="hole"){
+  const D=parseFloat(byId("dHoleD").value);
+  if(D>0){DRAW.acts.push({kind:"hole",x:p.x,y:p.y,r:D/2});drawPreview();}
+  return;
+ }
+ if(!DRAW.start){DRAW.start={x:p.x,y:p.y};DRAW.cur=[p.x,p.y];drawPreview();drawCap(p);return;}
+ if(p.close){
+  if(DRAW.tool==="arc")DRAW.acts.push({kind:"seg",t:"A",x:p.x,y:p.y,R:parseFloat(byId("dArcR").value)||0,dir:byId("dCCW").classList.contains("on")?"CCW":"CW"});
+  drawFinish();return;
+ }
+ if(Math.hypot(p.x-DRAW.cur[0],p.y-DRAW.cur[1])<1e-9)return;
+ if(DRAW.tool==="line")DRAW.acts.push({kind:"seg",t:"L",x:p.x,y:p.y});
+ else DRAW.acts.push({kind:"seg",t:"A",x:p.x,y:p.y,R:parseFloat(byId("dArcR").value)||0,dir:byId("dCCW").classList.contains("on")?"CCW":"CW"});
+ DRAW.cur=[p.x,p.y];drawPreview();
+}
+function drawUndo(){
+ if(DRAW.acts.length){
+  const a=DRAW.acts.pop();
+  if(a.kind==="seg"){
+   const segs=DRAW.acts.filter(x=>x.kind==="seg");
+   DRAW.cur=segs.length?[segs[segs.length-1].x,segs[segs.length-1].y]:[DRAW.start.x,DRAW.start.y];
+  }
+ }else if(DRAW.start){DRAW.start=null;DRAW.cur=null;}
+ drawPreview();
+}
+function drawFinish(){
+ const segs=DRAW.acts.filter(a=>a.kind==="seg");
+ if(!DRAW.start||segs.length<2){toast("Нужни са поне 2 отсечки преди затваряне");return;}
+ const L=["; скица с мишката",`START ${nn(DRAW.start.x)} ${nn(DRAW.start.y)}`];
+ let px=DRAW.start.x,py=DRAW.start.y;
+ for(const a of segs){
+  if(a.t==="L")L.push(`L ${nn(a.x)} ${nn(a.y)}`);
+  else{
+   const c=Math.hypot(a.x-px,a.y-py),Reff=Math.max(a.R||0,c/2);
+   L.push(`A ${nn(a.x)} ${nn(a.y)} R${nn(Reff)} ${a.dir}`);
+  }
+  px=a.x;py=a.y;
+ }
+ L.push("CLOSE");
+ const fr=parseFloat(byId("dFil").value);
+ if(fr>0)L.push(`FILLET ${nn(fr)}`);
+ for(const a of DRAW.acts)if(a.kind==="hole")L.push(`HOLE ${nn(a.x)} ${nn(a.y)} D${nn(2*a.r)}`);
+ byId("taScript").value=L.join("\n");
+ drawExit();
+ recompute();
+ toast("Скицата е прехвърлена в командите");
+}
+function drawSetTool(t){
+ DRAW.tool=t;
+ byId("tLine").classList.toggle("on",t==="line");
+ byId("tArc").classList.toggle("on",t==="arc");
+ byId("tHole").classList.toggle("on",t==="hole");
+ byId("dbArc").classList.toggle("hide",t!=="arc");
+ byId("dbHole").classList.toggle("hide",t!=="hole");
+ drawPreview();
+}
+function drawEnter(){
+ state.mode="profile";updateVis();
+ DRAW.on=true;DRAW.acts=[];DRAW.start=null;DRAW.cur=null;DRAW.mouse=null;
+ byId("drawbar").classList.remove("hide");
+ byId("viz").classList.add("drawing");
+ byId("viz").setAttribute("viewBox","-25 -130 220 155");
+ drawSetTool("line");
+ drawCap(null);
+}
+function drawExit(){
+ DRAW.on=false;
+ byId("drawbar").classList.add("hide");
+ byId("viz").classList.remove("drawing");
+}
 /* зуум и пан на схемата */
 function setupStage(){
  const svg=byId("viz");
@@ -1106,9 +1279,11 @@ function setupStage(){
   e.preventDefault();
   const r=svg.getBoundingClientRect();
   zoomAt(e.deltaY>0?1.15:1/1.15,(e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height);
+  if(DRAW.on)drawPreview();
  },{passive:false});
  let drag=null;
  svg.addEventListener("pointerdown",e=>{
+  if(DRAW.on)return;
   drag={x:e.clientX,y:e.clientY,v:get()};
   try{svg.setPointerCapture(e.pointerId);}catch(_){}
  });
@@ -1122,7 +1297,7 @@ function setupStage(){
  svg.addEventListener("pointerup",end);
  svg.addEventListener("pointercancel",end);
  const fit=()=>{if(svg.dataset.fit)svg.setAttribute("viewBox",svg.dataset.fit);};
- svg.addEventListener("dblclick",fit);
+ svg.addEventListener("dblclick",()=>{if(!DRAW.on)fit();});
  byId("btnZIn").addEventListener("click",()=>zoomAt(1/1.3,0.5,0.5));
  byId("btnZOut").addEventListener("click",()=>zoomAt(1.3,0.5,0.5));
  byId("btnZFit").addEventListener("click",fit);
@@ -1322,6 +1497,29 @@ function init(){
  byId("btnCopy").addEventListener("click",copyResults);
  byId("noticeX").addEventListener("click",()=>byId("notice").classList.add("hide"));
  setupStage();
+ byId("btnDraw").addEventListener("click",drawEnter);
+ byId("tLine").addEventListener("click",()=>drawSetTool("line"));
+ byId("tArc").addEventListener("click",()=>drawSetTool("arc"));
+ byId("tHole").addEventListener("click",()=>drawSetTool("hole"));
+ byId("dCCW").addEventListener("click",()=>{byId("dCCW").classList.add("on");byId("dCW").classList.remove("on");drawPreview();});
+ byId("dCW").addEventListener("click",()=>{byId("dCW").classList.add("on");byId("dCCW").classList.remove("on");drawPreview();});
+ byId("dSnap").addEventListener("change",drawPreview);
+ byId("dUndo").addEventListener("click",drawUndo);
+ byId("dClose").addEventListener("click",drawFinish);
+ byId("dCancel").addEventListener("click",()=>{drawExit();recompute();});
+ byId("viz").addEventListener("click",drawClick);
+ byId("viz").addEventListener("pointermove",e=>{
+  if(!DRAW.on)return;
+  DRAW.mouse=drawSnap(vizToModel(e),e);
+  drawCap(DRAW.mouse);drawPreview();
+ });
+ byId("viz").addEventListener("pointerleave",()=>{if(!DRAW.on)return;DRAW.mouse=null;drawPreview();});
+ document.addEventListener("keydown",e=>{
+  if(!DRAW.on)return;
+  if(e.key==="Escape"){drawExit();recompute();}
+  else if(e.key==="Enter"){e.preventDefault();drawFinish();}
+  else if((e.key==="z"||e.key==="Z")&&(e.ctrlKey||e.metaKey)){e.preventDefault();drawUndo();}
+ });
  byId("btnToProfile").addEventListener("click",()=>{
   const sc=catalogToScript(state.fig,readFigVals());
   if(!sc){renderMsgs([{line:0,msg:"Тази фигура не може да се представи като команди (елипса → полилиния)"}],[]);return;}
