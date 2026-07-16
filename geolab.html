@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0f1115">
-<title>AVKO GeoLab v2.1</title>
+<title>AVKO GeoLab v2.2</title>
 <style>
 :root{--bg:#0b0d12;--panel:#12161f;--panel2:#1a2029;--line:#252d3a;--line2:#354158;
  --teal:#2dd4bf;--blue:#5b8def;--amber:#facc15;--red:#f87171;
@@ -154,7 +154,7 @@ details.help .note{display:block;margin-top:6px}
 <body>
 <div class="app">
 <header class="topbar">
- <div class="brand"><h1>AVKO GeoLab</h1><span class="ver">v2.1</span></div>
+ <div class="brand"><h1>AVKO GeoLab</h1><span class="ver">v2.2</span></div>
  <nav class="seg" id="modeSeg">
   <button id="btnModeCat" class="on">Каталог</button>
   <button id="btnModeProf">Профил</button>
@@ -185,7 +185,10 @@ details.help .note{display:block;margin-top:6px}
     <button class="chip" data-ex="flange">Фланец</button>
     <button class="chip" data-ex="arc">Контур с дъга</button>
    </div>
-   <div class="rowbtns" style="margin:0 0 8px"><button class="mini" id="btnDraw" style="flex:1" title="Кликаш точки върху платното — линии, дъги, отвори, закръгление. При „Затвори“ замества текущите команди.">✏ Начертай с мишката</button></div>
+   <div class="rowbtns" style="margin:0 0 8px">
+    <button class="mini" id="btnDraw" style="flex:1" title="Празно платно — кликаш точки: линии, дъги, отвори, закръгление.">✏ Нова скица</button>
+    <button class="mini" id="btnEdit" style="flex:1" title="Зарежда текущите команди върху платното: влачиш върховете, десен клик трие точка/отвор, после „Затвори“.">✎ Редактирай</button>
+   </div>
    <textarea id="taScript" rows="10" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
    <details class="help"><summary>Команди — справка</summary>
 <pre>RECT b h            правоъгълник от (0,0)
@@ -259,7 +262,7 @@ BOLTS n BC140 D18 [A0]  n отвора на болтова окр. Ø140
 <script>
 "use strict";
 /* ================= AVKO GeoLab v1.1 — ядро ================= */
-const VERSION="2.1";
+const VERSION="2.2";
 const COMPUTE_TOL=0.0005;   // sagitta [mm] за полигонизация при смятане
 const EPS=1e-9;
 
@@ -1119,7 +1122,7 @@ function renderTiles(sp,body){
  el.innerHTML=h;
 }
 /* ---------- чертане с мишката ---------- */
-const DRAW={on:false,tool:"line",acts:[],start:null,cur:null,mouse:null};
+const DRAW={on:false,tool:"line",acts:[],start:null,cur:null,mouse:null,drag:null,hot:null,suppress:false,moved:false};
 function drawStep(){return parseFloat(byId("dSnap").value)||5;}
 function vizToModel(e){
  const svg=byId("viz"),r=svg.getBoundingClientRect();
@@ -1128,9 +1131,9 @@ function vizToModel(e){
  const ox=(r.width-vb[2]*s)/2,oy=(r.height-vb[3]*s)/2;
  return [vb[0]+(e.clientX-r.left-ox)/s,-(vb[1]+(e.clientY-r.top-oy)/s)];
 }
-function drawSnap(p,e){
+function drawSnap(p,e,noClose){
  const st=drawStep();let x=p[0],y=p[1];
- if(DRAW.start&&DRAW.acts.some(a=>a.kind==="seg")&&
+ if(!noClose&&DRAW.start&&DRAW.acts.some(a=>a.kind==="seg")&&
     Math.hypot(x-DRAW.start.x,y-DRAW.start.y)<st*0.75)
   return{x:DRAW.start.x,y:DRAW.start.y,close:true};
  if(e&&e.shiftKey&&DRAW.cur){
@@ -1166,10 +1169,21 @@ function drawPreview(){
    px=a.x;py=a.y;
   }
   s+=`<path d="${d}" fill="none" stroke="#2dd4bf" stroke-width="${sw*1.4}" stroke-linejoin="round"/>`;
-  s+=`<circle cx="${DRAW.start.x}" cy="${-DRAW.start.y}" r="${sw*3}" fill="none" stroke="#facc15" stroke-width="${sw}"/>`;
+  const hotStart=DRAW.hot&&DRAW.hot.kind==="start";
+  s+=`<circle cx="${DRAW.start.x}" cy="${-DRAW.start.y}" r="${sw*3}" fill="${hotStart?"#facc15":"none"}" stroke="#facc15" stroke-width="${sw}"/>`;
+  const hs=sw*2.2;
+  DRAW.acts.forEach((a,i)=>{
+   if(a.kind!=="seg")return;
+   const hot=DRAW.hot&&DRAW.hot.kind==="vert"&&DRAW.hot.i===i;
+   s+=`<rect x="${a.x-hs}" y="${-a.y-hs}" width="${hs*2}" height="${hs*2}" fill="${hot?"#facc15":"#0b0d12"}" stroke="${hot?"#facc15":"#2dd4bf"}" stroke-width="${sw*0.8}"/>`;
+  });
  }
- for(const a of DRAW.acts)if(a.kind==="hole")
-  s+=`<circle cx="${a.x}" cy="${-a.y}" r="${a.r}" fill="none" stroke="#5b8def" stroke-width="${sw*1.2}"/>`;
+ DRAW.acts.forEach((a,i)=>{
+  if(a.kind!=="hole")return;
+  const hot=DRAW.hot&&DRAW.hot.kind==="hole"&&DRAW.hot.i===i;
+  s+=`<circle cx="${a.x}" cy="${-a.y}" r="${a.r}" fill="none" stroke="${hot?"#facc15":"#5b8def"}" stroke-width="${sw*1.2}"/>`;
+  s+=`<circle cx="${a.x}" cy="${-a.y}" r="${sw*1.6}" fill="${hot?"#facc15":"#5b8def"}"/>`;
+ });
  if(DRAW.mouse){
   const m=DRAW.mouse,dash=`stroke-dasharray="${sw*3.5} ${sw*2.5}"`;
   if(DRAW.tool==="hole"){
@@ -1190,11 +1204,59 @@ function drawCap(m){
   t+=`   ·   L = ${fmt(Math.hypot(dx,dy),2)} mm   ∠ = ${fmt(Math.atan2(dy,dx)*180/Math.PI,1)}°`;
  }
  if(m&&m.close)t+="   ·   клик = затваряне на контура";
- byId("vizCap").textContent=t||"Кликай, за да поставяш точки · Shift = 0/45/90° · клик върху старта или Enter затваря · Esc отказва";
+ byId("vizCap").textContent=t||"Кликай за точки · влачи връх = корекция · десен клик = изтриване · Shift = 0/45/90° · Enter/клик върху старта затваря";
+}
+function drawHit(p){
+ const svg=byId("viz"),r=svg.getBoundingClientRect();
+ const vb=svg.getAttribute("viewBox").split(/\s+/).map(Number);
+ const tol=Math.max(vb[2]/r.width,vb[3]/r.height)*12;
+ let best=null,bd=tol;
+ if(DRAW.start){
+  const d=Math.hypot(p[0]-DRAW.start.x,p[1]-DRAW.start.y);
+  if(d<bd){bd=d;best={kind:"start"};}
+ }
+ DRAW.acts.forEach((a,i)=>{
+  const d=Math.hypot(p[0]-a.x,p[1]-a.y);
+  if(d<bd){bd=d;best={kind:a.kind==="hole"?"hole":"vert",i};}
+ });
+ return best;
+}
+function drawImport(){
+ const pr=parseScript(byId("taScript").value);
+ if(pr.errs.length||!pr.contour){toast("Първо поправи грешките в командите");return;}
+ if(pr.contour.type==="circle"){toast("Контур CIRCLE няма върхове — редактирай D в командите");return;}
+ const segs=pr.contour.segs;
+ if(segs.length>150){toast("Контурът е твърде подробен за редакция по точки");return;}
+ drawEnter();
+ byId("dFil").value=0; // закръгленията са вече „изпечени“ като дъги
+ DRAW.start={x:+segs[0].x0.toFixed(4),y:+segs[0].y0.toFixed(4)};
+ let list=segs;
+ const ls=segs[segs.length-1];
+ if(!ls.bulge&&Math.hypot(ls.x1-segs[0].x0,ls.y1-segs[0].y0)<1e-9)list=segs.slice(0,-1);
+ for(const s of list){
+  if(!s.bulge)DRAW.acts.push({kind:"seg",t:"L",x:+s.x1.toFixed(4),y:+s.y1.toFixed(4)});
+  else{
+   const a=arcFromBulge(s.x0,s.y0,s.x1,s.y1,s.bulge);
+   DRAW.acts.push({kind:"seg",t:"A",x:+s.x1.toFixed(4),y:+s.y1.toFixed(4),R:+a.R.toFixed(4),dir:s.bulge>0?"CCW":"CW"});
+  }
+ }
+ for(const h of pr.holes)DRAW.acts.push({kind:"hole",x:h.x,y:h.y,r:h.r});
+ const la=DRAW.acts.filter(a=>a.kind==="seg").pop();
+ DRAW.cur=la?[la.x,la.y]:[DRAW.start.x,DRAW.start.y];
+ const ring=ringFromContour(pr.contour,0.3),bb=ring.bbox;
+ const w=bb.x1-bb.x0||1,h2=bb.y1-bb.y0||1,pad=Math.max(w,h2)*0.3;
+ byId("viz").setAttribute("viewBox",`${bb.x0-pad} ${-bb.y1-pad} ${w+2*pad} ${h2+2*pad}`);
+ drawCap(null);
+ drawPreview();
+ toast("Влачи върховете · десен клик трие · „Затвори“ записва");
 }
 function drawClick(e){
  if(!DRAW.on)return;
- const p=drawSnap(vizToModel(e),e);
+ if(DRAW.suppress){DRAW.suppress=false;return;}
+ const raw=vizToModel(e);
+ const hit=drawHit(raw);
+ if(hit&&hit.kind!=="start")return; // върху връх/отвор: само влачене или десен клик
+ const p=drawSnap(raw,e);
  if(DRAW.tool==="hole"){
   const D=parseFloat(byId("dHoleD").value);
   if(D>0){DRAW.acts.push({kind:"hole",x:p.x,y:p.y,r:D/2});drawPreview();}
@@ -1254,6 +1316,7 @@ function drawSetTool(t){
 function drawEnter(){
  state.mode="profile";updateVis();
  DRAW.on=true;DRAW.acts=[];DRAW.start=null;DRAW.cur=null;DRAW.mouse=null;
+ DRAW.drag=null;DRAW.hot=null;DRAW.suppress=false;DRAW.moved=false;
  byId("drawbar").classList.remove("hide");
  byId("viz").classList.add("drawing");
  byId("viz").setAttribute("viewBox","-25 -130 220 155");
@@ -1512,12 +1575,58 @@ function init(){
  byId("dClose").addEventListener("click",drawFinish);
  byId("dCancel").addEventListener("click",()=>{drawExit();recompute();});
  byId("viz").addEventListener("click",drawClick);
+ byId("viz").addEventListener("pointerdown",e=>{
+  if(!DRAW.on||e.button!==0)return;
+  const hit=drawHit(vizToModel(e));
+  if(hit){DRAW.drag=hit;DRAW.moved=false;try{byId("viz").setPointerCapture(e.pointerId);}catch(_){}}
+ });
  byId("viz").addEventListener("pointermove",e=>{
   if(!DRAW.on)return;
-  DRAW.mouse=drawSnap(vizToModel(e),e);
+  const raw=vizToModel(e);
+  if(DRAW.drag){
+   const q=drawSnap(raw,e,true);
+   DRAW.moved=true;
+   const t=DRAW.drag;
+   if(t.kind==="start"){
+    const ox=DRAW.start.x,oy=DRAW.start.y;
+    DRAW.start={x:q.x,y:q.y};
+    const segs=DRAW.acts.filter(a=>a.kind==="seg"),la=segs[segs.length-1];
+    if(la&&Math.hypot(la.x-ox,la.y-oy)<1e-9){la.x=q.x;la.y=q.y;}
+    if(DRAW.cur&&Math.hypot(DRAW.cur[0]-ox,DRAW.cur[1]-oy)<1e-9)DRAW.cur=[q.x,q.y];
+   }else{
+    const a=DRAW.acts[t.i];a.x=q.x;a.y=q.y;
+    if(a.kind==="seg"){
+     const segs=DRAW.acts.filter(x=>x.kind==="seg");
+     if(segs[segs.length-1]===a)DRAW.cur=[q.x,q.y];
+    }
+   }
+   DRAW.mouse=null;
+   drawCap({x:q.x,y:q.y});drawPreview();
+   return;
+  }
+  DRAW.hot=drawHit(raw);
+  DRAW.mouse=drawSnap(raw,e);
   drawCap(DRAW.mouse);drawPreview();
  });
- byId("viz").addEventListener("pointerleave",()=>{if(!DRAW.on)return;DRAW.mouse=null;drawPreview();});
+ byId("viz").addEventListener("pointerup",()=>{
+  if(DRAW.drag){if(DRAW.moved)DRAW.suppress=true;DRAW.drag=null;drawPreview();}
+ });
+ byId("viz").addEventListener("pointerleave",()=>{if(!DRAW.on)return;DRAW.mouse=null;DRAW.hot=null;drawPreview();});
+ byId("viz").addEventListener("contextmenu",e=>{
+  if(!DRAW.on)return;
+  e.preventDefault();
+  const hit=drawHit(vizToModel(e));
+  if(!hit)return;
+  if(hit.kind==="hole")DRAW.acts.splice(hit.i,1);
+  else if(hit.kind==="vert"){
+   if(DRAW.acts.filter(a=>a.kind==="seg").length<=2){toast("Контурът не може да остане с под 2 отсечки");return;}
+   DRAW.acts.splice(hit.i,1);
+   const s2=DRAW.acts.filter(a=>a.kind==="seg");
+   DRAW.cur=s2.length?[s2[s2.length-1].x,s2[s2.length-1].y]:[DRAW.start.x,DRAW.start.y];
+  }else{toast("Стартовата точка не се трие — влачи я, за да я преместиш");return;}
+  DRAW.hot=null;drawPreview();
+ });
+ byId("btnEdit").addEventListener("click",drawImport);
  document.addEventListener("keydown",e=>{
   if(!DRAW.on)return;
   if(e.key==="Escape"){drawExit();recompute();}
