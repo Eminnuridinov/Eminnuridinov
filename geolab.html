@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0f1115">
-<title>AVKO GeoLab v2.4</title>
+<title>AVKO GeoLab v2.5</title>
 <style>
 :root{--bg:#0b0d12;--panel:#12161f;--panel2:#1a2029;--line:#252d3a;--line2:#354158;
  --teal:#2dd4bf;--blue:#5b8def;--amber:#facc15;--red:#f87171;
@@ -112,6 +112,11 @@ details.help .note{display:block;margin-top:6px}
 .row.sel{background:rgba(250,204,21,.09)}
 .row.sel .k{color:var(--amber)}
 .h2n{font-weight:500;opacity:.6;text-transform:none;letter-spacing:0}
+#expBox{display:flex;gap:10px;align-items:flex-start;margin:0 12px 10px;padding:10px 12px;background:rgba(250,204,21,.07);border:1px solid rgba(250,204,21,.35);border-radius:10px;font-size:12px;line-height:1.55}
+#expT{color:var(--amber)}
+#expL{color:var(--text);opacity:.9;margin-top:3px}
+#expX{margin-left:auto;background:none;border:0;color:var(--faint);cursor:pointer;font-size:13px;flex:0 0 auto}
+#expX:hover{color:var(--text)}
 .foot{color:var(--faint);font-size:11px;text-align:center;padding:10px 0 4px}
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:var(--panel2);border:1px solid var(--teal);color:var(--teal);border-radius:10px;padding:10px 16px;font-size:13px;font-weight:600;box-shadow:0 6px 24px rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:50}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -120,6 +125,7 @@ details.help .note{display:block;margin-top:6px}
 .drawbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 12px;border-bottom:1px solid var(--line);background:var(--panel);font-size:11.5px;color:var(--muted)}
 .drawbar .db{display:flex;align-items:center;gap:5px;white-space:nowrap}
 .drawbar input[type=number]{width:58px;min-height:26px;padding:3px 6px;font-size:12px}
+.drawbar input[type=checkbox]{width:auto;min-height:0;margin:0 3px 0 0;accent-color:var(--teal)}
 .drawbar select{width:auto;min-height:26px;padding:3px 6px;font-size:12px}
 .dbtn{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer;min-height:26px}
 .dbtn.primary{border-color:var(--teal);color:var(--teal);background:rgba(45,212,191,.10)}
@@ -159,16 +165,17 @@ details.help .note{display:block;margin-top:6px}
 <body>
 <div class="app">
 <header class="topbar">
- <div class="brand"><h1>AVKO GeoLab</h1><span class="ver">v2.4</span></div>
+ <div class="brand"><h1>AVKO GeoLab</h1><span class="ver">v2.5</span></div>
  <nav class="seg" id="modeSeg">
-  <button id="btnModeCat" class="on">Каталог</button>
-  <button id="btnModeProf">Профил</button>
+  <button id="btnModeProf" class="on">Скица</button>
   <button id="btnModeBody">Тяло</button>
+  <button id="btnModeCat">Каталог</button>
  </nav>
  <div class="actions">
   <button id="btnDXF" class="primary" title="Записва .dxf в „Изтегляния“ — само при натискане">⬇ DXF</button>
   <button id="btnCSV" title="Записва .csv с всички резултати — само при натискане">⬇ CSV</button>
   <button id="btnSVG" title="Записва схемата като .svg — само при натискане">⬇ SVG</button>
+  <button id="btnSTL" title="3D модел за печат/CAD (двоичен STL, mm) — активен в режим „Тяло“" disabled>⬇ STL</button>
   <button id="btnPrint" title="Системен печат — там избери „Запиши като PDF“">🖨 Печат</button>
   <button id="btnCopy" title="Копира всички резултати в клипборда — без файл на диска">📋 Копирай</button>
  </div>
@@ -176,15 +183,18 @@ details.help .note{display:block;margin-top:6px}
 <div class="notice" id="notice">🛡<span><b>Нищо не се записва на този компютър.</b> Работи изцяло в паметта на браузъра — файл се създава само при натискане на бутон за експорт (папка „Изтегляния“). Затвориш ли таба, всичко изчезва.</span><button id="noticeX" title="Скрий">✕</button></div>
 <main class="work">
  <aside class="panel left">
-  <div class="card" id="cardCatalog">
+  <div class="card hide" id="cardCatalog">
    <h2>Фигура</h2>
    <div class="chips" id="figChips"></div>
    <div class="sketchbox" id="figSketch"></div>
    <div class="grid2" id="figFields"></div>
-   <div class="rowbtns"><button class="mini" id="btnToProfile">→ отвори като Профил (команди)</button></div>
+   <div class="rowbtns"><button class="mini" id="btnToProfile">→ отвори като Скица</button></div>
   </div>
-  <div class="card hide" id="cardProfile">
-   <h2>Профил — команди</h2>
+  <div class="card" id="cardProfile">
+   <h2>Скица — команди</h2>
+   <div class="lbl" style="margin-top:0">Стартови форми — клик вмъква за редакция</div>
+   <div class="chips" id="startShapes"></div>
+   <div class="lbl">Примери с команди</div>
    <div class="chips" id="exChips">
     <button class="chip" data-ex="plate">Плоча с отвори</button>
     <button class="chip" data-ex="flange">Фланец</button>
@@ -211,7 +221,7 @@ BOLTS n BC140 D18 [A0]  n отвора на болтова окр. Ø140
   <div class="card hide" id="cardBody">
    <h2>Тяло</h2>
    <div class="lbl">Източник на профила</div>
-   <div class="seg small"><button id="btnSrcCat" class="on">Каталог</button><button id="btnSrcProf">Профил</button></div>
+   <div class="seg small"><button id="btnSrcCat" class="on">Каталог</button><button id="btnSrcProf">Скица</button></div>
    <div class="lbl">Операция</div>
    <div class="seg small"><button id="btnOpExt" class="on">EXTRUDE</button><button id="btnOpRev">REVOLVE</button></div>
    <div class="grid2" style="margin-top:8px">
@@ -222,7 +232,7 @@ BOLTS n BC140 D18 [A0]  n отвора на болтова окр. Ø140
    </div>
   </div>
   <details class="help"><summary>Какво съдържа експортът?</summary>
-   <div class="note">DXF: контур → слой KONTUR (POLYLINE, дъгите като bulge; кръг → CIRCLE), отвори → слой OTVOR (CIRCLE). Елипсата се експортира като полилиния. Само 2D геометрия.<br>SVG = текущата схема (за вмъкване в документ). „Печат“ отваря системния диалог — там избери „Запиши като PDF“. „Копирай“ слага всички числа в клипборда — без файл на диска.</div>
+   <div class="note">DXF: контур → слой KONTUR (POLYLINE, дъгите като bulge; кръг → CIRCLE), отвори → слой OTVOR (CIRCLE). Елипсата се експортира като полилиния. Само 2D геометрия.<br>SVG = текущата схема (за вмъкване в документ). STL = 3D моделът (mm, z нагоре) за 3D печат или CAD — активен в режим „Тяло“. „Печат“ отваря системния диалог — там избери „Запиши като PDF“. „Копирай“ слага всички числа в клипборда — без файл на диска.</div>
   </details>
  </aside>
  <section class="stage">
@@ -241,6 +251,8 @@ BOLTS n BC140 D18 [A0]  n отвора на болтова окр. Ø140
    <span class="db hide" id="dbHole">Ø<input id="dHoleD" type="number" value="10" step="any" title="Диаметър на отвора, mm"></span>
    <span class="db">стъпка<select id="dSnap"><option>1</option><option>2</option><option selected>5</option><option>10</option></select>mm</span>
    <span class="db">закръгл. r<input id="dFil" type="number" value="0" step="any" title="FILLET върху всички прави ъгли при затваряне (0 = без)"></span>
+   <span class="db">L<input id="dLen" type="number" step="any" placeholder="—" title="Точна дължина: следващата точка ляга на точно това разстояние по посока на курсора. Празно = свободно."></span>
+   <label class="db" title="Показвай дължините на отсечките"><input type="checkbox" id="dDim" checked>размери</label>
    <button class="dbtn" id="dUndo" title="Назад (Ctrl+Z)">↶</button>
    <button class="dbtn primary" id="dClose" title="Затвори контура (Enter или клик върху стартовата точка)">✔ Затвори</button>
    <button class="dbtn" id="dCancel" title="Изход без запис (Esc)">✕</button>
@@ -249,9 +261,13 @@ BOLTS n BC140 D18 [A0]  n отвора на болтова окр. Ø140
   <div class="legend">
    <span><i style="background:#2dd4bf"></i>контур</span>
    <span><i style="background:#5b8def"></i>отвор</span>
-   <span><i style="background:#facc15"></i>гл. оси · ЦТ</span>
+   <span><i style="background:#facc15"></i>⊕ C = център на тежестта · гл. оси</span>
    <span><i style="background:#8a93a0"></i>размери</span>
    <span class="hint">колело = мащаб · влачене = местене · двоен клик = побери</span>
+  </div>
+  <div id="expBox" class="hide">
+   <div><b id="expT"></b><div id="expL"></div></div>
+   <button id="expX" title="Затвори обяснението">✕</button>
   </div>
  </section>
  <aside class="panel right">
@@ -267,7 +283,7 @@ BOLTS n BC140 D18 [A0]  n отвора на болтова окр. Ø140
 <script>
 "use strict";
 /* ================= AVKO GeoLab v1.1 — ядро ================= */
-const VERSION="2.4";
+const VERSION="2.5";
 const COMPUTE_TOL=0.0005;   // sagitta [mm] за полигонизация при смятане
 const EPS=1e-9;
 
@@ -901,34 +917,199 @@ function download(name,text,mime){
 }
 function dateStr(){return new Date().toISOString().slice(0,10);}
 
+/* ---------- STL (двоичен, z нагоре) ---------- */
+function triContains(a,b,c,p){ // строго вътре (точки върху ръб — напр. мостовите дубли — не пречат)
+ const s1=(b[0]-a[0])*(p[1]-a[1])-(b[1]-a[1])*(p[0]-a[0]);
+ const s2=(c[0]-b[0])*(p[1]-b[1])-(c[1]-b[1])*(p[0]-b[0]);
+ const s3=(a[0]-c[0])*(p[1]-c[1])-(a[1]-c[1])*(p[0]-c[0]);
+ return s1>1e-9&&s2>1e-9&&s3>1e-9;
+}
+function samePt(p,q){return Math.abs(p[0]-q[0])<1e-9&&Math.abs(p[1]-q[1])<1e-9;}
+function earClip(pts){ // прост полигон CCW → триъгълници
+ const idx=pts.map((_,i)=>i),tris=[];
+ let guard=idx.length*idx.length+16;
+ while(idx.length>3&&guard-->0){
+  let clipped=false;
+  for(let i=0;i<idx.length;i++){
+   const a=pts[idx[(i-1+idx.length)%idx.length]],b=pts[idx[i]],c=pts[idx[(i+1)%idx.length]];
+   const cr=(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);
+   if(cr<=1e-12)continue;
+   let ok=true;
+   for(const j of idx){
+    const p=pts[j];
+    if(samePt(p,a)||samePt(p,b)||samePt(p,c))continue;
+    if(triContains(a,b,c,p)){ok=false;break;}
+   }
+   if(!ok)continue;
+   tris.push([a,b,c]);idx.splice(i,1);clipped=true;break;
+  }
+  if(!clipped)break;
+ }
+ if(idx.length===3)tris.push([pts[idx[0]],pts[idx[1]],pts[idx[2]]]);
+ return tris;
+}
+function mergeHoles(outer,holesPts){ // мостове: външен CCW + отвори CW → един прост полигон
+ let poly=outer.map(p=>[p[0],p[1]]);
+ const hs=holesPts.map(hp=>{let mi=0;for(let i=1;i<hp.length;i++)if(hp[i][0]>hp[mi][0])mi=i;return{hp,mi};});
+ hs.sort((p,q)=>q.hp[q.mi][0]-p.hp[p.mi][0]);
+ for(const {hp,mi} of hs){
+  const M=hp[mi];
+  let bi=-1,bd=1/0;
+  for(let i=0;i<poly.length;i++){
+   if(poly[i][0]<M[0]-1e-9)continue;
+   const d=Math.hypot(poly[i][0]-M[0],poly[i][1]-M[1]);
+   if(d<bd){bd=d;bi=i;}
+  }
+  if(bi<0){for(let i=0;i<poly.length;i++){const d=Math.hypot(poly[i][0]-M[0],poly[i][1]-M[1]);if(d<bd){bd=d;bi=i;}}}
+  const P=poly[bi],ring=[];
+  for(let k=0;k<=hp.length;k++)ring.push([hp[(mi+k)%hp.length][0],hp[(mi+k)%hp.length][1]]);
+  poly=poly.slice(0,bi+1).concat(ring,[[P[0],P[1]]],poly.slice(bi+1));
+ }
+ return poly;
+}
+function meshVolume(tris){
+ let v=0;
+ for(const t of tris)
+  v+=(t[0][0]*(t[1][1]*t[2][2]-t[2][1]*t[1][2])
+     -t[1][0]*(t[0][1]*t[2][2]-t[2][1]*t[0][2])
+     +t[2][0]*(t[0][1]*t[1][2]-t[1][1]*t[0][2]))/6;
+ return v;
+}
+function orientShell(tris,positive){
+ const v=meshVolume(tris);
+ if((v>0)!==positive)for(const t of tris){const tmp=t[1];t[1]=t[2];t[2]=tmp;}
+ return tris;
+}
+function bodyMesh(contour,holes,sp,body){ // z нагоре (за слайсери/CAD)
+ const bb=sp.ring.bbox,diag=Math.hypot(bb.x1-bb.x0,bb.y1-bb.y0)||1;
+ const tris=[];
+ if(body.op==="ext"){
+  const h=body.h;
+  const ring=decimate(ringFromContour(contour,Math.max(0.03,diag/400)).pts,128);
+  const hrs=(holes||[]).map(hh=>{
+   const c=[];
+   for(let k=0;k<24;k++){const t=-2*Math.PI*k/24;c.push([hh.x+hh.r*Math.cos(t),hh.y+hh.r*Math.sin(t)]);}
+   return c;
+  });
+  const capTris=earClip(mergeHoles(ring,hrs));
+  for(const t of capTris){
+   tris.push([[t[0][0],t[0][1],h],[t[1][0],t[1][1],h],[t[2][0],t[2][1],h]]);
+   tris.push([[t[0][0],t[0][1],0],[t[2][0],t[2][1],0],[t[1][0],t[1][1],0]]);
+  }
+  const wall=pts=>{
+   for(let i=0;i<pts.length;i++){
+    const a=pts[i],b=pts[(i+1)%pts.length];
+    const A0=[a[0],a[1],0],B0=[b[0],b[1],0],A1=[a[0],a[1],h],B1=[b[0],b[1],h];
+    tris.push([A0,B0,B1],[A0,B1,A1]);
+   }
+  };
+  wall(ring);
+  for(const c of hrs)wall(c);
+  return orientShell(tris,true);
+ }
+ // REVOLVE: струг + вътрешни тор-канали от отворите
+ const prof=decimate(sp.ring.pts,72),NP=72;
+ for(let i=0;i<prof.length;i++){
+  const a=prof[i],b=prof[(i+1)%prof.length];
+  if(a[0]<1e-9&&b[0]<1e-9)continue;
+  for(let j=0;j<NP;j++){
+   const f0=2*Math.PI*j/NP,f1=2*Math.PI*(j+1)/NP;
+   const P=(p,f)=>[p[0]*Math.cos(f),p[0]*Math.sin(f),p[1]];
+   tris.push([P(a,f0),P(b,f0),P(b,f1)],[P(a,f0),P(b,f1),P(a,f1)]);
+  }
+ }
+ orientShell(tris,true);
+ for(const hh of (holes||[])){
+  const NT=16,tor=[];
+  for(let i=0;i<NT;i++)for(let j=0;j<NP;j++){
+   const u0=2*Math.PI*i/NT,u1=2*Math.PI*(i+1)/NT,f0=2*Math.PI*j/NP,f1=2*Math.PI*(j+1)/NP;
+   const P=(u,f)=>{const r=hh.x+hh.r*Math.cos(u);return[r*Math.cos(f),r*Math.sin(f),hh.y+hh.r*Math.sin(u)];};
+   tor.push([P(u0,f0),P(u1,f0),P(u1,f1)],[P(u0,f0),P(u1,f1),P(u0,f1)]);
+  }
+  orientShell(tor,false); // кухина → отрицателна ориентация
+  for(const t of tor)tris.push(t);
+ }
+ return tris;
+}
+function buildSTL(tris){
+ const n=tris.length,buf=new ArrayBuffer(84+n*50),dv=new DataView(buf);
+ const hdr="AVKO GeoLab binary STL (unit: mm, z-up)";
+ for(let i=0;i<Math.min(79,hdr.length);i++)dv.setUint8(i,hdr.charCodeAt(i));
+ dv.setUint32(80,n,true);
+ let o=84;
+ for(const t of tris){
+  const ux=t[1][0]-t[0][0],uy=t[1][1]-t[0][1],uz=t[1][2]-t[0][2];
+  const vx=t[2][0]-t[0][0],vy=t[2][1]-t[0][1],vz=t[2][2]-t[0][2];
+  let nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx;
+  const m=Math.hypot(nx,ny,nz)||1;
+  dv.setFloat32(o,nx/m,true);dv.setFloat32(o+4,ny/m,true);dv.setFloat32(o+8,nz/m,true);o+=12;
+  for(const p of t){dv.setFloat32(o,p[0],true);dv.setFloat32(o+4,p[1],true);dv.setFloat32(o+8,p[2],true);o+=12;}
+  dv.setUint16(o,0,true);o+=2;
+ }
+ return buf;
+}
+function exportSTL(){
+ if(!state.last||state.mode!=="body"||!state.lastBody){toast("STL изисква режим „Тяло“ с валиден модел");return;}
+ const tris=bodyMesh(state.last.contour,state.last.holes,state.last.sp,state.lastBody);
+ if(!tris||!tris.length){toast("Неуспешна триангулация");return;}
+ download(`geolab_${state.last.tag}_${dateStr()}.stl`,buildSTL(tris),"model/stl");
+ toast(`STL: ${tris.length} триъгълника, обем ≈ ${fmt(Math.abs(meshVolume(tris))/1000,1)} cm³`);
+}
+
 /* ---------- обяснения при клик върху ред ---------- */
 const EXPLAIN={
- A:{t:"Площ A — количеството материал в сечението (осветената зона)."},
- Agross:{t:"Площ бруто — цялата площ на контура, все едно отворите ги няма."},
- holeA:{t:"Общата площ на отворите — тя се изважда от брутната площ."},
- P:{t:"Периметър P — дължината на външния контур (подчертан в жълто)."},
- L:{t:"Дължина на рязане — външният контур + обиколките на отворите. Толкова път изминава лазерът/фрезата."},
- bb:{t:"Габарит — най-малкият правоъгълник, в който се побира сечението."},
- Cx:{t:"Cx — колко надясно от началото се намира центърът на тежестта C."},
- Cy:{t:"Cy — колко нагоре от началото се намира центърът на тежестта C."},
- Ix:{t:"Ix — коравина на огъване около хоризонталната ос през C. Материал ДАЛЕЧ от оста (стрелките) помага най-много."},
- Iy:{t:"Iy — коравина на огъване около вертикалната ос през C."},
- Ixy:{t:"Ixy — мярка за несиметрия спрямо двете оси през C. При симетрично сечение е 0."},
- I1:{t:"I₁ — най-голямата коравина: около главна ос 1 сечението се огъва най-трудно."},
- I2:{t:"I₂ — най-малката коравина: около главна ос 2 сечението поддава най-лесно."},
- th:{t:"θ₁ — ъгълът между хоризонталата и главната ос 1."},
- J0:{t:"J₀ — съпротивление срещу усукване около C (кръговата стрелка). Точна торсионна константа е само за кръгли сечения."},
- ext:{t:"y_max / x_max — най-отдалечените от C точки; там напрежението при огъване е най-голямо."},
- Wx:{t:"Wx = Ix/y_max — колко „носи“ сечението на огъване: стрелката сочи крайното влакно, което поема най-голямото напрежение."},
- Wy:{t:"Wy = Iy/x_max — същото, но за огъване в другата посока."},
- ix:{t:"iₓ = √(Ix/A) — все едно целият материал е събран върху тези две линии около оста. Важен при изкълчване."},
- iy:{t:"i_y — радиус на инерция около вертикалната ос."},
- i0:{t:"i₀ — полярен радиус на инерция (пунктирният кръг около C)."},
- V:{t:"Обем V на тялото (площ × височина при EXTRUDE; Папус при REVOLVE).",body:true},
- S:{t:"S — цялата външна повърхнина (за боядисване, покритие, топлообмен).",body:true},
- m:{t:"m = ρ·V — масата на детайла при избрания материал.",body:true},
- mlin:{t:"Маса на 1 метър дължина при това сечение — за пръти и профили.",body:true},
- Rbar:{t:"x̄ — радиусът, на който обикаля центърът на тежестта при въртенето (Папус).",body:true}
+ A:{t:"Площ A — количеството материал в сечението (осветената зона).",
+  long:"Колкото по-голяма е площта, толкова по-тежък е детайлът и толкова повече опън/натиск издържа. За огъване обаче е важно и КЪДЕ е материалът — виж Ix."},
+ Agross:{t:"Площ бруто — цялата площ на контура, все едно отворите ги няма.",
+  long:"Полезна при заготовки: толкова материал ти трябва, преди да пробиеш отворите."},
+ holeA:{t:"Общата площ на отворите — тя се изважда от брутната площ.",
+  long:"Всеки отвор маха материал и тежест, но маха и коравина — особено ако е далеч от центъра."},
+ P:{t:"Периметър P — дължината на външния контур (подчертан в жълто).",
+  long:"Използва се за кантове, уплътнения, заваръчни шевове по контура и за груба оценка на рязането."},
+ L:{t:"Дължина на рязане — външният контур + обиколките на отворите.",
+  long:"Толкова път изминава лазерът/фрезата/водната струя. Директно определя времето и цената на рязане."},
+ bb:{t:"Габарит — най-малкият правоъгълник, в който се побира сечението.",
+  long:"Казва ти какъв лист/заготовка е нужен и дали детайлът влиза в машината или опаковката."},
+ Cx:{t:"Cx — колко надясно от началото се намира центърът на тежестта C.",
+  long:"Центърът на тежестта е точката, в която детайлът се крепи в равновесие. Захващаш ли/повдигаш ли там — не се преобръща."},
+ Cy:{t:"Cy — колко нагоре от началото се намира центърът на тежестта C.",
+  long:"При несиметрични сечения (Г, Т профили) C не е в средата — важно за баланса и за огъването."},
+ Ix:{t:"Ix — коравина на огъване около хоризонталната ос през C.",
+  long:"Представи си дъска: на ребро носи МНОГО повече, отколкото на плоско, защото материалът е далеч от оста на огъване. Стрелките показват точно това разстояние — то влиза в квадрат. Клинът вдясно показва как расте напрежението: нула на оста, максимум в крайните влакна."},
+ Iy:{t:"Iy — коравина на огъване около вертикалната ос през C.",
+  long:"Същата дъска, огъната настрани. Сравни Ix и Iy — разликата казва в коя посока профилът е силен и в коя поддава."},
+ Ixy:{t:"Ixy — мярка за несиметрия спрямо двете оси през C.",
+  long:"При симетрично сечение е 0. Когато не е 0, натоварване „надолу“ извива детайла и настрани — затова главните оси са завъртени (виж θ₁)."},
+ I1:{t:"I₁ — най-голямата коравина: около главна ос 1 се огъва най-трудно.",
+  long:"Ако искаш максимална носимоспособност, натоварвай сечението така, че да се огъва около ос 1."},
+ I2:{t:"I₂ — най-малката коравина: около главна ос 2 сечението поддава най-лесно.",
+  long:"Около тази ос детайлът е най-слаб — и точно около нея се изкълчва прът при натиск."},
+ th:{t:"θ₁ — ъгълът между хоризонталата и главната ос 1.",
+  long:"При Г- и Z-профили осите на „най-силно“ и „най-слабо“ не са хоризонтална и вертикална, а завъртени на този ъгъл."},
+ J0:{t:"J₀ — съпротивление срещу усукване около C (спиралната стрелка).",
+  long:"Колкото по-голямо е J₀, толкова по-трудно се усуква детайлът (вал, ос, тръба). Забележка: като точна торсионна константа важи само за кръгли сечения — за други е приближение отгоре."},
+ ext:{t:"y_max / x_max — най-отдалечените от C точки.",
+  long:"Крайните влакна поемат най-голямото напрежение при огъване — там първо се появяват пукнатини или провлачване."},
+ Wx:{t:"Wx = Ix/y_max — носимоспособност на огъване.",
+  long:"Практичното число: допустимото напрежение × Wx = огъващият момент, който сечението носи. Клинът показва защо — напрежението е максимално в най-отдалеченото влакно (стрелката)."},
+ Wy:{t:"Wy = Iy/x_max — носимоспособност при огъване настрани.",
+  long:"Същата логика, но за огъване около вертикалната ос."},
+ ix:{t:"iₓ = √(Ix/A) — радиус на инерция около хоризонталната ос.",
+  long:"Все едно целият материал е събран върху тези две линии. Ключов при натиснати пръти: колкото по-малък е i спрямо дължината, толкова по-лесно прътът се изкълчва."},
+ iy:{t:"i_y — радиус на инерция около вертикалната ос.",
+  long:"За изкълчване меродавен е ПО-МАЛКИЯТ от двата радиуса — прътът поддава в по-слабата посока."},
+ i0:{t:"i₀ — полярен радиус на инерция (пунктирният кръг около C).",
+  long:"Комбинираният показател за усукване: √(J₀/A)."},
+ V:{t:"Обем V на тялото.",body:true,
+  long:"EXTRUDE: площ × височина. REVOLVE: правилото на Папус — площта × пътя, който изминава центърът на тежестта при завъртането."},
+ S:{t:"S — цялата външна повърхнина.",body:true,
+  long:"Трябва ти за боядисване, галванично покритие, топлоотдаване или лепене."},
+ m:{t:"m = ρ·V — масата на детайла при избрания материал.",body:true,
+  long:"Смени материала от списъка и виж как се променя — обемът остава същият, плътността ρ решава."},
+ mlin:{t:"Маса на 1 метър дължина при това сечение.",body:true,
+  long:"Стандартният начин да се сравняват профили и пръти: kg/m, независимо от конкретната дължина."},
+ Rbar:{t:"x̄ — радиусът, на който обикаля центърът на тежестта при въртенето.",body:true,
+  long:"Сърцето на правилото на Папус: V = 2π · x̄ · A. Затова профил по-далеч от оста дава по-голям обем."}
 };
 /* ---------- визуализация ---------- */
 function svgPolyPath(pts,closePath){
@@ -941,20 +1122,22 @@ function buildViz2D(sp,contour,holes,showAxis){
  const W=bb.x1-bb.x0||1,H=bb.y1-bb.y0||1,diag=Math.hypot(W,H);
  const off=diag*0.11,pad=diag*0.07,sw=Math.max(diag*0.0028,0.14),fs=Math.max(diag*0.042,1);
  const ringV=ringFromContour(contour,Math.max(0.02,diag/700)).pts;
+ // при активно обяснение: само приглушен контур + овърлей (без постоянните означения)
+ const exp=(state.explain&&EXPLAIN[state.explain]&&!EXPLAIN[state.explain].body)?state.explain:null;
  let s="";
  // контур
- s+=`<path d="${svgPolyPath(ringV,true)}" fill="rgba(45,212,191,.08)" stroke="#2dd4bf" stroke-width="${sw*1.3}" stroke-linejoin="round"/>`;
+ s+=`<path d="${svgPolyPath(ringV,true)}" fill="rgba(45,212,191,${exp?".04":".08"})" stroke="#2dd4bf" stroke-width="${sw*1.3}" stroke-linejoin="round"${exp?' stroke-opacity=".45"':''}/>`;
  // отвори
  for(const h of (holes||[]))
-  s+=`<circle cx="${h.x.toFixed(3)}" cy="${(-h.y).toFixed(3)}" r="${h.r.toFixed(3)}" fill="#0b0d12" stroke="#5b8def" stroke-width="${sw}"/>`;
- if((holes||[]).length&&holes.length<=4){
+  s+=`<circle cx="${h.x.toFixed(3)}" cy="${(-h.y).toFixed(3)}" r="${h.r.toFixed(3)}" fill="#0b0d12" stroke="#5b8def" stroke-width="${sw}"${exp?' stroke-opacity=".45"':''}/>`;
+ if(!exp&&(holes||[]).length&&holes.length<=4){
   s+=`<g fill="#5b8def" font-size="${fs*0.85}" font-family="ui-monospace,Consolas,monospace">`;
   for(const h of holes)s+=`<text x="${(h.x+h.r*0.75).toFixed(2)}" y="${(-h.y-h.r*0.75).toFixed(2)}">Ø${nn(2*h.r)}</text>`;
   s+=`</g>`;
  }
  // размерни линии — габарит
  const dy=-bb.y0+off*0.62,dx=bb.x0-off*0.62,tick=fs*0.5;
- s+=`<g stroke="#8a93a0" stroke-width="${sw*0.5}" fill="#8a93a0" font-size="${fs}" font-family="ui-monospace,Consolas,monospace" opacity=".55">`;
+ s+=`<g stroke="#8a93a0" stroke-width="${sw*0.5}" fill="#8a93a0" font-size="${fs}" font-family="ui-monospace,Consolas,monospace" opacity="${exp?".3":".55"}">`;
  s+=`<line x1="${bb.x0}" y1="${dy}" x2="${bb.x1}" y2="${dy}"/>`;
  s+=`<line x1="${bb.x0}" y1="${dy-tick}" x2="${bb.x0}" y2="${dy+tick}"/><line x1="${bb.x1}" y1="${dy-tick}" x2="${bb.x1}" y2="${dy+tick}"/>`;
  s+=`<text x="${(bb.x0+bb.x1)/2}" y="${dy+fs*1.25}" text-anchor="middle">${fmt(W,2)}</text>`;
@@ -962,48 +1145,76 @@ function buildViz2D(sp,contour,holes,showAxis){
  s+=`<line x1="${dx-tick}" y1="${-bb.y1}" x2="${dx+tick}" y2="${-bb.y1}"/><line x1="${dx-tick}" y1="${-bb.y0}" x2="${dx+tick}" y2="${-bb.y0}"/>`;
  s+=`<text x="${dx-fs*0.5}" y="${-(bb.y0+bb.y1)/2}" text-anchor="middle" transform="rotate(-90 ${dx-fs*0.5} ${-(bb.y0+bb.y1)/2})">${fmt(H,2)}</text>`;
  s+=`</g>`;
- // главни оси през ЦТ (означени 1 и 2)
+ // главни оси през ЦТ (означени 1 и 2) — само без активно обяснение
  const cx=sp.Cx,cy=-sp.Cy,len=diag*0.56,th=sp.thp*Math.PI/180;
  const d1=[Math.cos(th),-Math.sin(th)],d2=[-d1[1],d1[0]];
- s+=`<g stroke="#facc15" stroke-width="${sw*0.6}" stroke-dasharray="${sw*3} ${sw*2.2}" opacity=".5">`;
- s+=`<line x1="${cx-d1[0]*len}" y1="${cy-d1[1]*len}" x2="${cx+d1[0]*len}" y2="${cy+d1[1]*len}"/>`;
- s+=`<line x1="${cx-d2[0]*len}" y1="${cy-d2[1]*len}" x2="${cx+d2[0]*len}" y2="${cy+d2[1]*len}"/>`;
- s+=`</g>`;
- s+=`<g fill="#facc15" font-size="${fs*0.9}" font-family="ui-monospace,Consolas,monospace" opacity=".9">`;
- s+=`<text x="${cx+d1[0]*len*0.48+fs*0.25}" y="${cy+d1[1]*len*0.48-fs*0.25}">1</text>`;
- s+=`<text x="${cx+d2[0]*len*0.48+fs*0.25}" y="${cy+d2[1]*len*0.48-fs*0.25}">2</text>`;
- s+=`</g>`;
- // дъга и стойност на ъгъла θ₁ спрямо хоризонталата
- if(Math.abs(sp.thp)>1){
-  const ra=len*0.32;
-  let dd=`M${(cx+ra).toFixed(2)} ${cy.toFixed(2)}`;
-  for(let i=1;i<=10;i++){const t=th*i/10;dd+=`L${(cx+ra*Math.cos(t)).toFixed(2)} ${(cy-ra*Math.sin(t)).toFixed(2)}`;}
-  s+=`<path d="${dd}" fill="none" stroke="#facc15" stroke-width="${sw*0.5}" opacity=".8"/>`;
-  const tm=th/2;
-  s+=`<text x="${(cx+ra*1.28*Math.cos(tm)).toFixed(2)}" y="${(cy-ra*1.28*Math.sin(tm)).toFixed(2)}" fill="#facc15" font-size="${fs*0.85}" font-family="ui-monospace,Consolas,monospace">θ₁=${fmt(sp.thp,1)}°</text>`;
+ if(!exp){
+  s+=`<g stroke="#facc15" stroke-width="${sw*0.6}" stroke-dasharray="${sw*3} ${sw*2.2}" opacity=".5">`;
+  s+=`<line x1="${cx-d1[0]*len}" y1="${cy-d1[1]*len}" x2="${cx+d1[0]*len}" y2="${cy+d1[1]*len}"/>`;
+  s+=`<line x1="${cx-d2[0]*len}" y1="${cy-d2[1]*len}" x2="${cx+d2[0]*len}" y2="${cy+d2[1]*len}"/>`;
+  s+=`</g>`;
+  s+=`<g fill="#facc15" font-size="${fs*0.9}" font-family="ui-monospace,Consolas,monospace" opacity=".9">`;
+  s+=`<text x="${cx+d1[0]*len*0.48+fs*0.25}" y="${cy+d1[1]*len*0.48-fs*0.25}">1</text>`;
+  s+=`<text x="${cx+d2[0]*len*0.48+fs*0.25}" y="${cy+d2[1]*len*0.48-fs*0.25}">2</text>`;
+  s+=`</g>`;
+  // дъга и стойност на θ₁ — етикетът е в края на дъгата, не в средата на фигурата
+  if(Math.abs(sp.thp)>1){
+   const ra=len*0.32;
+   let dd=`M${(cx+ra).toFixed(2)} ${cy.toFixed(2)}`;
+   for(let i=1;i<=10;i++){const t=th*i/10;dd+=`L${(cx+ra*Math.cos(t)).toFixed(2)} ${(cy-ra*Math.sin(t)).toFixed(2)}`;}
+   s+=`<path d="${dd}" fill="none" stroke="#facc15" stroke-width="${sw*0.5}" opacity=".8"/>`;
+   s+=`<text x="${(cx+ra*1.22*Math.cos(th*0.85)).toFixed(2)}" y="${(cy-ra*1.22*Math.sin(th*0.85)).toFixed(2)}" fill="#facc15" font-size="${fs*0.85}" font-family="ui-monospace,Consolas,monospace">θ₁=${fmt(sp.thp,1)}°</text>`;
+  }
  }
  // ос на въртене (REVOLVE)
- if(showAxis)s+=`<line x1="0" y1="${-bb.y1-off*0.5}" x2="0" y2="${-bb.y0+off*0.5}" stroke="#facc15" stroke-width="${sw*0.7}" stroke-dasharray="${sw*5} ${sw*2} ${sw*0.8} ${sw*2}"/>`;
- // отвеси от ЦТ към размерните линии със стойности Cx / Cy
- s+=`<g stroke="#facc15" stroke-width="${sw*0.45}" stroke-dasharray="${sw*1.8} ${sw*1.8}" opacity=".4">`;
- s+=`<line x1="${cx}" y1="${cy}" x2="${cx}" y2="${dy}"/>`;
- s+=`<line x1="${cx}" y1="${cy}" x2="${dx}" y2="${cy}"/>`;
- s+=`</g>`;
- s+=`<g fill="#facc15" font-size="${fs*0.88}" font-family="ui-monospace,Consolas,monospace">`;
- s+=`<text x="${cx}" y="${dy-fs*0.4}" text-anchor="middle">Cx=${fmt(sp.Cx,2)}</text>`;
- s+=`<text x="${dx+fs*0.5}" y="${cy}" text-anchor="middle" transform="rotate(-90 ${dx+fs*0.5} ${cy})">Cy=${fmt(sp.Cy,2)}</text>`;
- s+=`</g>`;
- // ЦТ — център на тежестта
+ if(showAxis)s+=`<line x1="0" y1="${-bb.y1-off*0.5}" x2="0" y2="${-bb.y0+off*0.5}" stroke="#facc15" stroke-width="${sw*0.7}" stroke-dasharray="${sw*5} ${sw*2} ${sw*0.8} ${sw*2}"${exp?' opacity=".4"':''}/>`;
+ if(!exp){
+  // отвеси от ЦТ със стойности Cx / Cy — само когато не се бият с габаритните числа
+  s+=`<g stroke="#facc15" stroke-width="${sw*0.45}" stroke-dasharray="${sw*1.8} ${sw*1.8}" opacity=".4">`;
+  s+=`<line x1="${cx}" y1="${cy}" x2="${cx}" y2="${dy}"/>`;
+  s+=`<line x1="${cx}" y1="${cy}" x2="${dx}" y2="${cy}"/>`;
+  s+=`</g>`;
+  const clashX=Math.abs(cx-(bb.x0+bb.x1)/2)<fs*4.5;   // би легнал върху текста на широчината
+  const clashY=Math.abs(cy-(-(bb.y0+bb.y1)/2))<fs*4.5; // би легнал върху текста на височината
+  s+=`<g fill="#facc15" font-size="${fs*0.88}" font-family="ui-monospace,Consolas,monospace">`;
+  if(!clashX)s+=`<text x="${cx}" y="${dy-fs*0.4}" text-anchor="middle">Cx=${fmt(sp.Cx,2)}</text>`;
+  if(!clashY)s+=`<text x="${dx+fs*0.5}" y="${cy}" text-anchor="middle" transform="rotate(-90 ${dx+fs*0.5} ${cy})">Cy=${fmt(sp.Cy,2)}</text>`;
+  s+=`</g>`;
+ }
+ // ЦТ — кръстче, само късо „C“ (пълното име е в легендата)
  const cs=diag*0.028;
  s+=`<g stroke="#facc15" stroke-width="${sw}" fill="none">`;
  s+=`<line x1="${cx-cs}" y1="${cy}" x2="${cx+cs}" y2="${cy}"/><line x1="${cx}" y1="${cy-cs}" x2="${cx}" y2="${cy+cs}"/>`;
  s+=`<circle cx="${cx}" cy="${cy}" r="${cs*0.55}"/></g>`;
- s+=`<text x="${cx+cs*1.2}" y="${cy-cs*0.7}" fill="#facc15" font-size="${fs}" font-family="ui-monospace,Consolas,monospace">C <tspan font-size="${fs*0.72}" opacity=".85">(център на тежестта)</tspan></text>`;
+ s+=`<text x="${cx+cs*1.2}" y="${cy-cs*0.7}" fill="#facc15" font-size="${fs}" font-family="ui-monospace,Consolas,monospace">C</text>`;
  // ---- обяснителен овърлей при избран ред ----
- let expCap=null;
- if(state.explain&&EXPLAIN[state.explain]&&!EXPLAIN[state.explain].body){
-  const key=state.explain;expCap=EXPLAIN[key].t;
+ let expCap=null,extraR=0,extraT=0;
+ if(exp){
+  const key=exp;expCap=EXPLAIN[key].t;
   const AM="#facc15",swE=sw*2,MF='font-family="ui-monospace,Consolas,monospace"';
+  // класически клин на разпределението на напрежението при огъване
+  const wedgeV=()=>{ // за Ix / Wx — расте с |y − Cy|
+   const X0=bb.x1+off*0.55,amp=off*0.9;
+   extraR=off*0.55+amp+fs*6;
+   let w=`<line x1="${X0}" y1="${-bb.y1}" x2="${X0}" y2="${-bb.y0}" stroke="#8a93a0" stroke-width="${sw*0.6}" opacity=".6"/>`;
+   w+=`<polygon points="${X0},${cy} ${X0+amp},${-bb.y1} ${X0},${-bb.y1}" fill="rgba(248,113,113,.4)" stroke="#f87171" stroke-width="${sw*0.7}"/>`;
+   w+=`<polygon points="${X0},${cy} ${X0+amp},${-bb.y0} ${X0},${-bb.y0}" fill="rgba(91,141,239,.35)" stroke="#5b8def" stroke-width="${sw*0.7}"/>`;
+   w+=`<text x="${X0+amp+fs*0.4}" y="${-bb.y1+fs}" fill="#f87171" font-size="${fs*0.9}" ${MF}>+σ опън</text>`;
+   w+=`<text x="${X0+amp+fs*0.4}" y="${-bb.y0}" fill="#5b8def" font-size="${fs*0.9}" ${MF}>−σ натиск</text>`;
+   w+=`<line x1="${bb.x0}" y1="${cy}" x2="${X0+amp}" y2="${cy}" stroke="${AM}" stroke-width="${sw}" stroke-dasharray="${sw*3} ${sw*2}" opacity=".8"/>`;
+   return w;
+  };
+  const wedgeH=()=>{ // за Iy / Wy — расте с |x − Cx|
+   const Y0=-bb.y1-off*0.55,amp=off*0.9;
+   extraT=off*0.55+amp+fs*2.2;
+   let w=`<line x1="${bb.x0}" y1="${Y0}" x2="${bb.x1}" y2="${Y0}" stroke="#8a93a0" stroke-width="${sw*0.6}" opacity=".6"/>`;
+   w+=`<polygon points="${cx},${Y0} ${bb.x1},${Y0-amp} ${bb.x1},${Y0}" fill="rgba(248,113,113,.4)" stroke="#f87171" stroke-width="${sw*0.7}"/>`;
+   w+=`<polygon points="${cx},${Y0} ${bb.x0},${Y0-amp} ${bb.x0},${Y0}" fill="rgba(91,141,239,.35)" stroke="#5b8def" stroke-width="${sw*0.7}"/>`;
+   w+=`<text x="${bb.x1}" y="${Y0-amp-fs*0.4}" fill="#f87171" font-size="${fs*0.9}" text-anchor="end" ${MF}>+σ</text>`;
+   w+=`<text x="${bb.x0}" y="${Y0-amp-fs*0.4}" fill="#5b8def" font-size="${fs*0.9}" ${MF}>−σ</text>`;
+   w+=`<line x1="${cx}" y1="${Y0-amp}" x2="${cx}" y2="${-bb.y0}" stroke="${AM}" stroke-width="${sw}" stroke-dasharray="${sw*3} ${sw*2}" opacity=".8"/>`;
+   return w;
+  };
   const arrow=(x1,y1,x2,y2)=>{
    const an=Math.atan2(y2-y1,x2-x1),ah=fs*0.55;
    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${AM}" stroke-width="${sw*1.2}"/>`+
@@ -1024,11 +1235,11 @@ function buildViz2D(sp,contour,holes,showAxis){
    case "Cx":o=arrow(cx,dy,cx,cy)+`<text x="${cx+fs*0.4}" y="${(cy+dy)/2}" fill="${AM}" font-size="${fs*1.05}" ${MF}>Cx=${fmt(sp.Cx,2)}</text>`;break;
    case "Cy":o=arrow(dx,cy,cx,cy)+`<text x="${(dx+cx)/2}" y="${cy-fs*0.5}" fill="${AM}" font-size="${fs*1.05}" ${MF}>Cy=${fmt(sp.Cy,2)}</text>`;break;
    case "Ix":o=`<line x1="${bb.x0}" y1="${cy}" x2="${bb.x1}" y2="${cy}" stroke="${AM}" stroke-width="${sw*1.4}"/>`
-    +arrow((cx+bb.x1)/2,cy,(cx+bb.x1)/2,-bb.y1)+arrow((cx+bb.x0)/2,cy,(cx+bb.x0)/2,-bb.y0);break;
+    +arrow((cx+bb.x1)/2,cy,(cx+bb.x1)/2,-bb.y1)+arrow((cx+bb.x0)/2,cy,(cx+bb.x0)/2,-bb.y0)+wedgeV();break;
    case "Iy":{
     const ymA=(cy+(-bb.y1))/2,ymB=(cy+(-bb.y0))/2;
     o=`<line x1="${cx}" y1="${-bb.y0}" x2="${cx}" y2="${-bb.y1}" stroke="${AM}" stroke-width="${sw*1.4}"/>`
-     +arrow(cx,ymA,bb.x1,ymA)+arrow(cx,ymB,bb.x0,ymB);break;}
+     +arrow(cx,ymA,bb.x1,ymA)+arrow(cx,ymB,bb.x0,ymB)+wedgeH();break;}
    case "Ixy":o=`<line x1="${bb.x0}" y1="${cy}" x2="${bb.x1}" y2="${cy}" stroke="${AM}" stroke-width="${sw*1.3}"/>`
     +`<line x1="${cx}" y1="${-bb.y0}" x2="${cx}" y2="${-bb.y1}" stroke="${AM}" stroke-width="${sw*1.3}"/>`;break;
    case "I1":o=`<line x1="${cx-d1[0]*len*0.85}" y1="${cy-d1[1]*len*0.85}" x2="${cx+d1[0]*len*0.85}" y2="${cy+d1[1]*len*0.85}" stroke="${AM}" stroke-width="${sw*1.8}"/>`
@@ -1059,11 +1270,11 @@ function buildViz2D(sp,contour,holes,showAxis){
      +`<text x="${(eY[0]+fs*0.4).toFixed(2)}" y="${((cy-eY[1])/2).toFixed(2)}" fill="${AM}" font-size="${fs}" ${MF}>y_max=${fmt(sp.yext,1)}</text>`;
     if(key==="ext")o+=arrow(cx,-eX[1],eX[0],-eX[1])
      +`<text x="${((cx+eX[0])/2).toFixed(2)}" y="${(-eX[1]-fs*0.5).toFixed(2)}" fill="${AM}" font-size="${fs}" text-anchor="middle" ${MF}>x_max=${fmt(sp.xext,1)}</text>`;
-    if(key==="Wx")o+=`<line x1="${bb.x0}" y1="${cy}" x2="${bb.x1}" y2="${cy}" stroke="${AM}" stroke-width="${sw}" opacity=".7"/>`;
+    if(key==="Wx")o+=`<line x1="${bb.x0}" y1="${cy}" x2="${bb.x1}" y2="${cy}" stroke="${AM}" stroke-width="${sw}" opacity=".7"/>`+wedgeV();
     break;}
    case "Wy":o=arrow(cx,-eX[1],eX[0],-eX[1])
     +`<text x="${((cx+eX[0])/2).toFixed(2)}" y="${(-eX[1]-fs*0.5).toFixed(2)}" fill="${AM}" font-size="${fs}" text-anchor="middle" ${MF}>x_max=${fmt(sp.xext,1)}</text>`
-    +`<line x1="${cx}" y1="${-bb.y0}" x2="${cx}" y2="${-bb.y1}" stroke="${AM}" stroke-width="${sw}" opacity=".7"/>`;break;
+    +`<line x1="${cx}" y1="${-bb.y0}" x2="${cx}" y2="${-bb.y1}" stroke="${AM}" stroke-width="${sw}" opacity=".7"/>`+wedgeH();break;
    case "ix":o=`<line x1="${bb.x0}" y1="${cy-sp.ix}" x2="${bb.x1}" y2="${cy-sp.ix}" stroke="${AM}" stroke-width="${sw*1.2}" stroke-dasharray="${sw*4} ${sw*3}"/>`
     +`<line x1="${bb.x0}" y1="${cy+sp.ix}" x2="${bb.x1}" y2="${cy+sp.ix}" stroke="${AM}" stroke-width="${sw*1.2}" stroke-dasharray="${sw*4} ${sw*3}"/>`
     +`<text x="${bb.x1+fs*0.3}" y="${cy-sp.ix}" fill="${AM}" font-size="${fs*0.95}" ${MF}>iₓ</text>`;break;
@@ -1076,7 +1287,7 @@ function buildViz2D(sp,contour,holes,showAxis){
   s+=o;
  }
  const vx=Math.min(bb.x0-off-pad,showAxis?-off*0.6:1/0);
- const vb=`${vx} ${-bb.y1-pad-off*0.5} ${bb.x1-vx+pad} ${H+off+pad*2+off*0.5}`;
+ const vb=`${vx} ${-bb.y1-pad-off*0.5-extraT} ${bb.x1-vx+pad+extraR} ${H+off+pad*2+off*0.5+extraT}`;
  return {inner:s,viewBox:vb,cap:expCap?"ℹ "+expCap:`Габарит ${fmt(W,2)} × ${fmt(H,2)} mm · C(${fmt(sp.Cx,2)}, ${fmt(sp.Cy,2)}) · θ₁ = ${fmt(sp.thp,1)}°`};
 }
 function decimate(pts,maxN){
@@ -1109,25 +1320,27 @@ function buildViz3D(sp,contour,holes,body){
   faces.push({d:d/pts.length,scr,fill:fillFor(shade(n))});
  };
  const bb=sp.ring.bbox,diag=Math.hypot(bb.x1-bb.x0,bb.y1-bb.y0)||1;
- let pre="",post="",C0,R3=1,cap;
+ let pre="",post="",C0,R3=1,cap,capFn=null,capRing=null;
  if(body.op==="ext"){
   const h=body.h;
   const ringV=decimate(ringFromContour(contour,Math.max(0.05,diag/300)).pts,64);
+  capRing=ringV;
   // стени
   for(let i=0;i<ringV.length;i++){
    const a=ringV[i],b=ringV[(i+1)%ringV.length];
    F([[a[0],0,a[1]],[b[0],0,b[1]],[b[0],h,b[1]],[a[0],h,a[1]]],[b[1]-a[1],0,-(b[0]-a[0])]);
   }
   // капаци: контур + отвори (evenodd)
-  const capPath=lv=>{
+  const capPath=(lv,noHoles)=>{
    let d="M"+ringV.map(p=>scrP([p[0],lv,p[1]])).join("L")+"Z";
-   for(const hh of (holes||[])){
+   if(!noHoles)for(const hh of (holes||[])){
     const c=[];
     for(let k=0;k<24;k++){const t=2*Math.PI*k/24;c.push(scrP([hh.x+hh.r*Math.cos(t),lv,hh.y+hh.r*Math.sin(t)]));}
     d+="M"+c.join("L")+"Z";
    }
    return d;
   };
+  capFn=capPath;
   pre=`<path d="${capPath(0)}" fill="hsl(207 9% 10%)" fill-rule="evenodd"/>`;
   // тъмни „шахти“ на отворите, виждат се през горния капак
   let disks="";
@@ -1178,13 +1391,91 @@ function buildViz3D(sp,contour,holes,body){
  for(const f of faces)
   s+=`<path d="M${f.scr.map(p=>p[0].toFixed(2)+" "+p[1].toFixed(2)).join("L")}Z" fill="${f.fill}" stroke="${f.fill}" stroke-width="${swf}"/>`;
  s+=post;
+ // ---- обяснителен 3D слой ----
+ let expCap=null;
+ if(state.explain&&EXPLAIN[state.explain]&&!EXPLAIN[state.explain].body){
+  const key=state.explain,AM="#facc15";
+  expCap=EXPLAIN[key].t;
+  const isExt=body.op==="ext";
+  const h=isExt?body.h:0,cxp=sp.Cx,cyp=sp.Cy;
+  const sw3=R3*0.008,ah=R3*0.06;
+  const pl=(pts,w,col,dash)=>`<path d="M${pts.map(p=>scrP(p)).join("L")}" fill="none" stroke="${col||AM}" stroke-width="${w||sw3}"${dash?` stroke-dasharray="${dash}"`:""} stroke-linecap="round"/>`;
+  const head=(pPrev,pEnd,col)=>{
+   const a=rotV(pPrev[0],pPrev[1],pPrev[2]),b=rotV(pEnd[0],pEnd[1],pEnd[2]);
+   const an=Math.atan2(-b[1]+a[1],b[0]-a[0]);
+   const x=b[0],y=-b[1];
+   return `<path d="M${(x+ah*Math.cos(an)).toFixed(2)} ${(y+ah*Math.sin(an)).toFixed(2)}L${(x+ah*0.42*Math.cos(an+2.4)).toFixed(2)} ${(y+ah*0.42*Math.sin(an+2.4)).toFixed(2)}L${(x+ah*0.42*Math.cos(an-2.4)).toFixed(2)} ${(y+ah*0.42*Math.sin(an-2.4)).toFixed(2)}Z" fill="${col||AM}"/>`;
+  };
+  const cross3=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+  const norm3=v=>{const m=Math.hypot(v[0],v[1],v[2])||1;return[v[0]/m,v[1]/m,v[2]/m];};
+  // ос през ЦТ по направление dir + моментни стрелки около нея в двата края
+  const bendGlyph=dir=>{
+   const d=norm3(dir);
+   let u=cross3(d,[0,1,0]);if(Math.hypot(u[0],u[1],u[2])<1e-6)u=cross3(d,[1,0,0]);
+   u=norm3(u);const v=norm3(cross3(d,u));
+   const P0=isExt?[cxp,h/2,cyp]:[0,C0[1],0],LA=R3*0.95,r=R3*0.24;
+   let g=pl([[P0[0]-d[0]*LA,P0[1]-d[1]*LA,P0[2]-d[2]*LA],[P0[0]+d[0]*LA,P0[1]+d[1]*LA,P0[2]+d[2]*LA]],sw3,AM,`${R3*0.05} ${R3*0.025}`);
+   for(const sgn of[-1,1]){
+    const Q=[P0[0]+d[0]*LA*0.72*sgn,P0[1]+d[1]*LA*0.72*sgn,P0[2]+d[2]*LA*0.72*sgn];
+    const arc=[];
+    for(let i=0;i<=16;i++){
+     const t=0.6+i*(4.4/16);
+     arc.push([Q[0]+r*(Math.cos(t)*u[0]+Math.sin(t)*v[0]),Q[1]+r*(Math.cos(t)*u[1]+Math.sin(t)*v[1]),Q[2]+r*(Math.cos(t)*u[2]+Math.sin(t)*v[2])]);
+    }
+    g+=pl(arc,sw3)+head(arc[arc.length-2],arc[arc.length-1]);
+   }
+   return g;
+  };
+  if(key==="Ix")s+=bendGlyph([1,0,0]);
+  else if(key==="Iy")s+=bendGlyph([0,0,1]);
+  else if(key==="I1"||key==="I2"||key==="th"){
+   const thr=sp.thp*Math.PI/180;
+   s+=bendGlyph(key==="I2"?[-Math.sin(thr),0,Math.cos(thr)]:[Math.cos(thr),0,Math.sin(thr)]);
+  }else if(key==="J0"||key==="i0"){
+   const y0=isExt?-R3*0.1:C0[1]-R3*0.8,y1=isExt?h+R3*0.1:C0[1]+R3*0.8;
+   const ax=isExt?[cxp,0,cyp]:[0,0,0];
+   s+=pl([[ax[0],y0,ax[2]],[ax[0],y1,ax[2]]],sw3,AM,`${R3*0.05} ${R3*0.025}`);
+   const r=R3*0.4,helix=[];
+   for(let i=0;i<=40;i++){
+    const t=i*(3.6*Math.PI/40);
+    helix.push([ax[0]+r*Math.cos(t),y0+(y1-y0)*(0.12+0.76*i/40),ax[2]+r*Math.sin(t)]);
+   }
+   s+=pl(helix,sw3)+head(helix[helix.length-2],helix[helix.length-1]);
+  }else if(isExt&&(key==="Wx"||key==="Wy"||key==="ext")){
+   // градиент на напрежението върху горния капак — червено при най-натовареното влакно
+   let eP=capRing[0],best=0;
+   for(const p of capRing){
+    const dd=key==="Wy"?Math.abs(p[0]-cxp):Math.abs(p[1]-cyp);
+    if(dd>best){best=dd;eP=p;}
+   }
+   const g0=rotV(cxp,h,cyp),g1=key==="Wy"?rotV(eP[0],h,cyp):rotV(cxp,h,eP[1]);
+   s+=`<defs><linearGradient id="sg3" gradientUnits="userSpaceOnUse" x1="${g0[0].toFixed(2)}" y1="${(-g0[1]).toFixed(2)}" x2="${g1[0].toFixed(2)}" y2="${(-g1[1]).toFixed(2)}"><stop offset="0" stop-color="rgba(248,113,113,0)"/><stop offset="1" stop-color="rgba(248,113,113,.8)"/></linearGradient></defs>`;
+   s+=`<path d="${capFn(h)}" fill="url(#sg3)" fill-rule="evenodd"/>`;
+   const tip=[eP[0],h,eP[1]];
+   s+=pl([[cxp,h,cyp],tip],sw3)+head([cxp,h,cyp],tip)
+    +`<text x="${rotV(tip[0],tip[1],tip[2])[0].toFixed(2)}" y="${(-rotV(tip[0],tip[1],tip[2])[1]-R3*0.06).toFixed(2)}" fill="#f87171" font-size="${R3*0.09}" font-family="ui-monospace,Consolas,monospace">max σ</text>`;
+  }else if(isExt&&(key==="A"||key==="Agross"))
+   s+=`<path d="${capFn(h,key==="Agross")}" fill="rgba(45,212,191,.35)"${key==="A"?' fill-rule="evenodd"':''}/>`;
+  else if(isExt&&key==="holeA"){
+   for(const hh of (holes||[])){
+    const c=[];for(let k=0;k<24;k++){const t=2*Math.PI*k/24;c.push(scrP([hh.x+hh.r*Math.cos(t),h,hh.y+hh.r*Math.sin(t)]));}
+    s+=`<path d="M${c.join("L")}Z" fill="rgba(91,141,239,.5)"/>`;
+   }
+  }else if(isExt&&(key==="P"||key==="L")){
+   s+=`<path d="M${capRing.map(p=>scrP([p[0],h,p[1]])).join("L")}Z" fill="none" stroke="${AM}" stroke-width="${sw3*1.2}"/>`;
+   if(key==="L")for(const hh of (holes||[])){
+    const c=[];for(let k=0;k<24;k++){const t=2*Math.PI*k/24;c.push(scrP([hh.x+hh.r*Math.cos(t),h,hh.y+hh.r*Math.sin(t)]));}
+    s+=`<path d="M${c.join("L")}Z" fill="none" stroke="${AM}" stroke-width="${sw3*1.2}"/>`;
+   }
+  }
+ }
  const q0=rotV(C0[0],C0[1],C0[2]);
  const vb=`${(q0[0]-R3*1.28).toFixed(2)} ${(-q0[1]-R3*1.28).toFixed(2)} ${(R3*2.56).toFixed(2)} ${(R3*2.56).toFixed(2)}`;
- return {inner:s,viewBox:vb,cap};
+ return {inner:s,viewBox:vb,cap:expCap?"ℹ "+expCap:cap};
 }
 
 /* ================= UI ================= */
-const state={mode:"catalog",fig:"rect",body:{src:"catalog",op:"ext"},viz3d:true,last:null};
+const state={mode:"profile",fig:"rect",body:{src:"catalog",op:"ext"},viz3d:true,last:null};
 const byId=id=>document.getElementById(id);
 
 function renderChips(){
@@ -1279,16 +1570,25 @@ function renderMsgs(errs,warns){
 function renderViz(S,body){
  if(DRAW.on)return;
  const viz=byId("viz"),cap=byId("vizCap");
- if(!S||!S.sp){viz.innerHTML="";viz.setAttribute("viewBox","0 0 100 100");viz.dataset.fit="0 0 100 100";cap.textContent="—";return;}
+ if(!S||!S.sp){viz.innerHTML="";viz.setAttribute("viewBox","0 0 100 100");viz.dataset.fit="0 0 100 100";cap.textContent="—";updateExpBox(false);return;}
  let out;
- const exp2d=state.explain&&EXPLAIN[state.explain]&&!EXPLAIN[state.explain].body;
- if(state.mode==="body"&&state.viz3d&&body&&!body.errsShown&&!exp2d)out=buildViz3D(S.sp,S.contour,S.holes,body);
+ if(state.mode==="body"&&state.viz3d&&body&&!body.errsShown)out=buildViz3D(S.sp,S.contour,S.holes,body);
  else out=buildViz2D(S.sp,S.contour,S.holes,state.mode==="body"&&state.body.op==="rev");
  if(state.explain&&EXPLAIN[state.explain]&&EXPLAIN[state.explain].body)out.cap="ℹ "+EXPLAIN[state.explain].t;
  viz.innerHTML=out.inner;
  viz.setAttribute("viewBox",out.viewBox);
  viz.dataset.fit=out.viewBox;
  cap.textContent=out.cap;
+ updateExpBox(!!S.sp);
+}
+function updateExpBox(hasData){
+ const bx=byId("expBox");if(!bx)return;
+ const e=state.explain&&EXPLAIN[state.explain];
+ if(e&&hasData){
+  byId("expT").textContent=e.t;
+  byId("expL").textContent=e.long||"";
+  bx.classList.remove("hide");
+ }else bx.classList.add("hide");
 }
 /* плочки с ключови стойности */
 function renderTiles(sp,body){
@@ -1335,6 +1635,14 @@ function drawSnap(p,e,noClose){
   const len=Math.max(st,Math.round(Math.hypot(dx,dy)/st)*st);
   x=DRAW.cur[0]+len*Math.cos(ang);y=DRAW.cur[1]+len*Math.sin(ang);
  }else{x=Math.round(x/st)*st;y=Math.round(y/st)*st;}
+ // точна дължина от полето L — приоритет пред мрежата
+ if(DRAW.cur&&DRAW.tool!=="hole"){
+  const Lf=parseFloat(byId("dLen").value);
+  if(Lf>0){
+   const dx=x-DRAW.cur[0],dy=y-DRAW.cur[1],dl=Math.hypot(dx,dy);
+   if(dl>1e-9){x=DRAW.cur[0]+dx/dl*Lf;y=DRAW.cur[1]+dy/dl*Lf;}
+  }
+ }
  return{x:+x.toFixed(4),y:+y.toFixed(4)};
 }
 function drawArcPath(x0,y0,x1,y1,R,dir){
@@ -1370,6 +1678,19 @@ function drawPreview(){
    const hot=DRAW.hot&&DRAW.hot.kind==="vert"&&DRAW.hot.i===i;
    s+=`<rect x="${a.x-hs}" y="${-a.y-hs}" width="${hs*2}" height="${hs*2}" fill="${hot?"#facc15":"#0b0d12"}" stroke="${hot?"#facc15":"#2dd4bf"}" stroke-width="${sw*0.8}"/>`;
   });
+  // дължини на отсечките
+  const dimEl=byId("dDim");
+  if(dimEl&&dimEl.checked){
+   const segs2=DRAW.acts.filter(a=>a.kind==="seg");
+   if(segs2.length<=40){
+    let px2=DRAW.start.x,py2=DRAW.start.y;
+    for(const a of segs2){
+     const ln=Math.hypot(a.x-px2,a.y-py2);
+     if(ln>1e-6)s+=`<text x="${((px2+a.x)/2).toFixed(2)}" y="${(-(py2+a.y)/2-sw*2.6).toFixed(2)}" fill="#8a93a0" opacity=".8" font-size="${(sw*5.5).toFixed(2)}" text-anchor="middle" font-family="ui-monospace,Consolas,monospace">${fmt(ln,1)}</text>`;
+     px2=a.x;py2=a.y;
+    }
+   }
+  }
  }
  DRAW.acts.forEach((a,i)=>{
   if(a.kind!=="hole")return;
@@ -1628,6 +1949,7 @@ function recompute(){
  byId("btnDXF").disabled=!ok;
  byId("btnCSV").disabled=!ok;
  byId("btnSVG").disabled=!ok;
+ byId("btnSTL").disabled=!(ok&&state.mode==="body"&&!!body);
 }
 let tmr=null;
 function recomputeSoon(){clearTimeout(tmr);tmr=setTimeout(recompute,150);}
@@ -1774,6 +2096,7 @@ function init(){
  byId("btnDXF").addEventListener("click",exportDXF);
  byId("btnCSV").addEventListener("click",exportCSV);
  byId("btnSVG").addEventListener("click",exportSVG);
+ byId("btnSTL").addEventListener("click",exportSTL);
  byId("btnPrint").addEventListener("click",()=>window.print());
  byId("btnCopy").addEventListener("click",copyResults);
  byId("noticeX").addEventListener("click",()=>byId("notice").classList.add("hide"));
@@ -1844,6 +2167,25 @@ function init(){
   DRAW.hot=null;drawPreview();
  });
  byId("btnEdit").addEventListener("click",drawImport);
+ byId("startShapes").innerHTML=Object.keys(CAT).filter(k=>k!=="ellipse").map(k=>
+  `<button class="chip" data-start="${k}" title="Вмъква ${CAT[k].name} с размери по подразбиране и отваря редактора">${figureIcon(k)}<span>${CAT[k].name}</span></button>`).join("");
+ byId("startShapes").addEventListener("click",e=>{
+  const t=e.target.closest("[data-start]");if(!t)return;
+  const k=t.dataset.start;
+  const vals=Object.fromEntries(CAT[k].fields.map(f=>[f.id,f.def]));
+  const sc=catalogToScript(k,vals);
+  if(!sc)return;
+  byId("taScript").value=sc;
+  recompute();
+  drawImport();
+ });
+ byId("expX").addEventListener("click",()=>{
+  state.explain=null;
+  document.querySelectorAll(".row.sel").forEach(x=>x.classList.remove("sel"));
+  renderViz(state.lastS,state.lastBody);
+ });
+ byId("dLen").addEventListener("input",()=>{if(DRAW.on)drawPreview();});
+ byId("dDim").addEventListener("change",()=>{if(DRAW.on)drawPreview();});
  for(const id of["rowsA","rowsI","rowsB"])byId(id).addEventListener("click",e=>{
   const r=e.target.closest(".row");
   if(!r||!r.dataset.k)return;
@@ -1877,7 +2219,7 @@ function init(){
  });
  byId("btnToProfile").addEventListener("click",()=>{
   const sc=catalogToScript(state.fig,readFigVals());
-  if(!sc){renderMsgs([{line:0,msg:"Тази фигура не може да се представи като команди (елипса → полилиния)"}],[]);return;}
+  if(!sc){renderMsgs([{line:0,msg:"Тази фигура не може да се представи като скица (елипса → полилиния)"}],[]);return;}
   byId("taScript").value=sc;
   state.mode="profile";updateVis();recompute();
  });
@@ -1890,7 +2232,7 @@ document.addEventListener("DOMContentLoaded",init);
 window.GEO={VERSION,parseNum,fmt,arcFromBulge,arcToSegs,mkPolySegs,normalizeCCW,ringFromContour,
  polyProps,sectionProps,validateSection,applyFillet,parseScript,CAT,buildCatalog,catalogToScript,
  genScriptFromSegs,extrudeProps,revolveProps,buildDXF,buildCSV,EXAMPLES,F_DEF,MATS,
- DIMS,figureSketch,figureIcon};
+ DIMS,figureSketch,figureIcon,bodyMesh,meshVolume,buildSTL,earClip,mergeHoles};
 </script>
 </body>
 </html>
