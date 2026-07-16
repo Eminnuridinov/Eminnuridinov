@@ -1240,7 +1240,7 @@ function drawFinish(){
  byId("taScript").value=L.join("\n");
  drawExit();
  recompute();
- toast("Скицата е прехвърлена в командите");
+ toast("Скицата е в командите · за 3D: режим „Тяло“ → EXTRUDE / REVOLVE");
 }
 function drawSetTool(t){
  DRAW.tool=t;
@@ -1476,7 +1476,11 @@ function init(){
  byId("taScript").addEventListener("input",recomputeSoon);
  byId("btnModeCat").addEventListener("click",()=>{state.mode="catalog";updateVis();recompute();});
  byId("btnModeProf").addEventListener("click",()=>{state.mode="profile";updateVis();recompute();});
- byId("btnModeBody").addEventListener("click",()=>{state.mode="body";updateVis();recompute();});
+ byId("btnModeBody").addEventListener("click",()=>{
+  if(state.mode==="profile")state.body.src="profile";
+  else if(state.mode==="catalog")state.body.src="catalog";
+  state.mode="body";updateVis();recompute();
+ });
  byId("btnSrcCat").addEventListener("click",()=>{state.body.src="catalog";updateVis();recompute();});
  byId("btnSrcProf").addEventListener("click",()=>{state.body.src="profile";updateVis();recompute();});
  byId("btnOpExt").addEventListener("click",()=>{state.body.op="ext";updateVis();recompute();});
