@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0f1115">
-<title>AVKO GeoLab v3.6</title>
+<title>AVKO GeoLab v3.7</title>
 <style>
 :root{--bg:#0b0d12;--panel:#12161f;--panel2:#1a2029;--line:#252d3a;--line2:#354158;
  --teal:#2dd4bf;--blue:#5b8def;--amber:#facc15;--red:#f87171;
@@ -191,6 +191,9 @@ details.help .note{display:block;margin-top:6px}
 .brow.sf.ok b{color:#34d399}.brow.sf.warn b{color:var(--amber)}.brow.sf.bad b{color:var(--red)}
 .bnote{font-size:11.5px;color:var(--muted);margin-top:8px;padding:7px 9px;background:var(--panel2);border-radius:8px}
 @media(max-width:820px){.beambody{grid-template-columns:1fr}}
+#torsWrap{position:fixed;inset:0;background:rgba(5,7,10,.92);z-index:60;display:flex;flex-direction:column;padding:14px;overflow:auto}
+.torslegend{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted)}
+.torslegend i{flex:1;height:12px;border-radius:6px;background:linear-gradient(90deg,rgb(41,53,102),rgb(45,140,180),rgb(52,180,120),rgb(250,204,21),rgb(248,113,113))}
 #pip{position:absolute;right:12px;bottom:44px;width:30%;max-width:340px;aspect-ratio:1.15;background:var(--panel);border:1px solid var(--line2);border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.5);cursor:pointer;overflow:hidden;z-index:7}
 #pip:hover{border-color:var(--teal)}
 #pip svg{width:100%;height:100%;display:block}
@@ -219,6 +222,7 @@ details.help .note{display:block;margin-top:6px}
  body.sheet-open .app,body.sheet-open .toast{display:none!important}
  body.sheet-open #stlWrap{position:static;background:#fff;color:#111}
  body.sheet-open #beamWrap{position:static;background:#fff;color:#111}
+ body.sheet-open #torsWrap{position:static;background:#fff;color:#111}
  body.sheet-open #stlWrap .stlviz-wrap{background:#fff}
  body.sheet-open #sheetWrap{position:static;background:#fff;padding:0;overflow:visible}
  body.sheet-open .sheetbar{display:none!important}
@@ -239,7 +243,7 @@ details.help .note{display:block;margin-top:6px}
 <body>
 <div class="app">
 <header class="topbar">
- <div class="brand"><h1>AVKO GeoLab</h1><span class="ver">v3.6</span></div>
+ <div class="brand"><h1>AVKO GeoLab</h1><span class="ver">v3.7</span></div>
  <nav class="seg" id="modeSeg">
   <button id="btnModeProf" class="on">Скица</button>
   <button id="btnModeBody">Модел</button>
@@ -257,6 +261,7 @@ details.help .note{display:block;margin-top:6px}
   <input type="file" id="fileSTL" accept=".stl" class="hide">
   <button id="btnSheet" title="Работилничен чертеж от модела: изгледи + размери + таблица на отворите (режим „Модел“)" disabled>📄 Чертеж</button>
   <button id="btnBeam" title="Греда (FEM): огъване, провисване, напрежение и коефициент на сигурност за текущото сечение">🔩 Греда</button>
+  <button id="btnTors" title="Усукване (2D FEM): истинска торсионна константа + топлинна карта на тангенциалното напрежение">🌀 Усукване</button>
   <button id="btnPrint" title="Системен печат — там избери „Запиши като PDF“">🖨 Печат</button>
   <button id="btnCopy" title="Копира всички резултати в клипборда — без файл на диска">📋 Копирай</button>
  </div>
@@ -378,6 +383,32 @@ BOLTS n BC140 D18 [A0]  n отвора на болтова окр. Ø140
  </aside>
 </main>
 </div>
+<div id="torsWrap" class="hide">
+ <div class="sheetbar no-print">
+  <b>🌀 Усукване (2D FEM) · сечение:</b> <span id="torsName" class="mono" style="color:var(--teal)"></span>
+  <span style="flex:1"></span>
+  <button class="mini" id="torsCSVbtn">📋 CSV</button>
+  <button class="mini" id="torsPrintBtn">🖨 PDF</button>
+  <button class="mini" id="torsX">✕ Затвори</button>
+ </div>
+ <div class="beambody">
+  <div class="beampanel">
+   <div class="card"><h2>Натоварване</h2>
+    <div class="grid2">
+     <label class="blab">Въртящ момент T, N·mm<input id="tT" type="number" step="any"></label>
+     <label class="blab">Дължина L, mm<input id="tL" type="number" step="any"></label>
+     <label class="blab">Модул E, MPa<input id="tE" type="number" step="any"></label>
+     <label class="blab">Коеф. на Поасон ν<input id="tNu" type="number" step="any"></label>
+     <label class="blab">Граница σт, MPa<input id="tY" type="number" step="any"></label>
+    </div>
+    <div class="bnote2">Топлинната карта показва тангенциалното напрежение; бялото кръгче = максимумът.</div>
+   </div>
+   <div class="card"><h2>Резултати</h2><div id="torsOut"></div></div>
+   <div class="card"><div class="torslegend"><span>ниско</span><i></i><span>високо τ</span></div></div>
+  </div>
+  <div class="beamviz" style="background:#0b0d12;padding:12px"><svg id="torsSvg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%"></svg></div>
+ </div>
+</div>
 <div id="beamWrap" class="hide">
  <div class="sheetbar no-print">
   <b>🔩 Греда (FEM) · сечение:</b> <span id="beamName" class="mono" style="color:var(--teal)"></span>
@@ -436,7 +467,7 @@ BOLTS n BC140 D18 [A0]  n отвора на болтова окр. Ø140
 <script>
 "use strict";
 /* ================= AVKO GeoLab v1.1 — ядро ================= */
-const VERSION="3.6";
+const VERSION="3.7";
 const COMPUTE_TOL=0.0005;   // sagitta [mm] за полигонизация при смятане
 const EPS=1e-9;
 
@@ -2595,6 +2626,235 @@ function beamCSV(){
  download(`geolab_греда_${dateStr()}.csv`,buildCSV(rows),"text/csv;charset=utf-8");
 }
 
+/* ============ 2D мрежа (Делоне) + FEM за усукване (Прандтл) ============ */
+function pointInPolyRings(p,outer,holes){
+ if(!pointInPoly(p,outer))return false;
+ for(const hr of (holes||[]))if(pointInPoly(p,hr))return false;
+ return true;
+}
+function densify(ring,h){
+ const out=[];const n=ring.length;
+ for(let i=0;i<n;i++){
+  const a=ring[i],b=ring[(i+1)%n];
+  const L=Math.hypot(b[0]-a[0],b[1]-a[1]),k=Math.max(1,Math.round(L/h));
+  for(let j=0;j<k;j++)out.push([a[0]+(b[0]-a[0])*j/k,a[1]+(b[1]-a[1])*j/k]);
+ }
+ return out;
+}
+/* Bowyer–Watson Делоне върху набор точки → триъгълници (индекси, CCW) */
+function delaunay(pts){
+ const n=pts.length;
+ let minx=1/0,miny=1/0,maxx=-1/0,maxy=-1/0;
+ for(const p of pts){if(p[0]<minx)minx=p[0];if(p[0]>maxx)maxx=p[0];if(p[1]<miny)miny=p[1];if(p[1]>maxy)maxy=p[1];}
+ const dx=maxx-minx||1,dy=maxy-miny||1,dm=Math.max(dx,dy),mx=(minx+maxx)/2,my=(miny+maxy)/2;
+ // микро-разместване (детерминистично) само за топологията — чупи кокръгови израждания
+ let seed=12345;const rnd=()=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x7fffffff-0.5;};
+ const jit=dm*1e-6;
+ const P=pts.map(q=>[q[0]+rnd()*jit,q[1]+rnd()*jit]);
+ P.push([mx-20*dm,my-20*dm]);P.push([mx+20*dm,my-20*dm]);P.push([mx,my+20*dm]);
+ let tris=[[n,n+1,n+2]]; // CCW
+ const orient=(a,b,c)=>(P[b][0]-P[a][0])*(P[c][1]-P[a][1])-(P[c][0]-P[a][0])*(P[b][1]-P[a][1]);
+ const circ=(t,pi)=>{ // t е CCW; вярно ако P[pi] е строго в описаната окръжност
+  const a=P[t[0]],b=P[t[1]],c=P[t[2]],p=P[pi];
+  const ax=a[0]-p[0],ay=a[1]-p[1],bx=b[0]-p[0],by=b[1]-p[1],cx=c[0]-p[0],cy=c[1]-p[1];
+  const d=(ax*ax+ay*ay)*(bx*cy-cx*by)-(bx*bx+by*by)*(ax*cy-cx*ay)+(cx*cx+cy*cy)*(ax*by-bx*ay);
+  return d>1e-9;
+ };
+ for(let ip=0;ip<n;ip++){
+  const keep=[],bad=[];
+  for(const t of tris){(circ(t,ip)?bad:keep).push(t);}
+  // ръбове само веднъж = граница на дупката
+  const cnt=new Map(),rep=new Map();
+  for(const t of bad){
+   const es=[[t[0],t[1]],[t[1],t[2]],[t[2],t[0]]];
+   for(const e of es){const k=e[0]<e[1]?e[0]+','+e[1]:e[1]+','+e[0];cnt.set(k,(cnt.get(k)||0)+1);rep.set(k,e);}
+  }
+  tris=keep;
+  for(const [k,c] of cnt)if(c===1){const e=rep.get(k);
+   // запази CCW: e е насочен ръб от CCW „лош“ триъгълник; [e0,e1,ip] е CCW
+   if(orient(e[0],e[1],ip)>0)tris.push([e[0],e[1],ip]);
+   else tris.push([e[1],e[0],ip]);
+  }
+ }
+ return tris.filter(t=>t[0]<n&&t[1]<n&&t[2]<n);
+}
+function meshSection(ring,holes,targetN){
+ // ring/holes са масиви точки (CCW/който и да е); h ~ характерен размер
+ let x0=1/0,y0=1/0,x1=-1/0,y1=-1/0;
+ for(const p of ring){if(p[0]<x0)x0=p[0];if(p[0]>x1)x1=p[0];if(p[1]<y0)y0=p[1];if(p[1]>y1)y1=p[1];}
+ const w=x1-x0,hh=y1-y0,area=Math.abs(ringSignedArea(ring));
+ const h=Math.max(Math.sqrt(area/(targetN||600))*1.6,Math.max(w,hh)/60);
+ const bpts=densify(ring,h);
+ const nb=bpts.length;
+ for(const hr of (holes||[]))for(const q of densify(hr,h))bpts.push(q);
+ const nBound=bpts.length;
+ // вътрешни точки на решетка
+ for(let y=y0+h*0.5;y<y1;y+=h*0.866){
+  const off=(Math.round((y-y0)/(h*0.866))%2)?h*0.5:0;
+  for(let x=x0+h*0.5+off;x<x1;x+=h){
+   const p=[x,y];
+   if(pointInPolyRings(p,ring,holes)){
+    // не твърде близо до граница
+    let ok=true;
+    for(let k=0;k<nBound;k++)if(Math.hypot(p[0]-bpts[k][0],p[1]-bpts[k][1])<h*0.55){ok=false;break;}
+    if(ok)bpts.push(p);
+   }
+  }
+ }
+ const tris=delaunay(bpts).filter(t=>{
+  const c=[(bpts[t[0]][0]+bpts[t[1]][0]+bpts[t[2]][0])/3,(bpts[t[0]][1]+bpts[t[1]][1]+bpts[t[2]][1])/3];
+  return pointInPolyRings(c,ring,holes);
+ });
+ const bound=new Array(bpts.length).fill(false);
+ for(let i=0;i<nBound;i++)bound[i]=true;
+ return {pts:bpts,tris,bound};
+}
+/* Решаване на ∇²φ = −2, φ=0 по границата (линейни триъгълници, спрегнати градиенти) */
+function torsionSolve(mesh){
+ const {pts,tris,bound}=mesh,n=pts.length;
+ // разредена матрица като списък съседи
+ const A=Array.from({length:n},()=>({}));
+ const F=new Array(n).fill(0);
+ for(const t of tris){
+  const [i,j,k]=t,pi=pts[i],pj=pts[j],pk=pts[k];
+  const area=((pj[0]-pi[0])*(pk[1]-pi[1])-(pk[0]-pi[0])*(pj[1]-pi[1]))/2;
+  const ar=Math.abs(area);if(ar<1e-12)continue;
+  const b=[pj[1]-pk[1],pk[1]-pi[1],pi[1]-pj[1]];
+  const c=[pk[0]-pj[0],pi[0]-pk[0],pj[0]-pi[0]];
+  for(let a=0;a<3;a++)for(let d=0;d<3;d++){
+   const ke=(b[a]*b[d]+c[a]*c[d])/(4*ar);
+   A[t[a]][t[d]]=(A[t[a]][t[d]]||0)+ke;
+  }
+  for(let a=0;a<3;a++)F[t[a]]+=2*ar/3; // ∫2·N dA
+ }
+ // Дирихле: φ=0 по границата → фиксирай тези възли
+ const phi=new Array(n).fill(0);
+ const freeIdx=[];for(let i=0;i<n;i++)if(!bound[i])freeIdx.push(i);
+ const map=new Array(n).fill(-1);freeIdx.forEach((g,l)=>map[g]=l);
+ const nf=freeIdx.length;
+ // matvec върху свободните
+ const mul=x=>{
+  const y=new Array(nf).fill(0);
+  for(let l=0;l<nf;l++){const g=freeIdx[l];for(const col in A[g]){const cg=+col;if(map[cg]>=0)y[l]+=A[g][col]*x[map[cg]];}}
+  return y;
+ };
+ const bvec=freeIdx.map(g=>F[g]); // граничните phi=0 → без принос
+ // спрегнати градиенти
+ let x=new Array(nf).fill(0),r=bvec.slice(),pv=bvec.slice();
+ let rs=r.reduce((a,b)=>a+b*b,0);
+ for(let it=0;it<Math.max(500,nf*2);it++){
+  const Ap=mul(pv);
+  let pAp=0;for(let i=0;i<nf;i++)pAp+=pv[i]*Ap[i];
+  if(Math.abs(pAp)<1e-30)break;
+  const al=rs/pAp;
+  for(let i=0;i<nf;i++){x[i]+=al*pv[i];r[i]-=al*Ap[i];}
+  const rs2=r.reduce((a,b)=>a+b*b,0);
+  if(rs2<1e-12*(bvec.reduce((a,b)=>a+b*b,0)+1e-30))break;
+  const be=rs2/rs;for(let i=0;i<nf;i++)pv[i]=r[i]+be*pv[i];rs=rs2;
+ }
+ freeIdx.forEach((g,l)=>phi[g]=x[l]);
+ // J = 2∫φ dA ; τ на ед. Gθ = |∇φ|
+ let J=0;const tri_tau=[],tri_c=[];
+ let tauMax=0,tauMaxPt=null;
+ for(const t of tris){
+  const [i,j,k]=t,pi=pts[i],pj=pts[j],pk=pts[k];
+  const area=((pj[0]-pi[0])*(pk[1]-pi[1])-(pk[0]-pi[0])*(pj[1]-pi[1]))/2;
+  const ar=Math.abs(area);
+  J+=2*(phi[i]+phi[j]+phi[k])/3*ar;
+  const b=[pj[1]-pk[1],pk[1]-pi[1],pi[1]-pj[1]];
+  const c=[pk[0]-pj[0],pi[0]-pk[0],pj[0]-pi[0]];
+  const dphidx=(b[0]*phi[i]+b[1]*phi[j]+b[2]*phi[k])/(2*area);
+  const dphidy=(c[0]*phi[i]+c[1]*phi[j]+c[2]*phi[k])/(2*area);
+  const tau=Math.hypot(dphidx,dphidy); // τ_zx=∂φ/∂y, τ_zy=−∂φ/∂x → |τ|=|∇φ|
+  tri_tau.push(tau);
+  const cc=[(pi[0]+pj[0]+pk[0])/3,(pi[1]+pj[1]+pk[1])/3];tri_c.push(cc);
+  if(tau>tauMax){tauMax=tau;tauMaxPt=cc;}
+ }
+ return {phi,J,tri_tau,tauMax,tauMaxPt,mesh};
+}
+
+/* ---------- Усукване: UI + топлинна карта ---------- */
+const TORS={T:100000,L:1000,E:210000,nu:0.3,yield:235,sol:null};
+function torsRamp(t){ // 0..1 → синьо→циан→зелено→жълто→червено
+ t=Math.max(0,Math.min(1,t));
+ const stops=[[41,53,102],[45,140,180],[52,180,120],[250,204,21],[248,113,113]];
+ const x=t*(stops.length-1),i=Math.min(stops.length-2,Math.floor(x)),f=x-i;
+ const a=stops[i],b=stops[i+1];
+ return `rgb(${Math.round(a[0]+(b[0]-a[0])*f)},${Math.round(a[1]+(b[1]-a[1])*f)},${Math.round(a[2]+(b[2]-a[2])*f)})`;
+}
+function torsSectionRings(){
+ const sp=state.last&&state.last.sp;if(!sp)return null;
+ const ring=decimate(sp.ring.pts,140);
+ const holes=(state.last.holes||[]).map(hh=>{const c=[];for(let i=0;i<36;i++){const a=2*Math.PI*i/36;c.push([hh.x+hh.r*Math.cos(a),hh.y+hh.r*Math.sin(a)]);}return c;});
+ return {ring,holes};
+}
+function computeTorsion(){
+ const r=torsSectionRings();
+ if(!r){byId("torsOut").innerHTML='<div class="msg err">Няма валидно сечение.</div>';return;}
+ let mesh,sol;
+ try{mesh=meshSection(r.ring,r.holes,700);sol=torsionSolve(mesh);}
+ catch(e){byId("torsOut").innerHTML='<div class="msg err">Мрежата не успя (сложно сечение).</div>';return;}
+ TORS.sol=sol;
+ const J=sol.J;                       // mm⁴
+ const G=TORS.E/(2*(1+TORS.nu));      // MPa
+ const T=TORS.T;                      // N·mm
+ const GtL=T/J;                       // Gθ = T/J  (θ на ед. дължина = T/(GJ))
+ const tauMax=GtL*sol.tauMax;         // MPa   (τ = Gθ·|∇φ|)
+ const thetaPerL=T/(G*J);             // rad/mm
+ const thetaTot=thetaPerL*TORS.L*180/Math.PI; // градуси
+ const tauY=TORS.yield/Math.sqrt(3);  // граница на срязване (Мизес)
+ const SF=tauMax>0?tauY/tauMax:NaN;
+ TORS._res={J,G,tauMax,thetaTot,SF,GtL};
+ drawTorsion(sol,GtL);
+ const R=(k,v,u)=>`<div class="brow"><span>${k}</span><b>${v}${u?` <span class="u">${u}</span>`:""}</b></div>`;
+ const sfC=!isFinite(SF)?"":SF>=2?"ok":SF>=1.3?"warn":"bad";
+ let h=R("Торсионна константа J",fmt(J,0),"mm⁴")
+  +R("Полярен момент J₀ (за сравн.)",state.last.sp?fmt(state.last.sp.J0,0):"—","mm⁴")
+  +R("Модул на срязване G",fmt(G,0),"MPa")
+  +R("Макс. тангенц. напрежение τ",fmt(tauMax,1),"MPa")
+  +R("Ъгъл на усукване",fmt(thetaTot,3),"°")
+  +R("τ граница (Мизес)",fmt(tauY,1),"MPa");
+ h+=`<div class="brow sf ${sfC}"><span>Коефициент на сигурност</span><b>${isFinite(SF)?fmt(SF,2):"—"}</b></div>`;
+ h+=`<div class="bnote">${J&&state.last.sp&&Math.abs(J-state.last.sp.J0)/J>0.05?"ℹ Истинската J е по-малка от полярния J₀ — за некръгли сечения J₀ надценява коравината на усукване.":""} ${!isFinite(SF)?"":SF>=2?"✔ Издържа с резерв.":SF>=1.3?"⚠ Малък резерв.":SF>=1?"⚠ На ръба.":"✕ НЕ издържа на усукване."}</div>`;
+ byId("torsOut").innerHTML=h;
+}
+function drawTorsion(sol,GtL){
+ const {pts,tris}=sol.mesh;
+ let x0=1/0,y0=1/0,x1=-1/0,y1=-1/0;
+ for(const p of pts){if(p[0]<x0)x0=p[0];if(p[0]>x1)x1=p[0];if(p[1]<y0)y0=p[1];if(p[1]>y1)y1=p[1];}
+ const w=x1-x0||1,hh=y1-y0||1,pad=Math.max(w,hh)*0.08;
+ const tmax=sol.tauMax||1;
+ let s="";
+ for(let i=0;i<tris.length;i++){
+  const t=tris[i],a=pts[t[0]],b=pts[t[1]],c=pts[t[2]];
+  const col=torsRamp(sol.tri_tau[i]/tmax);
+  s+=`<path d="M${a[0].toFixed(2)} ${(-a[1]).toFixed(2)}L${b[0].toFixed(2)} ${(-b[1]).toFixed(2)}L${c[0].toFixed(2)} ${(-c[1]).toFixed(2)}Z" fill="${col}" stroke="${col}" stroke-width="${Math.max(w,hh)*0.001}"/>`;
+ }
+ // точка на макс. напрежение
+ if(sol.tauMaxPt)s+=`<circle cx="${sol.tauMaxPt[0].toFixed(2)}" cy="${(-sol.tauMaxPt[1]).toFixed(2)}" r="${Math.max(w,hh)*0.02}" fill="none" stroke="#fff" stroke-width="${Math.max(w,hh)*0.006}"/>`;
+ byId("torsSvg").setAttribute("viewBox",`${(x0-pad).toFixed(2)} ${(-y1-pad).toFixed(2)} ${(w+2*pad).toFixed(2)} ${(hh+2*pad).toFixed(2)}`);
+ byId("torsSvg").innerHTML=s;
+}
+function openTorsion(){
+ const r=torsSectionRings();
+ if(!r){toast("Първо направи валидна форма/скица");return;}
+ byId("torsName").textContent=state.last.tag||"сечение";
+ byId("tT").value=TORS.T;byId("tL").value=TORS.L;byId("tNu").value=TORS.nu;byId("tE").value=TORS.E;byId("tY").value=TORS.yield;
+ byId("torsWrap").classList.remove("hide");
+ document.body.classList.add("sheet-open");
+ computeTorsion();
+}
+function closeTorsion(){byId("torsWrap").classList.add("hide");document.body.classList.remove("sheet-open");}
+function torsCSV(){
+ const r=TORS._res;if(!r)return;
+ const rows=[["Сечение",state.last.tag||"",""],["Торсионна константа J",csvVal(r.J),"mm4"],
+  ["Полярен J0",csvVal(state.last.sp.J0),"mm4"],["G",csvVal(r.G),"MPa"],
+  ["Въртящ момент T",csvVal(TORS.T),"N*mm"],["Дължина",csvVal(TORS.L),"mm"],
+  ["Макс тангенц напрежение",csvVal(r.tauMax),"MPa"],["Ъгъл на усукване",csvVal(r.thetaTot),"deg"],
+  ["Коеф сигурност",csvVal(r.SF),""]];
+ download(`geolab_усукване_${dateStr()}.csv`,buildCSV(rows),"text/csv;charset=utf-8");
+}
+
 /* ================= UI ================= */
 const state={mode:"profile",fig:"rect",viz3d:true,last:null,editingFeature:null,pipOn:true,stl:null};
 const byId=id=>document.getElementById(id);
@@ -3882,6 +4142,12 @@ function init(){
  byId("bMat").innerHTML=MATS.map((mm,i)=>`<option value="${i}"${i===0?" selected":""}>${mm[0]}</option>`).join("");
  byId("btnBeam").addEventListener("click",openBeam);
  byId("beamX").addEventListener("click",closeBeam);
+ byId("btnTors").addEventListener("click",openTorsion);
+ byId("torsX").addEventListener("click",closeTorsion);
+ byId("torsCSVbtn").addEventListener("click",torsCSV);
+ byId("torsPrintBtn").addEventListener("click",()=>window.print());
+ for(const [id,key] of [["tT","T"],["tL","L"],["tE","E"],["tNu","nu"],["tY","yield"]])
+  byId(id).addEventListener("input",()=>{const v=parseNum(byId(id).value);TORS[key]=isFinite(v)?v:0;computeTorsion();});
  byId("beamCSVbtn").addEventListener("click",beamCSV);
  byId("beamPrintBtn").addEventListener("click",()=>window.print());
  byId("bMat").addEventListener("change",()=>{const m=MATS[+byId("bMat").value];if(m&&m[2]>0){BEAM.E=m[2];BEAM.yield=m[3];byId("bE").value=m[2];byId("bY").value=m[3];computeBeam();}});
