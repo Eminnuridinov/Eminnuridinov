@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0f1115">
-<title>AVKO GeoLab v3.7</title>
+<title>AVKO GeoLab v3.8</title>
 <style>
 :root{--bg:#0b0d12;--panel:#12161f;--panel2:#1a2029;--line:#252d3a;--line2:#354158;
  --teal:#2dd4bf;--blue:#5b8def;--amber:#facc15;--red:#f87171;
@@ -191,7 +191,7 @@ details.help .note{display:block;margin-top:6px}
 .brow.sf.ok b{color:#34d399}.brow.sf.warn b{color:var(--amber)}.brow.sf.bad b{color:var(--red)}
 .bnote{font-size:11.5px;color:var(--muted);margin-top:8px;padding:7px 9px;background:var(--panel2);border-radius:8px}
 @media(max-width:820px){.beambody{grid-template-columns:1fr}}
-#torsWrap{position:fixed;inset:0;background:rgba(5,7,10,.92);z-index:60;display:flex;flex-direction:column;padding:14px;overflow:auto}
+#torsWrap,#psWrap{position:fixed;inset:0;background:rgba(5,7,10,.92);z-index:60;display:flex;flex-direction:column;padding:14px;overflow:auto}
 .torslegend{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted)}
 .torslegend i{flex:1;height:12px;border-radius:6px;background:linear-gradient(90deg,rgb(41,53,102),rgb(45,140,180),rgb(52,180,120),rgb(250,204,21),rgb(248,113,113))}
 #pip{position:absolute;right:12px;bottom:44px;width:30%;max-width:340px;aspect-ratio:1.15;background:var(--panel);border:1px solid var(--line2);border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.5);cursor:pointer;overflow:hidden;z-index:7}
@@ -223,6 +223,7 @@ details.help .note{display:block;margin-top:6px}
  body.sheet-open #stlWrap{position:static;background:#fff;color:#111}
  body.sheet-open #beamWrap{position:static;background:#fff;color:#111}
  body.sheet-open #torsWrap{position:static;background:#fff;color:#111}
+ body.sheet-open #psWrap{position:static;background:#fff;color:#111}
  body.sheet-open #stlWrap .stlviz-wrap{background:#fff}
  body.sheet-open #sheetWrap{position:static;background:#fff;padding:0;overflow:visible}
  body.sheet-open .sheetbar{display:none!important}
@@ -243,7 +244,7 @@ details.help .note{display:block;margin-top:6px}
 <body>
 <div class="app">
 <header class="topbar">
- <div class="brand"><h1>AVKO GeoLab</h1><span class="ver">v3.7</span></div>
+ <div class="brand"><h1>AVKO GeoLab</h1><span class="ver">v3.8</span></div>
  <nav class="seg" id="modeSeg">
   <button id="btnModeProf" class="on">Скица</button>
   <button id="btnModeBody">Модел</button>
@@ -262,6 +263,7 @@ details.help .note{display:block;margin-top:6px}
   <button id="btnSheet" title="Работилничен чертеж от модела: изгледи + размери + таблица на отворите (режим „Модел“)" disabled>📄 Чертеж</button>
   <button id="btnBeam" title="Греда (FEM): огъване, провисване, напрежение и коефициент на сигурност за текущото сечение">🔩 Греда</button>
   <button id="btnTors" title="Усукване (2D FEM): истинска торсионна константа + топлинна карта на тангенциалното напрежение">🌀 Усукване</button>
+  <button id="btnPS" title="2D напрежение (FEM): натоварена пластина/детайл → карта на напрежението по Мизес и концентрации около отвори">🎯 2D напрежение</button>
   <button id="btnPrint" title="Системен печат — там избери „Запиши като PDF“">🖨 Печат</button>
   <button id="btnCopy" title="Копира всички резултати в клипборда — без файл на диска">📋 Копирай</button>
  </div>
@@ -383,6 +385,34 @@ BOLTS n BC140 D18 [A0]  n отвора на болтова окр. Ø140
  </aside>
 </main>
 </div>
+<div id="psWrap" class="hide">
+ <div class="sheetbar no-print">
+  <b>🎯 2D напрежение (FEM) · сечение:</b> <span id="psName" class="mono" style="color:var(--teal)"></span>
+  <span style="flex:1"></span>
+  <button class="mini" id="psCSVbtn">📋 CSV</button>
+  <button class="mini" id="psPrintBtn">🖨 PDF</button>
+  <button class="mini" id="psX">✕ Затвори</button>
+ </div>
+ <div class="beambody">
+  <div class="beampanel">
+   <div class="card"><h2>Закрепване и товар</h2>
+    <div class="grid2">
+     <label class="blab">Закрепен ръб<select id="psFix"><option value="bottom">долен</option><option value="top">горен</option><option value="left">ляв</option><option value="right">десен</option></select></label>
+     <label class="blab">Натоварен ръб<select id="psLoad"><option value="top">горен</option><option value="bottom">долен</option><option value="left">ляв</option><option value="right">десен</option></select></label>
+     <label class="blab">Вид товар<select id="psDir"><option value="tension">опън</option><option value="compression">натиск</option><option value="shear">срязване</option></select></label>
+     <label class="blab">Сила F, N<input id="psF" type="number" step="any"></label>
+     <label class="blab">Модул E, MPa<input id="psE" type="number" step="any"></label>
+     <label class="blab">Коеф. Поасон ν<input id="psNu" type="number" step="any"></label>
+     <label class="blab">Граница σт, MPa<input id="psY" type="number" step="any"></label>
+    </div>
+    <div class="bnote2">Сиви резки = закрепено; жълти стрелки = товар. Червено = високо напрежение.</div>
+   </div>
+   <div class="card"><h2>Резултати</h2><div id="psOut"></div></div>
+   <div class="card"><div class="torslegend"><span>ниско</span><i></i><span>високо σ</span></div></div>
+  </div>
+  <div class="beamviz" style="background:#0b0d12;padding:12px"><svg id="psSvg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%"></svg></div>
+ </div>
+</div>
 <div id="torsWrap" class="hide">
  <div class="sheetbar no-print">
   <b>🌀 Усукване (2D FEM) · сечение:</b> <span id="torsName" class="mono" style="color:var(--teal)"></span>
@@ -467,7 +497,7 @@ BOLTS n BC140 D18 [A0]  n отвора на болтова окр. Ø140
 <script>
 "use strict";
 /* ================= AVKO GeoLab v1.1 — ядро ================= */
-const VERSION="3.7";
+const VERSION="3.8";
 const COMPUTE_TOL=0.0005;   // sagitta [mm] за полигонизация при смятане
 const EPS=1e-9;
 
@@ -2855,6 +2885,179 @@ function torsCSV(){
  download(`geolab_усукване_${dateStr()}.csv`,buildCSV(rows),"text/csv;charset=utf-8");
 }
 
+/* ============ 2D раванинно напрежение (FEM, CST триъгълници) ============ */
+/* mesh: {pts,tris,bound} от meshSection. bc/load: функции които маркират възли.
+   Връща премествания, напрежения по Мизес на елемент, максимум. */
+function solvePlaneStress(mesh,opt){
+ const {pts,tris}=mesh,n=pts.length,ndof=2*n;
+ const E=opt.E,nu=opt.nu,t=opt.t||1;
+ const D=[[1,nu,0],[nu,1,0],[0,0,(1-nu)/2]].map(r=>r.map(v=>v*E/(1-nu*nu)));
+ const K=new Map();                       // разредена: ключ "i,j" → стойност
+ const add=(i,j,v)=>{const k=i+","+j;K.set(k,(K.get(k)||0)+v);};
+ const F=new Array(ndof).fill(0);
+ const triB=[],triArea=[];
+ for(const t3 of tris){
+  const [i,j,k]=t3,pi=pts[i],pj=pts[j],pk=pts[k];
+  const A2=(pj[0]-pi[0])*(pk[1]-pi[1])-(pk[0]-pi[0])*(pj[1]-pi[1]);
+  const A=A2/2;if(Math.abs(A)<1e-12){triB.push(null);triArea.push(0);continue;}
+  const b=[pj[1]-pk[1],pk[1]-pi[1],pi[1]-pj[1]].map(v=>v/A2);
+  const c=[pk[0]-pj[0],pi[0]-pk[0],pj[0]-pi[0]].map(v=>v/A2);
+  const B=[[b[0],0,b[1],0,b[2],0],[0,c[0],0,c[1],0,c[2]],[c[0],b[0],c[1],b[1],c[2],b[2]]];
+  triB.push(B);triArea.push(A);
+  const DB=D.map(row=>B[0].map((_,col)=>row[0]*B[0][col]+row[1]*B[1][col]+row[2]*B[2][col]));
+  const dof=[2*i,2*i+1,2*j,2*j+1,2*k,2*k+1];
+  const at=Math.abs(A)*t;
+  for(let a=0;a<6;a++)for(let d=0;d<6;d++){
+   let ke=0;for(let m=0;m<3;m++)ke+=B[m][a]*DB[m][d];
+   add(dof[a],dof[d],ke*at);
+  }
+ }
+ // натоварване: сила върху възлите по избран ръб
+ const loadNodes=opt.loadNodes||[];
+ if(loadNodes.length){
+  const fx=(opt.Fx||0)/loadNodes.length,fy=(opt.Fy||0)/loadNodes.length;
+  for(const ni of loadNodes){F[2*ni]+=fx;F[2*ni+1]+=fy;}
+ }
+ // гранични условия: фиксирани DOF
+ const fixed=new Set();
+ for(const ni of (opt.fixNodes||[])){fixed.add(2*ni);fixed.add(2*ni+1);}
+ if(fixed.size<3)return {err:"недостатъчно закрепване (закрепи ръб)"};
+ const free=[];for(let i=0;i<ndof;i++)if(!fixed.has(i))free.push(i);
+ const map=new Array(ndof).fill(-1);free.forEach((g,l)=>map[g]=l);
+ const nf=free.length;
+ // matvec върху свободните
+ const mul=x=>{
+  const y=new Array(nf).fill(0);
+  for(const [key,v] of K){const s=key.indexOf(",");const r=+key.slice(0,s),cc=+key.slice(s+1);
+   if(map[r]>=0&&map[cc]>=0)y[map[r]]+=v*x[map[cc]];}
+  return y;
+ };
+ const bvec=free.map(g=>F[g]);
+ // спрегнати градиенти
+ let x=new Array(nf).fill(0),r=bvec.slice(),pv=bvec.slice();
+ let rs=r.reduce((a,b)=>a+b*b,0);const bn=rs;
+ if(bn<1e-30)return {err:"нулево натоварване"};
+ let it=0;for(;it<nf*3+200;it++){
+  const Ap=mul(pv);let pAp=0;for(let i=0;i<nf;i++)pAp+=pv[i]*Ap[i];
+  if(Math.abs(pAp)<1e-30)break;
+  const al=rs/pAp;
+  for(let i=0;i<nf;i++){x[i]+=al*pv[i];r[i]-=al*Ap[i];}
+  const rs2=r.reduce((a,b)=>a+b*b,0);
+  if(rs2<1e-10*bn)break;
+  const be=rs2/rs;for(let i=0;i<nf;i++)pv[i]=r[i]+be*pv[i];rs=rs2;
+ }
+ const u=new Array(ndof).fill(0);free.forEach((g,l)=>u[g]=x[l]);
+ // напрежения по елемент (по Мизес)
+ const vm=[],sig=[];let vmMax=0,vmMaxPt=null;
+ let umax=0;for(let i=0;i<n;i++)umax=Math.max(umax,Math.hypot(u[2*i],u[2*i+1]));
+ tris.forEach((t3,ti)=>{
+  const B=triB[ti];if(!B){vm.push(0);sig.push([0,0,0]);return;}
+  const [i,j,k]=t3;const ue=[u[2*i],u[2*i+1],u[2*j],u[2*j+1],u[2*k],u[2*k+1]];
+  const eps=[0,1,2].map(m=>B[m].reduce((a,v,idx)=>a+v*ue[idx],0));
+  const s=D.map(row=>row[0]*eps[0]+row[1]*eps[1]+row[2]*eps[2]);
+  const v=Math.sqrt(s[0]*s[0]-s[0]*s[1]+s[1]*s[1]+3*s[2]*s[2]);
+  vm.push(v);sig.push(s);
+  if(v>vmMax){vmMax=v;const pi=pts[i],pj=pts[j],pk=pts[k];vmMaxPt=[(pi[0]+pj[0]+pk[0])/3,(pi[1]+pj[1]+pk[1])/3];}
+ });
+ return {u,vm,sig,vmMax,vmMaxPt,umax,iters:it,mesh};
+}
+/* избор на възли по ръб на габарита: side ∈ left/right/top/bottom */
+function edgeNodes(mesh,side){
+ const {pts,bound}=mesh;
+ let x0=1/0,y0=1/0,x1=-1/0,y1=-1/0;
+ for(const p of pts){if(p[0]<x0)x0=p[0];if(p[0]>x1)x1=p[0];if(p[1]<y0)y0=p[1];if(p[1]>y1)y1=p[1];}
+ const tol=Math.max(x1-x0,y1-y0)*0.02;
+ const out=[];
+ for(let i=0;i<pts.length;i++){
+  if(!bound[i])continue;const p=pts[i];
+  if(side==="left"&&Math.abs(p[0]-x0)<tol)out.push(i);
+  else if(side==="right"&&Math.abs(p[0]-x1)<tol)out.push(i);
+  else if(side==="bottom"&&Math.abs(p[1]-y0)<tol)out.push(i);
+  else if(side==="top"&&Math.abs(p[1]-y1)<tol)out.push(i);
+ }
+ return out;
+}
+
+/* ---------- 2D напрежение (раванинно): UI + карта ---------- */
+const PS={fix:"bottom",load:"top",dir:"tension",F:10000,E:210000,nu:0.3,yield:235,t:1,sol:null};
+const PS_NORMAL={left:[-1,0],right:[1,0],bottom:[0,-1],top:[0,1]};
+function psSectionRings(){
+ const sp=state.last&&state.last.sp;if(!sp)return null;
+ const ring=decimate(sp.ring.pts,160);
+ const holes=(state.last.holes||[]).map(hh=>{const c=[];for(let i=0;i<40;i++){const a=2*Math.PI*i/40;c.push([hh.x+hh.r*Math.cos(a),hh.y+hh.r*Math.sin(a)]);}return c;});
+ return {ring,holes};
+}
+function computePS(){
+ const r=psSectionRings();
+ if(!r){byId("psOut").innerHTML='<div class="msg err">Няма валидно сечение.</div>';return;}
+ let mesh;
+ try{mesh=meshSection(r.ring,r.holes,1200);}
+ catch(e){byId("psOut").innerHTML='<div class="msg err">Мрежата не успя.</div>';return;}
+ const fixN=edgeNodes(mesh,PS.fix),loadN=edgeNodes(mesh,PS.load);
+ if(!fixN.length||!loadN.length){byId("psOut").innerHTML='<div class="msg warn">Избраният ръб няма възли — пробвай друга страна.</div>';byId("psSvg").innerHTML="";return;}
+ const nrm=PS_NORMAL[PS.load];
+ let dvec;
+ if(PS.dir==="tension")dvec=nrm;
+ else if(PS.dir==="compression")dvec=[-nrm[0],-nrm[1]];
+ else dvec=[-nrm[1],nrm[0]]; // срязване = по ръба
+ const s=solvePlaneStress(mesh,{E:PS.E,nu:PS.nu,t:PS.t,fixNodes:fixN,loadNodes:loadN,Fx:PS.F*dvec[0],Fy:PS.F*dvec[1]});
+ if(s.err){byId("psOut").innerHTML=`<div class="msg err">${esc(s.err)}</div>`;return;}
+ PS.sol=s;
+ const SF=PS.yield>0?PS.yield/s.vmMax:NaN;
+ PS._res={vmMax:s.vmMax,SF,umax:s.umax};
+ drawPS(s);
+ const R=(k,v,u)=>`<div class="brow"><span>${k}</span><b>${v}${u?` <span class="u">${u}</span>`:""}</b></div>`;
+ const sfC=!isFinite(SF)?"":SF>=2?"ok":SF>=1.3?"warn":"bad";
+ let h=R("Макс. напрежение (Мизес)",fmt(s.vmMax,1),"MPa")
+  +R("Макс. преместване",fmt(s.umax,4),"mm")
+  +R("Възли / елементи",mesh.pts.length+" / "+mesh.tris.length,"");
+ h+=`<div class="brow sf ${sfC}"><span>Коефициент на сигурност</span><b>${isFinite(SF)?fmt(SF,2):"—"}</b></div>`;
+ h+=`<div class="bnote">${!isFinite(SF)?"Задай граница на провлачване.":SF>=2?"✔ Издържа с резерв.":SF>=1.3?"⚠ Малък резерв.":SF>=1?"⚠ На ръба.":"✕ НЕ издържа."} Концентрацията се вижда като червено (напр. около отвори). CST мрежа — при фини детайли стойността е приблизителна.</div>`;
+ byId("psOut").innerHTML=h;
+}
+function drawPS(s){
+ const {pts,tris}=s.mesh;
+ let x0=1/0,y0=1/0,x1=-1/0,y1=-1/0;
+ for(const p of pts){if(p[0]<x0)x0=p[0];if(p[0]>x1)x1=p[0];if(p[1]<y0)y0=p[1];if(p[1]>y1)y1=p[1];}
+ const w=x1-x0||1,hh=y1-y0||1,pad=Math.max(w,hh)*0.1,tmax=s.vmMax||1;
+ let g="";
+ for(let i=0;i<tris.length;i++){
+  const t=tris[i],a=pts[t[0]],b=pts[t[1]],c=pts[t[2]];
+  const col=torsRamp(s.vm[i]/tmax);
+  g+=`<path d="M${a[0].toFixed(2)} ${(-a[1]).toFixed(2)}L${b[0].toFixed(2)} ${(-b[1]).toFixed(2)}L${c[0].toFixed(2)} ${(-c[1]).toFixed(2)}Z" fill="${col}" stroke="${col}" stroke-width="${Math.max(w,hh)*0.001}"/>`;
+ }
+ if(s.vmMaxPt)g+=`<circle cx="${s.vmMaxPt[0].toFixed(2)}" cy="${(-s.vmMaxPt[1]).toFixed(2)}" r="${Math.max(w,hh)*0.02}" fill="none" stroke="#fff" stroke-width="${Math.max(w,hh)*0.006}"/>`;
+ // маркери: закрепен ръб (сиви резки) + натоварен ръб (жълти стрелки)
+ const N=PS_NORMAL[PS.load],Nf=PS_NORMAL[PS.fix],dd=Math.max(w,hh);
+ const edgeXY=(side,f)=>{const S=PS_NORMAL[side];return [S[0]?(S[0]>0?x1:x0):(x0+x1)/2+(S[0]?0:0)+(side==="top"||side==="bottom"?(f-0.5)*w:0),
+   S[1]?(S[1]>0?y1:y0):(y0+y1)/2+(side==="left"||side==="right"?(f-0.5)*hh:0)];};
+ for(let k=0;k<=6;k++){const q=edgeXY(PS.fix,k/6);g+=`<line x1="${q[0].toFixed(2)}" y1="${(-q[1]).toFixed(2)}" x2="${(q[0]-Nf[0]*dd*0.05).toFixed(2)}" y2="${(-(q[1]-Nf[1]*dd*0.05)).toFixed(2)}" stroke="#8a93a0" stroke-width="${dd*0.006}"/>`;}
+ const dvec=PS.dir==="tension"?N:PS.dir==="compression"?[-N[0],-N[1]]:[-N[1],N[0]];
+ for(let k=1;k<=5;k++){const q=edgeXY(PS.load,k/6);const ex=q[0]+dvec[0]*dd*0.12,ey=q[1]+dvec[1]*dd*0.12;
+  g+=`<line x1="${q[0].toFixed(2)}" y1="${(-q[1]).toFixed(2)}" x2="${ex.toFixed(2)}" y2="${(-ey).toFixed(2)}" stroke="#facc15" stroke-width="${dd*0.007}"/>`;}
+ byId("psSvg").setAttribute("viewBox",`${(x0-pad*1.4).toFixed(2)} ${(-y1-pad*1.4).toFixed(2)} ${(w+2.8*pad).toFixed(2)} ${(hh+2.8*pad).toFixed(2)}`);
+ byId("psSvg").innerHTML=g;
+}
+function openPS(){
+ const r=psSectionRings();
+ if(!r){toast("Първо направи валидна форма/скица");return;}
+ byId("psName").textContent=state.last.tag||"сечение";
+ byId("psFix").value=PS.fix;byId("psLoad").value=PS.load;byId("psDir").value=PS.dir;
+ byId("psF").value=PS.F;byId("psE").value=PS.E;byId("psNu").value=PS.nu;byId("psY").value=PS.yield;
+ byId("psWrap").classList.remove("hide");
+ document.body.classList.add("sheet-open");
+ computePS();
+}
+function closePS(){byId("psWrap").classList.add("hide");document.body.classList.remove("sheet-open");}
+function psCSV(){
+ const r=PS._res;if(!r)return;
+ const rows=[["Сечение",state.last.tag||"",""],["Закрепен ръб",PS.fix,""],["Натоварен ръб",PS.load,""],
+  ["Тип",PS.dir,""],["Сила",csvVal(PS.F),"N"],["E",csvVal(PS.E),"MPa"],["ню",csvVal(PS.nu),""],
+  ["Макс напрежение Мизес",csvVal(r.vmMax),"MPa"],["Макс преместване",csvVal(r.umax),"mm"],
+  ["Граница провлачване",csvVal(PS.yield),"MPa"],["Коеф сигурност",csvVal(r.SF),""]];
+ download(`geolab_напрежение2D_${dateStr()}.csv`,buildCSV(rows),"text/csv;charset=utf-8");
+}
+
 /* ================= UI ================= */
 const state={mode:"profile",fig:"rect",viz3d:true,last:null,editingFeature:null,pipOn:true,stl:null};
 const byId=id=>document.getElementById(id);
@@ -4144,6 +4347,14 @@ function init(){
  byId("beamX").addEventListener("click",closeBeam);
  byId("btnTors").addEventListener("click",openTorsion);
  byId("torsX").addEventListener("click",closeTorsion);
+ byId("btnPS").addEventListener("click",openPS);
+ byId("psX").addEventListener("click",closePS);
+ byId("psCSVbtn").addEventListener("click",psCSV);
+ byId("psPrintBtn").addEventListener("click",()=>window.print());
+ for(const [id,key] of [["psF","F"],["psE","E"],["psNu","nu"],["psY","yield"]])
+  byId(id).addEventListener("input",()=>{const v=parseNum(byId(id).value);PS[key]=isFinite(v)?v:0;computePS();});
+ for(const [id,key] of [["psFix","fix"],["psLoad","load"],["psDir","dir"]])
+  byId(id).addEventListener("change",()=>{PS[key]=byId(id).value;computePS();});
  byId("torsCSVbtn").addEventListener("click",torsCSV);
  byId("torsPrintBtn").addEventListener("click",()=>window.print());
  for(const [id,key] of [["tT","T"],["tL","L"],["tE","E"],["tNu","nu"],["tY","yield"]])
