@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0f1115">
-<title>AVKO GeoLab v3.2</title>
+<title>AVKO GeoLab v3.3</title>
 <style>
 :root{--bg:#0b0d12;--panel:#12161f;--panel2:#1a2029;--line:#252d3a;--line2:#354158;
  --teal:#2dd4bf;--blue:#5b8def;--amber:#facc15;--red:#f87171;
@@ -151,7 +151,10 @@ details.help .note{display:block;margin-top:6px}
 .dbtn:hover{border-color:var(--line2)}
 #viz.drawing{cursor:crosshair}
 #viz.moveall{cursor:move}
-.dimlbl{cursor:pointer}
+/* децата на платното не са мишени за мишката (иначе прерисуването им праща pointercancel посред влачене);
+   хит-тестовете са координатни, само размерните етикети са реални цели */
+#viz *{pointer-events:none}
+#viz .dimlbl{pointer-events:all;cursor:pointer}
 .dimlbl:hover{fill:#facc15!important}
 #dimBox{position:absolute;display:flex;gap:4px;background:var(--panel);border:1px solid var(--teal);border-radius:9px;padding:5px;box-shadow:0 6px 20px rgba(0,0,0,.5);z-index:9}
 #dimBox input{width:84px;min-height:30px;padding:4px 8px;font-size:14px}
@@ -194,7 +197,7 @@ details.help .note{display:block;margin-top:6px}
 <body>
 <div class="app">
 <header class="topbar">
- <div class="brand"><h1>AVKO GeoLab</h1><span class="ver">v3.2</span></div>
+ <div class="brand"><h1>AVKO GeoLab</h1><span class="ver">v3.3</span></div>
  <nav class="seg" id="modeSeg">
   <button id="btnModeProf" class="on">Скица</button>
   <button id="btnModeBody">Модел</button>
@@ -277,7 +280,7 @@ BOLTS n BC140 D18 [A0]  n отвора на болтова окр. Ø140
    <div class="seg tiny">
     <button id="tRect" class="on" title="Правоъгълник с 2 клика: ъгъл → срещуположен ъгъл">▭ Правоъг.</button>
     <button id="tCircle" title="Кръг с 2 клика: център → радиус">○ Кръг</button>
-    <button id="tLine" title="Свободен контур: точка след точка">─ Линия</button>
+    <button id="tLine" title="Свободен контур: точка след точка · Esc прекъсва веригата">─ Линия</button>
     <button id="tArc" title="Дъга до следващата точка (радиус + посока)">◠ Дъга</button>
     <button id="tHole" title="Кръгъл отвор — клик в центъра">◎ Отвор</button>
    </div>
@@ -287,6 +290,7 @@ BOLTS n BC140 D18 [A0]  n отвора на болтова окр. Ø140
    <span class="db">закръгл. r<input id="dFil" type="number" value="0" step="any" title="FILLET върху всички прави ъгли при затваряне (0 = без)"></span>
    <span class="db">L<input id="dLen" type="number" step="any" placeholder="—" title="Точна дължина: следващата точка ляга на точно това разстояние по посока на курсора. Празно = свободно."></span>
    <label class="db" title="Показвай дължините на отсечките"><input type="checkbox" id="dDim" checked>размери</label>
+   <button class="dbtn" id="dClear" title="Изтрий цялата скица (Ctrl+Z връща)">🗑</button>
    <button class="dbtn" id="dUndo" title="Назад (Ctrl+Z)">↶</button>
    <button class="dbtn primary" id="dClose" title="Затвори контура (Enter или клик върху стартовата точка)">✔ Затвори</button>
    <button class="dbtn" id="dCancel" title="Изход без запис (Esc)">✕</button>
@@ -321,7 +325,7 @@ BOLTS n BC140 D18 [A0]  n отвора на болтова окр. Ø140
 <script>
 "use strict";
 /* ================= AVKO GeoLab v1.1 — ядро ================= */
-const VERSION="3.2";
+const VERSION="3.3";
 const COMPUTE_TOL=0.0005;   // sagitta [mm] за полигонизация при смятане
 const EPS=1e-9;
 
@@ -2070,7 +2074,7 @@ function bakeFeatureTransform(f,second){
  if(!second){p.dx=0;p.dy=0;p.rot=0;}
 }
 function buildRefUnderlay(f){
- DRAW.ref=[];DRAW.refPts=[];DRAW.tmp=null;DRAW.done=false;DRAW.circle=null;
+ DRAW.ref=[];DRAW.refPts=[];DRAW.tmp=null;DRAW.done=false;DRAW.circle=null;DRAW.paused=false;DRAW.restore=null;
  const mp=modelProps();
  if(!mp||!mp.feats)return;
  for(const rec of mp.feats){
@@ -2252,7 +2256,7 @@ function reViz(){
  requestAnimationFrame(()=>{vizPend=false;renderViz(state.lastS,state.lastBody);});
 }
 /* ---------- чертане с мишката ---------- */
-const DRAW={on:false,tool:"rect",acts:[],start:null,cur:null,mouse:null,drag:null,hot:null,suppress:false,moved:false,ref:[],refPts:[],tmp:null,done:false,circle:null};
+const DRAW={on:false,tool:"rect",acts:[],start:null,cur:null,mouse:null,drag:null,hot:null,suppress:false,moved:false,ref:[],refPts:[],tmp:null,done:false,circle:null,paused:false,restore:null};
 function drawStep(){return parseFloat(byId("dSnap").value)||5;}
 function vizToModel(e){
  const svg=byId("viz"),r=svg.getBoundingClientRect();
@@ -2326,19 +2330,33 @@ function drawPreview(){
    px=a.x;py=a.y;
   }
   s+=`<path d="${d}" fill="none" stroke="#2dd4bf" stroke-width="${sw*1.4}" stroke-linejoin="round"/>`;
-  const hotStart=DRAW.hot&&DRAW.hot.kind==="start";
-  s+=`<circle cx="${DRAW.start.x}" cy="${-DRAW.start.y}" r="${sw*3}" fill="${hotStart?"#facc15":"none"}" stroke="#facc15" stroke-width="${sw}"/>`;
-  const hs=sw*2.2;
-  DRAW.acts.forEach((a,i)=>{
-   if(a.kind!=="seg")return;
-   const hot=DRAW.hot&&DRAW.hot.kind==="vert"&&DRAW.hot.i===i;
-   s+=`<rect x="${a.x-hs}" y="${-a.y-hs}" width="${hs*2}" height="${hs*2}" fill="${hot?"#facc15":"#0b0d12"}" stroke="${hot?"#facc15":"#2dd4bf"}" stroke-width="${sw*0.8}"/>`;
-  });
+  if(!DRAW.circle){
+   const hotStart=DRAW.hot&&DRAW.hot.kind==="start";
+   s+=`<circle cx="${DRAW.start.x}" cy="${-DRAW.start.y}" r="${sw*3}" fill="${hotStart?"#facc15":"none"}" stroke="#facc15" stroke-width="${sw}"/>`;
+  }
+  if(DRAW.circle){
+   const c=DRAW.circle;
+   const hotC=DRAW.hot&&DRAW.hot.kind==="ccen",hotR=DRAW.hot&&DRAW.hot.kind==="crad";
+   s+=`<g stroke="${hotC?"#facc15":"#2dd4bf"}" stroke-width="${sw}">`
+    +`<line x1="${c.cx-sw*3.2}" y1="${-c.cy}" x2="${c.cx+sw*3.2}" y2="${-c.cy}"/>`
+    +`<line x1="${c.cx}" y1="${-c.cy-sw*3.2}" x2="${c.cx}" y2="${-c.cy+sw*3.2}"/></g>`;
+   const hs2=sw*2.2;
+   s+=`<rect x="${c.cx+c.r-hs2}" y="${-c.cy-hs2}" width="${hs2*2}" height="${hs2*2}" fill="${hotR?"#facc15":"#0b0d12"}" stroke="${hotR?"#facc15":"#2dd4bf"}" stroke-width="${sw*0.8}"/>`;
+  }else{
+   const hs=sw*2.2;
+   DRAW.acts.forEach((a,i)=>{
+    if(a.kind!=="seg")return;
+    const hot=DRAW.hot&&DRAW.hot.kind==="vert"&&DRAW.hot.i===i;
+    s+=`<rect x="${a.x-hs}" y="${-a.y-hs}" width="${hs*2}" height="${hs*2}" fill="${hot?"#facc15":"#0b0d12"}" stroke="${hot?"#facc15":"#2dd4bf"}" stroke-width="${sw*0.8}"/>`;
+   });
+  }
+  if(DRAW.paused&&DRAW.cur)
+   s+=`<circle cx="${DRAW.cur[0]}" cy="${-DRAW.cur[1]}" r="${sw*5}" fill="none" stroke="#facc15" stroke-width="${sw}" opacity=".85"/>`;
   // размери: кликаеми етикети (клик = точна стойност)
   const dimEl=byId("dDim");
   if(dimEl&&dimEl.checked){
    if(DRAW.circle){
-    s+=`<text data-dimc="1" class="dimlbl" x="${DRAW.circle.cx.toFixed(2)}" y="${(-DRAW.circle.cy).toFixed(2)}" fill="#8a93a0" opacity=".9" font-size="${(sw*6).toFixed(2)}" text-anchor="middle" font-family="ui-monospace,Consolas,monospace">Ø${fmt(2*DRAW.circle.r,1)}</text>`;
+    s+=`<text data-dimc="1" class="dimlbl" x="${DRAW.circle.cx.toFixed(2)}" y="${(-DRAW.circle.cy-DRAW.circle.r-sw*3.5).toFixed(2)}" fill="#8a93a0" opacity=".9" font-size="${(sw*6).toFixed(2)}" text-anchor="middle" font-family="ui-monospace,Consolas,monospace">Ø${fmt(2*DRAW.circle.r,1)}</text>`;
    }else{
     const nseg=DRAW.acts.filter(a=>a.kind==="seg").length;
     if(nseg<=40){
@@ -2379,7 +2397,7 @@ function drawPreview(){
   }else if(DRAW.tool==="hole"){
    const D=parseFloat(byId("dHoleD").value)||10;
    s+=`<circle cx="${m.x}" cy="${-m.y}" r="${D/2}" fill="none" stroke="#5b8def" ${dash} stroke-width="${sw}"/>`;
-  }else if(!DRAW.done&&DRAW.cur&&(m.x!==DRAW.cur[0]||m.y!==DRAW.cur[1])){
+  }else if(!DRAW.done&&!DRAW.paused&&DRAW.cur&&(m.x!==DRAW.cur[0]||m.y!==DRAW.cur[1])){
    if(DRAW.tool==="line")s+=`<line x1="${DRAW.cur[0]}" y1="${-DRAW.cur[1]}" x2="${m.x}" y2="${-m.y}" stroke="#facc15" ${dash} stroke-width="${sw}"/>`;
    else if(DRAW.tool==="arc")s+=`<path d="M${DRAW.cur[0]} ${-DRAW.cur[1]}${drawArcPath(DRAW.cur[0],DRAW.cur[1],m.x,m.y,parseFloat(byId("dArcR").value),byId("dCCW").classList.contains("on")?"CCW":"CW")}" fill="none" stroke="#facc15" ${dash} stroke-width="${sw}"/>`;
   }
@@ -2399,16 +2417,47 @@ function drawCap(m){
  if(!t){
   if(DRAW.tool==="rect")t=DRAW.tmp?"клик = срещуположният ъгъл на правоъгълника":"▭ клик = първи ъгъл на правоъгълника";
   else if(DRAW.tool==="circle")t=DRAW.tmp?"клик = точка от окръжността (радиусът)":"○ клик = център на кръга";
+  else if(DRAW.paused)t="⏸ Прекъсната верига · клик върху крайната точка (жълтия пръстен) продължава · Затвори затваря контура";
   else if(DRAW.done)t="Контурът е готов · ◎ отвори · влачене = местене · клик на число = точен размер · Затвори = запис";
   else t="Клик = точка · влачене = корекция · 2×клик на отсечка = дъга↔линия · десен клик = трие · Enter затваря";
  }
  byId("vizCap").textContent=t;
+}
+function rebuildCircleActs(){
+ const c=DRAW.circle;if(!c)return;
+ const holes=DRAW.acts.filter(x=>x.kind==="hole");
+ const segs=arcToSegs(c.cx,c.cy,c.r,0,2*Math.PI);
+ DRAW.start={x:+segs[0].x0.toFixed(4),y:+segs[0].y0.toFixed(4)};
+ DRAW.acts=holes.concat(segs.map(s2=>({kind:"seg",t:"A",x:+s2.x1.toFixed(4),y:+s2.y1.toFixed(4),R:+c.r.toFixed(4),dir:s2.bulge>0?"CCW":"CW"})));
+ const sl=DRAW.acts.filter(x=>x.kind==="seg");
+ DRAW.cur=[sl[sl.length-1].x,sl[sl.length-1].y];
+ DRAW.done=true;
+}
+function clearContour(keepHoles){
+ DRAW.restore={start:DRAW.start?{x:DRAW.start.x,y:DRAW.start.y}:null,
+  acts:DRAW.acts.map(a=>Object.assign({},a)),
+  circle:DRAW.circle?Object.assign({},DRAW.circle):null,done:DRAW.done};
+ DRAW.acts=keepHoles?DRAW.acts.filter(a=>a.kind==="hole"):[];
+ DRAW.start=null;DRAW.cur=null;DRAW.circle=null;DRAW.done=false;DRAW.paused=false;DRAW.tmp=null;
 }
 function drawHit(p){
  const svg=byId("viz"),r=svg.getBoundingClientRect();
  const vb=svg.getAttribute("viewBox").split(/\s+/).map(Number);
  const tol=Math.max(vb[2]/r.width,vb[3]/r.height)*12;
  let best=null,bd=tol;
+ if(DRAW.circle){
+  const c=DRAW.circle;
+  const dc=Math.hypot(p[0]-c.cx,p[1]-c.cy);
+  if(dc<bd){bd=dc;best={kind:"ccen"};}
+  const dr=Math.hypot(p[0]-(c.cx+c.r),p[1]-c.cy);
+  if(dr<bd){bd=dr;best={kind:"crad"};}
+  DRAW.acts.forEach((a,i)=>{
+   if(a.kind!=="hole")return;
+   const d=Math.hypot(p[0]-a.x,p[1]-a.y);
+   if(d<bd){bd=d;best={kind:"hole",i};}
+  });
+  return best;
+ }
  if(DRAW.start){
   const d=Math.hypot(p[0]-DRAW.start.x,p[1]-DRAW.start.y);
   if(d<bd){bd=d;best={kind:"start"};}
@@ -2506,6 +2555,16 @@ function drawClick(e){
   drawCap(null);drawPreview();schedulePip();
   return;
  }
+ if(DRAW.paused&&(DRAW.tool==="line"||DRAW.tool==="arc")){
+  const svg2=byId("viz"),rc2=svg2.getBoundingClientRect();
+  const vb2=svg2.getAttribute("viewBox").split(/\s+/).map(Number);
+  const tol2=Math.max(vb2[2]/rc2.width,vb2[3]/rc2.height)*14;
+  if(DRAW.cur&&Math.hypot(raw[0]-DRAW.cur[0],raw[1]-DRAW.cur[1])<tol2){
+   DRAW.paused=false;drawCap(null);drawPreview();return;
+  }
+  toast("Прекъсната верига · клик върху крайната ѝ точка продължава · Затвори затваря");
+  return;
+ }
  const hit=drawHit(raw);
  if(hit&&hit.kind!=="start")return; // върху връх/отвор: само влачене или десен клик
  const p=drawSnap(raw,e);
@@ -2529,6 +2588,13 @@ function drawClick(e){
  DRAW.cur=[p.x,p.y];drawPreview();schedulePip();
 }
 function drawUndo(){
+ if(!DRAW.acts.length&&!DRAW.start&&DRAW.restore){
+  const r=DRAW.restore;DRAW.restore=null;
+  DRAW.start=r.start;DRAW.acts=r.acts;DRAW.circle=r.circle;DRAW.done=r.done;
+  const sl=DRAW.acts.filter(a=>a.kind==="seg");
+  DRAW.cur=sl.length?[sl[sl.length-1].x,sl[sl.length-1].y]:(DRAW.start?[DRAW.start.x,DRAW.start.y]:null);
+  drawPreview();schedulePip();return;
+ }
  if(DRAW.acts.length){
   const a=DRAW.acts.pop();
   if(a.kind==="seg"){
@@ -3011,6 +3077,12 @@ function init(){
  byId("dCCW").addEventListener("click",()=>{byId("dCCW").classList.add("on");byId("dCW").classList.remove("on");drawPreview();});
  byId("dCW").addEventListener("click",()=>{byId("dCW").classList.add("on");byId("dCCW").classList.remove("on");drawPreview();});
  byId("dSnap").addEventListener("change",drawPreview);
+ byId("dClear").addEventListener("click",()=>{
+  if(!DRAW.start&&!DRAW.acts.length){toast("Скицата вече е празна");return;}
+  clearContour(false);
+  drawCap(null);drawPreview();schedulePip();
+  toast("Изчистено · Ctrl+Z връща");
+ });
  byId("dUndo").addEventListener("click",drawUndo);
  byId("dClose").addEventListener("click",drawFinish);
  byId("dCancel").addEventListener("click",()=>{drawExit();if(state.editingFeature)closeFeatureSketch();else recompute();});
@@ -3039,8 +3111,36 @@ function init(){
  byId("viz").addEventListener("pointermove",e=>{
   if(!DRAW.on||DRAW.dimHold)return;
   const raw=vizToModel(e);
+  if(DRAW.drag)return; // влаченето се обработва на ниво window (устойчиво на прерисуване)
+  DRAW.hot=drawHit(raw);
+  if(!DRAW.hot&&DRAW.start){
+   const pts=[[DRAW.start.x,DRAW.start.y]];
+   for(const a of DRAW.acts)if(a.kind==="seg")pts.push([a.x,a.y]);
+   byId("viz").classList.toggle("moveall",pts.length>=3&&pointInPoly(raw,pts));
+  }else byId("viz").classList.remove("moveall");
+  DRAW.mouse=drawSnap(raw,e);
+  drawCap(DRAW.mouse);drawPreview();
+ });
+ byId("viz").addEventListener("pointerleave",()=>{if(!DRAW.on)return;DRAW.mouse=null;DRAW.hot=null;drawPreview();});
+ window.addEventListener("pointermove",e=>{
+  if(!DRAW.on||!DRAW.drag)return;
+  const raw=vizToModel(e);
   if(DRAW.drag){
    const t=DRAW.drag;
+   if(t.kind==="ccen"||t.kind==="crad"){
+    DRAW.moved=true;
+    const q=drawSnap(raw,e,true);
+    if(t.kind==="ccen"){DRAW.circle.cx=q.x;DRAW.circle.cy=q.y;}
+    else{
+     const r2=Math.hypot(q.x-DRAW.circle.cx,q.y-DRAW.circle.cy);
+     if(r2>0.01)DRAW.circle.r=+r2.toFixed(4);
+    }
+    rebuildCircleActs();
+    byId("vizCap").textContent=t.kind==="ccen"
+     ?`център: (${nn(DRAW.circle.cx)}, ${nn(DRAW.circle.cy)})`
+     :`Ø = ${fmt(2*DRAW.circle.r,2)} mm`;
+    drawPreview();return;
+   }
    if(t.kind==="all"){
     DRAW.moved=true;
     const st=drawStep();
@@ -3074,28 +3174,41 @@ function init(){
    drawCap({x:q.x,y:q.y});drawPreview();
    return;
   }
-  DRAW.hot=drawHit(raw);
-  if(!DRAW.hot&&DRAW.start){
-   const pts=[[DRAW.start.x,DRAW.start.y]];
-   for(const a of DRAW.acts)if(a.kind==="seg")pts.push([a.x,a.y]);
-   byId("viz").classList.toggle("moveall",pts.length>=3&&pointInPoly(raw,pts));
-  }else byId("viz").classList.remove("moveall");
-  DRAW.mouse=drawSnap(raw,e);
-  drawCap(DRAW.mouse);drawPreview();
  });
- byId("viz").addEventListener("pointerup",()=>{
+ const endDrag=()=>{
   DRAW.dimHold=false;
   if(DRAW.drag){
-   if(DRAW.moved){DRAW.suppress=true;drawPreview();schedulePip();} // прерисуване само при реално влачене
+   if(DRAW.moved){DRAW.suppress=true;drawPreview();schedulePip();}
    DRAW.drag=null;
   }
- });
- byId("viz").addEventListener("pointerleave",()=>{if(!DRAW.on)return;DRAW.mouse=null;DRAW.hot=null;drawPreview();});
+ };
+ window.addEventListener("pointerup",endDrag);
+ window.addEventListener("pointercancel",endDrag);
  byId("viz").addEventListener("contextmenu",e=>{
   if(!DRAW.on)return;
   e.preventDefault();
-  const hit=drawHit(vizToModel(e));
-  if(!hit)return;
+  const raw=vizToModel(e);
+  const hit=drawHit(raw);
+  if(!hit){
+   // близо до кръг-контура → изтрий кръга; иначе прекъсни веригата
+   if(DRAW.circle){
+    const c=DRAW.circle,svg2=byId("viz"),rc2=svg2.getBoundingClientRect();
+    const vb2=svg2.getAttribute("viewBox").split(/\s+/).map(Number);
+    const tol2=Math.max(vb2[2]/rc2.width,vb2[3]/rc2.height)*10;
+    if(Math.abs(Math.hypot(raw[0]-c.cx,raw[1]-c.cy)-c.r)<tol2){
+     clearContour(true);toast("Кръгът е изтрит · Ctrl+Z връща");
+     drawPreview();schedulePip();return;
+    }
+   }
+   if(!DRAW.done&&!DRAW.paused&&DRAW.cur&&DRAW.acts.some(a=>a.kind==="seg")){
+    DRAW.paused=true;drawCap(null);drawPreview();
+   }
+   return;
+  }
+  if(hit.kind==="ccen"||hit.kind==="crad"){
+   clearContour(true);toast("Кръгът е изтрит · Ctrl+Z връща");
+   drawPreview();schedulePip();return;
+  }
   if(hit.kind==="hole")DRAW.acts.splice(hit.i,1);
   else if(hit.kind==="vert"){
    if(DRAW.acts.filter(a=>a.kind==="seg").length<=2){toast("Контурът не може да остане с под 2 отсечки");return;}
@@ -3160,6 +3273,7 @@ function init(){
   const p=drawSnap(raw,e);
   const segsA=DRAW.acts.filter(a=>a.kind==="seg"),la=segsA[segsA.length-1];
   if(la&&Math.hypot(la.x-p.x,la.y-p.y)<1e-9)drawUndo(); // маха точката, добавена от 1-вия клик
+  if(DRAW.circle){drawPreview();return;}
   if(drawHit(raw)){drawPreview();return;}
   const sh=drawHitSeg(raw);
   if(!sh){drawPreview();return;}
@@ -3179,7 +3293,13 @@ function init(){
  document.addEventListener("keydown",e=>{
   if(e.target&&e.target.id==="dimIn")return;
   if(!DRAW.on)return;
-  if(e.key==="Escape"){drawExit();if(state.editingFeature)closeFeatureSketch();else recompute();}
+  if(e.key==="Escape"){
+   if(DRAW.tmp){DRAW.tmp=null;drawCap(null);drawPreview();return;}
+   if(!DRAW.done&&!DRAW.paused&&DRAW.cur&&DRAW.acts.some(a=>a.kind==="seg")&&(DRAW.tool==="line"||DRAW.tool==="arc")){
+    DRAW.paused=true;drawCap(null);drawPreview();return;
+   }
+   drawExit();if(state.editingFeature)closeFeatureSketch();else recompute();
+  }
   else if(e.key==="Enter"){e.preventDefault();drawFinish();}
   else if((e.key==="z"||e.key==="Z")&&(e.ctrlKey||e.metaKey)){e.preventDefault();drawUndo();}
  });
