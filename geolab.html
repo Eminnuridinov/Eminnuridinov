@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0f1115">
-<title>AVKO GeoLab v2.5</title>
+<title>AVKO GeoLab v3.0</title>
 <style>
 :root{--bg:#0b0d12;--panel:#12161f;--panel2:#1a2029;--line:#252d3a;--line2:#354158;
  --teal:#2dd4bf;--blue:#5b8def;--amber:#facc15;--red:#f87171;
@@ -117,6 +117,25 @@ details.help .note{display:block;margin-top:6px}
 #expL{color:var(--text);opacity:.9;margin-top:3px}
 #expX{margin-left:auto;background:none;border:0;color:var(--faint);cursor:pointer;font-size:13px;flex:0 0 auto}
 #expX:hover{color:var(--text)}
+.feat{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:7px 9px;margin-bottom:6px;cursor:pointer}
+.feat.act{border-color:var(--teal);background:rgba(45,212,191,.06)}
+.feat.off{opacity:.45}
+.feat .fk{font-size:15px;color:var(--teal);flex:0 0 20px;text-align:center}
+.feat.off .fk{color:var(--muted)}
+.feat .fn{flex:1;min-width:0;font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.feat .fn small{display:block;color:var(--muted);font-weight:500;font-size:10.5px}
+.feat .fbtns{display:flex;gap:1px}
+.feat .fbtns button{background:none;border:0;color:var(--muted);cursor:pointer;font-size:12px;padding:3px 5px;border-radius:6px}
+.feat .fbtns button:hover{color:var(--text);background:var(--line)}
+.fpars{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;background:var(--panel2);border:1px dashed var(--line);border-radius:9px;padding:8px;margin:-2px 0 8px}
+.fpars .fp{display:flex;flex-direction:column;gap:2px;font-size:10.5px;color:var(--muted)}
+.fpars input[type=number]{min-height:30px;padding:4px 6px;font-size:12.5px}
+.fpars .note{grid-column:1/-1;font-size:10.5px;padding:5px 7px}
+.fpars .seg.tiny{width:100%}
+.fpars .seg.tiny button{flex:1}
+.fpars input[type=checkbox]{width:auto;min-height:0;accent-color:var(--teal);margin-top:9px}
+#editBanner{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#editBanner .dbtn{border-color:var(--teal);color:var(--teal)}
 .foot{color:var(--faint);font-size:11px;text-align:center;padding:10px 0 4px}
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:var(--panel2);border:1px solid var(--teal);color:var(--teal);border-radius:10px;padding:10px 16px;font-size:13px;font-weight:600;box-shadow:0 6px 24px rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:50}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -165,10 +184,10 @@ details.help .note{display:block;margin-top:6px}
 <body>
 <div class="app">
 <header class="topbar">
- <div class="brand"><h1>AVKO GeoLab</h1><span class="ver">v2.5</span></div>
+ <div class="brand"><h1>AVKO GeoLab</h1><span class="ver">v3.0</span></div>
  <nav class="seg" id="modeSeg">
   <button id="btnModeProf" class="on">Скица</button>
-  <button id="btnModeBody">Тяло</button>
+  <button id="btnModeBody">Модел</button>
   <button id="btnModeCat">Каталог</button>
  </nav>
  <div class="actions">
@@ -176,6 +195,9 @@ details.help .note{display:block;margin-top:6px}
   <button id="btnCSV" title="Записва .csv с всички резултати — само при натискане">⬇ CSV</button>
   <button id="btnSVG" title="Записва схемата като .svg — само при натискане">⬇ SVG</button>
   <button id="btnSTL" title="3D модел за печат/CAD (двоичен STL, mm) — активен в режим „Тяло“" disabled>⬇ STL</button>
+  <button id="btnSaveP" title="Запазва целия модел като .geolab файл — файл се създава САМО при този клик">💾 Проект</button>
+  <button id="btnLoadP" title="Зарежда .geolab проект (само чете избрания файл; може и с влачене върху прозореца)">📂</button>
+  <input type="file" id="fileP" accept=".geolab,.json" class="hide">
   <button id="btnPrint" title="Системен печат — там избери „Запиши като PDF“">🖨 Печат</button>
   <button id="btnCopy" title="Копира всички резултати в клипборда — без файл на диска">📋 Копирай</button>
  </div>
@@ -192,6 +214,7 @@ details.help .note{display:block;margin-top:6px}
   </div>
   <div class="card" id="cardProfile">
    <h2>Скица — команди</h2>
+   <div class="msg warn hide" id="editBanner">✎ Редактираш операция <b id="ebName"></b> — промените отиват в нея. <button class="dbtn" id="btnDoneEdit">✔ Готово → Модел</button></div>
    <div class="lbl" style="margin-top:0">Стартови форми — клик вмъква за редакция</div>
    <div class="chips" id="startShapes"></div>
    <div class="lbl">Примери с команди</div>
@@ -219,18 +242,17 @@ BOLTS n BC140 D18 [A0]  n отвора на болтова окр. Ø140
    </details>
   </div>
   <div class="card hide" id="cardBody">
-   <h2>Тяло</h2>
-   <div class="lbl">Източник на профила</div>
-   <div class="seg small"><button id="btnSrcCat" class="on">Каталог</button><button id="btnSrcProf">Скица</button></div>
-   <div class="lbl">Операция</div>
-   <div class="seg small"><button id="btnOpExt" class="on">EXTRUDE</button><button id="btnOpRev">REVOLVE</button></div>
-   <div class="grid2" style="margin-top:8px">
-    <label id="lblH"><span class="lt"><i class="dot g"></i>Височина h, mm</span><input type="number" id="inpH" value="10" step="any"></label>
-    <label><span class="lt"><i class="dot y"></i>Материал</span><select id="selMat"></select></label>
-    <label><span class="lt"><i class="dot y"></i>Плътност ρ, kg/m³</span><input type="number" id="inpRho" value="7850" step="any"></label>
-    <div class="note hide" id="revNote">REVOLVE: ос Y през x=0, пълни 360° (Папус). Профилът и отворите трябва да са изцяло при x ≥ 0.</div>
+    <h2>Модел — операции <span class="h2n">· основа + добавки − изрязвания</span></h2>
+    <div id="featList"></div>
+    <div class="rowbtns">
+     <button class="mini" id="btnAddPad" title="Добавя материал: нова Extrude стъпка (бобышка, стъпало)">＋ Добавка</button>
+     <button class="mini" id="btnAddCut" title="Маха материал: джоб или отвор (изважда се от обема)">－ Изрязване</button>
+    </div>
+    <div class="grid2" style="margin-top:10px">
+     <label><span class="lt"><i class="dot y"></i>Материал</span><select id="selMat"></select></label>
+     <label><span class="lt"><i class="dot y"></i>Плътност ρ, kg/m³</span><input type="number" id="inpRho" value="7850" step="any"></label>
+    </div>
    </div>
-  </div>
   <details class="help"><summary>Какво съдържа експортът?</summary>
    <div class="note">DXF: контур → слой KONTUR (POLYLINE, дъгите като bulge; кръг → CIRCLE), отвори → слой OTVOR (CIRCLE). Елипсата се експортира като полилиния. Само 2D геометрия.<br>SVG = текущата схема (за вмъкване в документ). STL = 3D моделът (mm, z нагоре) за 3D печат или CAD — активен в режим „Тяло“. „Печат“ отваря системния диалог — там избери „Запиши като PDF“. „Копирай“ слага всички числа в клипборда — без файл на диска.</div>
   </details>
@@ -273,9 +295,9 @@ BOLTS n BC140 D18 [A0]  n отвора на болтова окр. Ø140
  <aside class="panel right">
   <div class="tiles" id="tiles"></div>
   <div id="msgs"></div>
-  <div class="card" id="resSection"><h2>Сечение <span class="h2n">· клик на ред = обяснение</span></h2><div class="rows" id="rowsA"></div></div>
+  <div class="card" id="resSection"><h2>Сечение <span class="h2n" id="secWho"></span> <span class="h2n">· клик на ред = обяснение</span></h2><div class="rows" id="rowsA"></div></div>
   <div class="card" id="resInertia"><h2>Инерционни характеристики <span class="h2n">· клик на ред = обяснение</span></h2><div class="rows" id="rowsI"></div></div>
-  <div class="card hide" id="resBody"><h2>Тяло</h2><div class="rows" id="rowsB"></div></div>
+  <div class="card hide" id="resBody"><h2>Модел <span class="h2n">· клик на ред = обяснение</span></h2><div class="rows" id="rowsB"></div></div>
   <div class="foot">AVKO GeoLab · единичен файл · работи офлайн · без реклами · mm</div>
  </aside>
 </main>
@@ -283,7 +305,7 @@ BOLTS n BC140 D18 [A0]  n отвора на болтова окр. Ø140
 <script>
 "use strict";
 /* ================= AVKO GeoLab v1.1 — ядро ================= */
-const VERSION="2.5";
+const VERSION="3.0";
 const COMPUTE_TOL=0.0005;   // sagitta [mm] за полигонизация при смятане
 const EPS=1e-9;
 
@@ -1048,12 +1070,333 @@ function buildSTL(tris){
  }
  return buf;
 }
+/* ---------- STL меш на целия модел (z нагоре) ---------- */
+function holeRing24(hh,n){
+ const c=[];
+ for(let k=0;k<(n||24);k++){const t=-2*Math.PI*k/(n||24);c.push([hh.x+hh.r*Math.cos(t),hh.y+hh.r*Math.sin(t)]);}
+ return c; // CW
+}
+function meshExtrude(tris,ring,holesRings,z0,z1,K,C){
+ const SS=(p,t)=>{const s=1+(K-1)*t;return [C[0]+(p[0]-C[0])*s,C[1]+(p[1]-C[1])*s];};
+ const lift=(p,z,t)=>{const q=SS(p,t);return [q[0],q[1],z];};
+ const capT=earClip(mergeHoles(ring,holesRings));
+ for(const t of capT){
+  tris.push([lift(t[0],z1,1),lift(t[1],z1,1),lift(t[2],z1,1)]);
+  tris.push([lift(t[0],z0,0),lift(t[2],z0,0),lift(t[1],z0,0)]);
+ }
+ const wall=pts=>{
+  for(let i=0;i<pts.length;i++){
+   const a=pts[i],b=pts[(i+1)%pts.length];
+   tris.push([lift(a,z0,0),lift(b,z0,0),lift(b,z1,1)],[lift(a,z0,0),lift(b,z1,1),lift(a,z1,1)]);
+  }
+ };
+ wall(ring);
+ for(const r of holesRings)wall(r);
+}
+function meshRevolvePartial(tris,prof,holes,th,dz){
+ const NP=Math.max(8,Math.round(72*th/(2*Math.PI)));
+ const P=(x,y,f)=>[x*Math.cos(f),x*Math.sin(f),y+dz];
+ for(let i=0;i<prof.length;i++){
+  const a=prof[i],b=prof[(i+1)%prof.length];
+  if(a[0]<1e-9&&b[0]<1e-9)continue;
+  for(let j=0;j<NP;j++){
+   const f0=th*j/NP,f1=th*(j+1)/NP;
+   tris.push([P(a[0],a[1],f0),P(b[0],b[1],f0),P(b[0],b[1],f1)],
+             [P(a[0],a[1],f0),P(b[0],b[1],f1),P(a[0],a[1],f1)]);
+  }
+ }
+ for(const hh of holes){ // сегменти от тор-канали — навивка НАВЪТРЕ (кухина в тялото)
+  const NT=16;
+  for(let i2=0;i2<NT;i2++)for(let j=0;j<NP;j++){
+   const u0=2*Math.PI*i2/NT,u1=2*Math.PI*(i2+1)/NT,f0=th*j/NP,f1=th*(j+1)/NP;
+   const Q=(u,f)=>{const r=hh.x+hh.r*Math.cos(u);return [r*Math.cos(f),r*Math.sin(f),hh.y+hh.r*Math.sin(u)+dz];};
+   tris.push([Q(u0,f0),Q(u1,f1),Q(u1,f0)],[Q(u0,f0),Q(u0,f1),Q(u1,f1)]);
+  }
+ }
+ // крайни плоски стени (с отвори при канали) — само при частично завъртане
+ if(th<2*Math.PI-1e-6){
+  const hrs=holes.map(hh=>holeRing24(hh,24));
+  const capT=earClip(mergeHoles(prof.map(p=>[p[0],p[1]]),hrs));
+  for(const t of capT){
+   tris.push([P(t[0][0],t[0][1],0),P(t[2][0],t[2][1],0),P(t[1][0],t[1][1],0)]);
+   tris.push([P(t[0][0],t[0][1],th),P(t[1][0],t[1][1],th),P(t[2][0],t[2][1],th)]);
+  }
+ }
+}
+function meshTorus(tris,hh,dz){
+ const NT=16,NP=72;
+ for(let i=0;i<NT;i++)for(let j=0;j<NP;j++){
+  const u0=2*Math.PI*i/NT,u1=2*Math.PI*(i+1)/NT,f0=2*Math.PI*j/NP,f1=2*Math.PI*(j+1)/NP;
+  const Q=(u,f)=>{const r=hh.x+hh.r*Math.cos(u);return [r*Math.cos(f),r*Math.sin(f),hh.y+hh.r*Math.sin(u)+dz];};
+  tris.push([Q(u0,f0),Q(u1,f0),Q(u1,f1)],[Q(u0,f0),Q(u1,f1),Q(u0,f1)]);
+ }
+}
+function meshLoft(tris,rA,rB,z0,z1){
+ const L=8;
+ const at=t=>rA.map((p,i)=>[p[0]+(rB[i][0]-p[0])*t,p[1]+(rB[i][1]-p[1])*t]);
+ for(let l=0;l<L;l++){
+  const r0=at(l/L),r1=at((l+1)/L),za=z0+(z1-z0)*l/L,zc=z0+(z1-z0)*(l+1)/L;
+  for(let i=0;i<r0.length;i++){
+   const j=(i+1)%r0.length;
+   tris.push([[r0[i][0],r0[i][1],za],[r0[j][0],r0[j][1],za],[r1[j][0],r1[j][1],zc]],
+             [[r0[i][0],r0[i][1],za],[r1[j][0],r1[j][1],zc],[r1[i][0],r1[i][1],zc]]);
+  }
+ }
+ for(const t of earClip(rB))tris.push([[t[0][0],t[0][1],z1],[t[1][0],t[1][1],z1],[t[2][0],t[2][1],z1]]);
+ for(const t of earClip(rA))tris.push([[t[0][0],t[0][1],z0],[t[2][0],t[2][1],z0],[t[1][0],t[1][1],z0]]);
+}
+function modelMesh(mp){
+ const all=[];let skipped=0;
+ const thr=throughCutsOf(mp);
+ for(const {F,fp} of mp.feats){
+  if(F.kind==="cut"){
+   if(!thr.some(t=>t.F===F))skipped++;
+   continue;
+  }
+  const tris=[];
+  if(F.kind==="extrude"){
+   const ring=decimate(fp.sp.ring.pts,128);
+   const hrs=(fp.geom.holes||[]).map(hh=>holeRing24(hh,24));
+   if(F===mp.base.F)for(const tc of thr)hrs.push(decimate(tc.fp.sp.ring.pts,48).slice().reverse());
+   meshExtrude(tris,ring,hrs,fp.span[0],fp.span[1],fp.K,[fp.sp.Cx,fp.sp.Cy]);
+   orientShell(tris,true);
+   all.push(...tris);
+  }else if(F.kind==="revolve"){
+   const th=Math.max(1,Math.min(360,F.p.ang||360))*Math.PI/180;
+   const prof=decimate(fp.sp.ring.pts,72),dz=F.p.dz||0;
+   if(th>=2*Math.PI-1e-6){
+    meshRevolvePartial(tris,prof,[],2*Math.PI,dz);
+    orientShell(tris,true);
+    all.push(...tris);
+    for(const hh of (fp.geom.holes||[])){
+     const tor=[];meshTorus(tor,hh,dz);orientShell(tor,false);all.push(...tor);
+    }
+   }else{
+    meshRevolvePartial(tris,prof,fp.geom.holes||[],th,dz);
+    orientShell(tris,true);
+    all.push(...tris);
+   }
+  }else if(F.kind==="loft"){
+   meshLoft(tris,fp.geom2.rA,fp.geom2.rB,fp.span[0],fp.span[1]);
+   orientShell(tris,true);
+   all.push(...tris);
+  }
+ }
+ return {tris:all,skipped};
+}
 function exportSTL(){
- if(!state.last||state.mode!=="body"||!state.lastBody){toast("STL изисква режим „Тяло“ с валиден модел");return;}
- const tris=bodyMesh(state.last.contour,state.last.holes,state.last.sp,state.lastBody);
- if(!tris||!tris.length){toast("Неуспешна триангулация");return;}
- download(`geolab_${state.last.tag}_${dateStr()}.stl`,buildSTL(tris),"model/stl");
- toast(`STL: ${tris.length} триъгълника, обем ≈ ${fmt(Math.abs(meshVolume(tris))/1000,1)} cm³`);
+ const mp=state.lastBody;
+ if(state.mode!=="body"||!mp||(mp.errs&&mp.errs.length)){toast("STL изисква режим „Модел“ с валиден модел");return;}
+ const {tris,skipped}=modelMesh(mp);
+ if(!tris.length){toast("Неуспешна триангулация");return;}
+ download(`geolab_model_${dateStr()}.stl`,buildSTL(tris),"model/stl");
+ toast(`STL: ${tris.length} триъгълника · обем ≈ ${fmt(Math.abs(meshVolume(tris))/1000,1)} cm³${skipped?` · ${skipped} частични изрязвания не са включени`:""}`);
+}
+
+/* ================= МОДЕЛ: дърво от операции ================= */
+const MODEL={features:[],active:0,seq:0};
+const KIND_BG={extrude:"Extrude",revolve:"Revolve",loft:"Loft",cut:"Изрязване"};
+const KIND_IC={extrude:"⬒",revolve:"◎",loft:"⧗",cut:"⊟"};
+function newFeature(kind,script,name){
+ MODEL.seq++;
+ return {id:MODEL.seq,
+  name:name||(KIND_BG[kind]+" "+MODEL.seq),kind,
+  script:script||(kind==="cut"?"; изрязване\nCIRCLE D20":"; добавка\nCIRCLE D40"),
+  script2:kind==="loft"?"; горно сечение\nCIRCLE D60":null,
+  p:{h:10,dz:0,dx:0,dy:0,rot:0,draft:0,ang:360,through:kind==="cut"},
+  on:true};
+}
+function circlePolyAt(cx,cy,R){ // изместен кръг → сегменти с дъги (bulge)
+ return {type:"poly",segs:arcToSegs(cx,cy,R,0,2*Math.PI)};
+}
+function transformGeom(contour,holes,p){
+ const rot=(p.rot||0)*Math.PI/180,c=Math.cos(rot),si=Math.sin(rot);
+ const dx=p.dx||0,dy=p.dy||0;
+ const T=(x,y)=>[x*c-y*si+dx,x*si+y*c+dy];
+ let ct;
+ if(contour.type==="circle"){
+  if(Math.abs(dx)<1e-12&&Math.abs(dy)<1e-12)ct=contour;
+  else ct=circlePolyAt(dx,dy,contour.R);
+ }else{
+  ct={type:"poly",segs:contour.segs.map(s=>{
+   const a=T(s.x0,s.y0),b=T(s.x1,s.y1);
+   return {x0:a[0],y0:a[1],x1:b[0],y1:b[1],bulge:s.bulge};
+  })};
+ }
+ const hl=(holes||[]).map(h=>{const q=T(h.x,h.y);return{x:q[0],y:q[1],r:h.r};});
+ return {contour:ct,holes:hl};
+}
+function resampleRing(pts,N){ // равномерно по дъгова дължина, старт от ъгъл 0 спрямо ЦТ
+ const n=pts.length;
+ let A=0,cx=0,cy=0;
+ for(let i=0;i<n;i++){const p=pts[i],q=pts[(i+1)%n];const cr=p[0]*q[1]-q[0]*p[1];A+=cr;cx+=(p[0]+q[0])*cr;cy+=(p[1]+q[1])*cr;}
+ A/=2;cx/=6*A;cy/=6*A;
+ // начална точка: върхът, най-близък до лъча под ъгъл 0 от ЦТ (изравнява двата контура за морф)
+ let si=0;
+ for(let i=1;i<n;i++)
+  if(Math.abs(Math.atan2(pts[i][1]-cy,pts[i][0]-cx))<Math.abs(Math.atan2(pts[si][1]-cy,pts[si][0]-cx)))si=i;
+ const ord=[];for(let i=0;i<n;i++)ord.push(pts[(si+i)%n]);
+ ord.push(ord[0]);
+ const L=[0];
+ for(let i=1;i<ord.length;i++)L.push(L[i-1]+Math.hypot(ord[i][0]-ord[i-1][0],ord[i][1]-ord[i-1][1]));
+ const tot=L[L.length-1],out=[];
+ let j=0;
+ for(let k=0;k<N;k++){
+  const t=tot*k/N;
+  while(j<L.length-2&&L[j+1]<t)j++;
+  const f=(t-L[j])/((L[j+1]-L[j])||1);
+  out.push([ord[j][0]+(ord[j+1][0]-ord[j][0])*f,ord[j][1]+(ord[j+1][1]-ord[j][1])*f]);
+ }
+ return out;
+}
+function ringProps(pts){ // A, Qx=∫y dA, Qy=∫x dA за полигон
+ const g=polyProps(pts);
+ return {A:g.A,Qx:g.Qx,Qy:g.Qy};
+}
+function draftK(F,sp){ // мащаб на горния контур от наклона (приближение чрез екв. радиус)
+ const d=(F.p.draft||0)*Math.PI/180;
+ if(Math.abs(d)<1e-9)return 1;
+ const rbar=Math.sqrt(Math.max(sp.A,1e-9)/Math.PI);
+ return Math.max(0.05,1-F.p.h*Math.tan(d)/rbar);
+}
+/* свойства на една операция: {V, C:[X,Y,Z], geom, sp, span:[z0,z1], errs, warns} */
+function featProps(F,baseSpan){
+ const errs=[],warns=[];
+ const P=(txt)=>{
+  const pr=parseScript(txt);
+  if(pr.errs.length){pr.errs.forEach(e=>errs.push(`${F.name}: ${e.msg}${e.line?` (ред ${e.line})`:""}`));return null;}
+  const tg=transformGeom(pr.contour,pr.holes,F.p);
+  const va=validateSection(tg.contour,tg.holes);
+  va.errs.forEach(m=>errs.push(`${F.name}: ${m}`));
+  va.warns.forEach(m=>warns.push(`${F.name}: ${m}`));
+  if(errs.length)return null;
+  return {contour:tg.contour,holes:tg.holes,sp:sectionProps(tg.contour,tg.holes)};
+ };
+ const g=P(F.script);
+ if(!g)return {errs,warns};
+ const sp=g.sp;
+ let z0=F.p.dz,h=F.p.h,V=0,C=[0,0,0],span,geom2=null,K=1;
+ if(F.kind==="cut"&&F.p.through&&baseSpan){z0=baseSpan[0];h=baseSpan[1]-baseSpan[0];}
+ if(!(h>0)&&F.kind!=="revolve"){errs.push(`${F.name}: невалидна височина h`);return {errs,warns};}
+ if(F.kind==="extrude"||F.kind==="cut"){
+  K=draftK(F,sp);
+  const b=K-1;                       // s(t)=1+b·t
+  const I2=1+b+b*b/3;                // ∫s²
+  const It=0.5+2*b/3+b*b/4;          // ∫t·s²
+  V=h*sp.A*I2;
+  C=[sp.Cx,sp.Cy,z0+h*It/I2];
+  span=[z0,z0+h];
+ }else if(F.kind==="revolve"){
+  const th=Math.max(1,Math.min(360,F.p.ang||360))*Math.PI/180;
+  let minx=1/0;
+  for(const p of sp.ring.pts)if(p[0]<minx)minx=p[0];
+  if(minx<-1e-6){errs.push(`${F.name}: профилът пресича оста (min x=${minx.toFixed(2)})`);return {errs,warns};}
+  for(const hh of g.holes)if(hh.x-hh.r<-1e-6){errs.push(`${F.name}: отвор пресича оста`);return {errs,warns};}
+  const Qy=sp.A*sp.Cx;                        // ∫x dA
+  const Iyy_o=sp.Iyc+sp.A*sp.Cx*sp.Cx;        // ∫x² dA
+  const Ixy_o=sp.Ixyc+sp.A*sp.Cx*sp.Cy;       // ∫xy dA
+  V=th*Qy;
+  C=[Iyy_o*Math.sin(th)/(Qy*th),Iyy_o*(1-Math.cos(th))/(Qy*th),F.p.dz+Ixy_o/Qy];
+  span=[F.p.dz+sp.ring.bbox.y0,F.p.dz+sp.ring.bbox.y1];
+ }else if(F.kind==="loft"){
+  if((g.holes||[]).length){errs.push(`${F.name}: loft не поддържа отвори`);return {errs,warns};}
+  const g2=P(F.script2||"");
+  if(!g2)return {errs,warns};
+  if((g2.holes||[]).length){errs.push(`${F.name}: loft не поддържа отвори (горно сечение)`);return {errs,warns};}
+  const N=64;
+  const rA=resampleRing(sp.ring.pts,N),rB=resampleRing(g2.sp.ring.pts,N);
+  const mid=rA.map((p,i)=>[(p[0]+rB[i][0])/2,(p[1]+rB[i][1])/2]);
+  const pA=ringProps(rA),pM=ringProps(mid),pB=ringProps(rB);
+  V=h*(pA.A+4*pM.A+pB.A)/6;
+  const Qyi=h*(pA.Qy+4*pM.Qy+pB.Qy)/6, Qxi=h*(pA.Qx+4*pM.Qx+pB.Qx)/6;
+  const Zi=h*h*(0*pA.A+2*pM.A+pB.A)/6;   // ∫t·A dt · h²
+  C=[Qyi/V,Qxi/V,z0+Zi/V];
+  span=[z0,z0+h];
+  geom2={contour:g2.contour,sp:g2.sp,rA,rB};
+ }
+ return {V,C,sp,geom:{contour:g.contour,holes:g.holes},geom2,span,K,errs,warns};
+}
+/* свойства на целия модел */
+function modelProps(){
+ const out={V:0,C:[0,0,0],items:[],errs:[],warns:[],feats:[],bb3:null,S:null,mlin:null,base:null};
+ const feats=MODEL.features.filter(f=>f.on);
+ if(!feats.length){out.errs.push("моделът няма операции");return out;}
+ if(feats[0].kind==="cut"){out.errs.push("първата операция трябва да е основа (Extrude / Revolve / Loft), не изрязване");return out;}
+ const baseF=feats[0];
+ let baseFP=featProps(baseF,null);
+ out.errs.push(...baseFP.errs);out.warns.push(...baseFP.warns);
+ if(out.errs.length)return out;
+ out.base={F:baseF,fp:baseFP};
+ const baseSpan=baseFP.span;
+ let M=[0,0,0],V=0;
+ const bb={x0:1/0,y0:1/0,z0:1/0,x1:-1/0,y1:-1/0,z1:-1/0};
+ const grow=(fp,F)=>{
+  if(F.kind==="cut")return;
+  let xb;
+  if(F.kind==="revolve"){const r=Math.max(Math.abs(fp.sp.ring.bbox.x0),Math.abs(fp.sp.ring.bbox.x1));xb={x0:-r,x1:r,y0:-r,y1:r};}
+  else{
+   const b=fp.sp.ring.bbox;xb={x0:b.x0,x1:b.x1,y0:b.y0,y1:b.y1};
+   if(fp.geom2){const b2=fp.geom2.sp.ring.bbox;xb={x0:Math.min(xb.x0,b2.x0),x1:Math.max(xb.x1,b2.x1),y0:Math.min(xb.y0,b2.y0),y1:Math.max(xb.y1,b2.y1)};}
+  }
+  bb.x0=Math.min(bb.x0,xb.x0);bb.x1=Math.max(bb.x1,xb.x1);
+  bb.y0=Math.min(bb.y0,xb.y0);bb.y1=Math.max(bb.y1,xb.y1);
+  bb.z0=Math.min(bb.z0,fp.span[0]);bb.z1=Math.max(bb.z1,fp.span[1]);
+ };
+ for(const F of feats){
+  const fp=F===baseF?baseFP:featProps(F,baseSpan);
+  out.errs.push(...fp.errs);out.warns.push(...fp.warns);
+  if(fp.errs.length)continue;
+  const sgn=F.kind==="cut"?-1:1;
+  V+=sgn*fp.V;
+  M[0]+=sgn*fp.V*fp.C[0];M[1]+=sgn*fp.V*fp.C[1];M[2]+=sgn*fp.V*fp.C[2];
+  out.items.push({name:F.name,kind:F.kind,V:sgn*fp.V});
+  out.feats.push({F,fp});
+  grow(fp,F);
+  if(F.kind==="cut"){
+   // валидации: в основата ли е?
+   if(baseF.kind!=="extrude")out.warns.push(`${F.name}: изрязване върху не-Extrude основа — обемът се изважда, но не се показва като отвор`);
+   else{
+    if(fp.span[0]<baseSpan[0]-1e-6||fp.span[1]>baseSpan[1]+1e-6)
+     out.warns.push(`${F.name}: излиза от височината на основата — обемът е приблизителен`);
+    const pts=fp.sp.ring.pts,bp=baseFP.sp.ring.pts;
+    let outCnt=0;
+    for(let i=0;i<pts.length;i+=Math.max(1,Math.floor(pts.length/24)))
+     if(!pointInPoly(pts[i],bp))outCnt++;
+    if(outCnt)out.warns.push(`${F.name}: излиза извън контура на основата — обем/ЦТ приблизителни`);
+   }
+  }
+ }
+ if(out.errs.length)return out;
+ if(!(V>1e-9)){out.errs.push("обемът на модела е нулев/отрицателен — изрязванията надвишават основата");return out;}
+ out.V=V;out.C=[M[0]/V,M[1]/V,M[2]/V];out.bb3=bb;
+ // повърхнина и kg/m — само при прост модел (1 операция)
+ if(out.items.length===1){
+  const F=baseF,fp=baseFP;
+  if(F.kind==="extrude"&&fp.K===1)out.S=2*fp.sp.A+fp.sp.Lcut*F.p.h;
+  else if(F.kind==="revolve"&&(F.p.ang||360)>=360){
+   let S=0;const n=fp.sp.ring.pts.length;
+   for(let i=0;i<n;i++){const a=fp.sp.ring.pts[i],b=fp.sp.ring.pts[(i+1)%n];S+=((a[0]+b[0])/2)*Math.hypot(b[0]-a[0],b[1]-a[1]);}
+   S*=2*Math.PI;
+   for(const hh of fp.geom.holes)S+=4*Math.PI*Math.PI*hh.x*hh.r;
+   out.S=S;
+  }
+  if(F.kind==="extrude"&&fp.K===1)out.mlin=fp.sp.A; // ·ρ → kg/m
+ }
+ return out;
+}
+/* „през всичко“ кръгови/контурни изрязвания, които се вливат в основата като реални отвори */
+function throughCutsOf(mp){
+ const res=[];
+ if(!mp.base||mp.base.F.kind!=="extrude")return res;
+ for(const {F,fp} of mp.feats){
+  if(F.kind!=="cut"||!F.p.through)continue;
+  const pts=fp.sp.ring.pts,bp=mp.base.fp.sp.ring.pts;
+  let inside=true;
+  for(let i=0;i<pts.length;i+=Math.max(1,Math.floor(pts.length/16)))
+   if(!pointInPoly(pts[i],bp)){inside=false;break;}
+  if(inside)res.push({F,fp});
+ }
+ return res;
 }
 
 /* ---------- обяснения при клик върху ред ---------- */
@@ -1108,6 +1451,10 @@ const EXPLAIN={
   long:"Смени материала от списъка и виж как се променя — обемът остава същият, плътността ρ решава."},
  mlin:{t:"Маса на 1 метър дължина при това сечение.",body:true,
   long:"Стандартният начин да се сравняват профили и пръти: kg/m, независимо от конкретната дължина."},
+ CG3:{t:"ЦТ (X, Y, Z) — точката на равновесие на целия 3D модел.",body:true,
+  long:"Повдигаш или захващаш там — детайлът не се преобръща. Добавките дърпат ЦТ към себе си, изрязванията го отблъскват."},
+ bb3:{t:"Габарит 3D — най-малката кутия, в която се побира моделът.",body:true,
+  long:"Определя заготовката и дали детайлът влиза в машината, принтера или опаковката."},
  Rbar:{t:"x̄ — радиусът, на който обикаля центърът на тежестта при въртенето.",body:true,
   long:"Сърцето на правилото на Папус: V = 2π · x̄ · A. Затова профил по-далеч от оста дава по-голям обем."}
 };
@@ -1297,107 +1644,171 @@ function decimate(pts,maxN){
  return o;
 }
 const VIEW3D={az:-0.55,el:0.5};
-function buildViz3D(sp,contour,holes,body){
+function buildModel3D(mp){
  const ca=Math.cos(VIEW3D.az),sa=Math.sin(VIEW3D.az);
  const ce=Math.cos(VIEW3D.el),se=Math.sin(VIEW3D.el);
- // ортографска орбитална проекция: rotV → [екр.X, екр.Y(наопаки), дълбочина]
+ // вътрешни координати на рендера: (x=скица X, y=височина Z, z=скица Y)
  const rotV=(x,y,z)=>{
   const xr=x*ca+z*sa,zr=-x*sa+z*ca;
   return [xr,y*ce-zr*se,y*se+zr*ce];
  };
  const scrP=p=>{const q=rotV(p[0],p[1],p[2]);return q[0].toFixed(2)+" "+(-q[1]).toFixed(2);};
- // осветление в пространството на камерата (леко отгоре-вляво, към зрителя)
  const shade=n=>{
   const q=rotV(n[0],n[1],n[2]);
   const m=Math.hypot(q[0],q[1],q[2])||1;
   return Math.max(0,(q[0]*-0.28+q[1]*0.60+q[2]*0.75)/m);
  };
  const fillFor=l=>`hsl(207 9% ${Math.min(88,12+42*l+30*Math.pow(l,6)).toFixed(1)}%)`;
- const faces=[];
- const F=(pts,n)=>{
+ const bb3=mp.bb3;
+ const C0r=[(bb3.x0+bb3.x1)/2,(bb3.z0+bb3.z1)/2,(bb3.y0+bb3.y1)/2];
+ let R3=Math.max(1,0.55*Math.hypot(bb3.x1-bb3.x0,bb3.y1-bb3.y0,bb3.z1-bb3.z0));
+ const swf=R3*0.004;
+ const circlePts=(hh,n)=>{const c=[];for(let k=0;k<(n||24);k++){const t=2*Math.PI*k/(n||24);c.push([hh.x+hh.r*Math.cos(t),hh.y+hh.r*Math.sin(t)]);}return c;};
+ const drawFaces=fl=>{
+  fl.sort((a,b)=>a.d-b.d);
+  let o="";
+  for(const f of fl)o+=`<path d="M${f.scr.map(p=>p[0].toFixed(2)+" "+p[1].toFixed(2)).join("L")}Z" fill="${f.fill}" stroke="${f.fill}" stroke-width="${swf}"/>`;
+  return o;
+ };
+ const Fq=(fl,pts,n)=>{
   let d=0;const scr=[];
   for(const p of pts){const q=rotV(p[0],p[1],p[2]);scr.push([q[0],-q[1]]);d+=q[2];}
-  faces.push({d:d/pts.length,scr,fill:fillFor(shade(n))});
+  fl.push({d:d/pts.length,scr,fill:fillFor(shade(n))});
  };
- const bb=sp.ring.bbox,diag=Math.hypot(bb.x1-bb.x0,bb.y1-bb.y0)||1;
- let pre="",post="",C0,R3=1,cap,capFn=null,capRing=null;
- if(body.op==="ext"){
-  const h=body.h;
-  const ringV=decimate(ringFromContour(contour,Math.max(0.05,diag/300)).pts,64);
-  capRing=ringV;
-  // стени
-  for(let i=0;i<ringV.length;i++){
-   const a=ringV[i],b=ringV[(i+1)%ringV.length];
-   F([[a[0],0,a[1]],[b[0],0,b[1]],[b[0],h,b[1]],[a[0],h,a[1]]],[b[1]-a[1],0,-(b[0]-a[0])]);
-  }
-  // капаци: контур + отвори (evenodd)
-  const capPath=(lv,noHoles)=>{
-   let d="M"+ringV.map(p=>scrP([p[0],lv,p[1]])).join("L")+"Z";
-   if(!noHoles)for(const hh of (holes||[])){
-    const c=[];
-    for(let k=0;k<24;k++){const t=2*Math.PI*k/24;c.push(scrP([hh.x+hh.r*Math.cos(t),lv,hh.y+hh.r*Math.sin(t)]));}
-    d+="M"+c.join("L")+"Z";
+ // данни за обяснителния слой (от базовата операция)
+ let baseRing=null,baseHoleR=[],zb0=0,zb1=0;
+ /* ---- EXTRUDE / CUT-влят ---- */
+ const emitExtrude=(F,fp,extraRings)=>{
+  const [z0,z1]=fp.span,K=fp.K,Cx=fp.sp.Cx,Cy=fp.sp.Cy;
+  const ring=decimate(fp.sp.ring.pts,64);
+  const SS=(p,t)=>{const s=1+(K-1)*t;return [Cx+(p[0]-Cx)*s,Cy+(p[1]-Cy)*s];};
+  const inner=(fp.geom.holes||[]).map(h=>circlePts(h,24).reverse()).concat(extraRings||[]);
+  const fl=[];
+  const wall=pts=>{
+   for(let i=0;i<pts.length;i++){
+    const a=pts[i],b=pts[(i+1)%pts.length];
+    const a0=SS(a,0),b0=SS(b,0),a1=SS(a,1),b1=SS(b,1);
+    Fq(fl,[[a0[0],z0,a0[1]],[b0[0],z0,b0[1]],[b1[0],z1,b1[1]],[a1[0],z1,a1[1]]],[b[1]-a[1],0,-(b[0]-a[0])]);
    }
+  };
+  wall(ring);
+  for(const r of inner)wall(r);
+  const capPath=(z,t,noHoles)=>{
+   let d="M"+ring.map(p=>{const q=SS(p,t);return scrP([q[0],z,q[1]]);}).join("L")+"Z";
+   if(!noHoles)for(const r of inner)d+="M"+r.map(p=>{const q=SS(p,t);return scrP([q[0],z,q[1]]);}).join("L")+"Z";
    return d;
   };
-  capFn=capPath;
-  pre=`<path d="${capPath(0)}" fill="hsl(207 9% 10%)" fill-rule="evenodd"/>`;
-  // тъмни „шахти“ на отворите, виждат се през горния капак
-  let disks="";
-  for(const hh of (holes||[])){
-   const c=[];
-   for(let k=0;k<24;k++){const t=2*Math.PI*k/24;c.push(scrP([hh.x+hh.r*Math.cos(t),h*0.2,hh.y+hh.r*Math.sin(t)]));}
-   disks+=`<path d="M${c.join("L")}Z" fill="#070a0f"/>`;
-  }
-  const topL=fillFor(shade([0,1,0]));
-  post=disks
-   +`<path d="${capPath(h)}" fill="${topL}" fill-rule="evenodd" stroke="rgba(45,212,191,.4)" stroke-width="${diag*0.0035}"/>`;
-  C0=[(bb.x0+bb.x1)/2,h/2,(bb.y0+bb.y1)/2];
-  for(const p of ringV)for(const lv of[0,h])
-   R3=Math.max(R3,Math.hypot(p[0]-C0[0],lv-C0[1],p[1]-C0[2]));
-  cap=`EXTRUDE h = ${fmt(h,2)} mm · влачи за завъртане · колело за мащаб`;
- }else{
-  // струговано тяло: профилът, завъртян на 360°
-  const prof=decimate(sp.ring.pts,30),NP=36;
+  let s=`<path d="${capPath(z0,0)}" fill="hsl(207 9% 10%)" fill-rule="evenodd"/>`;
+  s+=drawFaces(fl);
+  const zd=z1-(z1-z0)*0.8;
+  for(const r of inner)s+=`<path d="M${r.map(p=>scrP([p[0],zd,p[1]])).join("L")}Z" fill="#070a0f"/>`;
+  s+=`<path d="${capPath(z1,1)}" fill="${fillFor(shade([0,1,0]))}" fill-rule="evenodd" stroke="rgba(45,212,191,.4)" stroke-width="${R3*0.006}"/>`;
+  if(F===mp.base.F){baseRing=ring;baseHoleR=inner;zb0=z0;zb1=z1;}
+  return s;
+ };
+ /* ---- REVOLVE (пълен или частичен) ---- */
+ const emitRevolve=(F,fp)=>{
+  const th=Math.max(1,Math.min(360,F.p.ang||360))*Math.PI/180;
+  const full=th>=2*Math.PI-1e-6,dz=F.p.dz||0;
+  const prof=decimate(fp.sp.ring.pts,30);
+  const NP=Math.max(8,Math.round(36*th/(2*Math.PI)));
+  const fl=[];
   for(let i=0;i<prof.length;i++){
    const a=prof[i],b=prof[(i+1)%prof.length];
    if(a[0]<1e-9&&b[0]<1e-9)continue;
    const nx=b[1]-a[1],ny=-(b[0]-a[0]);
    for(let j=0;j<NP;j++){
-    const f0=2*Math.PI*j/NP,f1=2*Math.PI*(j+1)/NP,fm=(f0+f1)/2;
-    F([[a[0]*Math.cos(f0),a[1],a[0]*Math.sin(f0)],
-       [b[0]*Math.cos(f0),b[1],b[0]*Math.sin(f0)],
-       [b[0]*Math.cos(f1),b[1],b[0]*Math.sin(f1)],
-       [a[0]*Math.cos(f1),a[1],a[0]*Math.sin(f1)]],
+    const f0=th*j/NP,f1=th*(j+1)/NP,fm=(f0+f1)/2;
+    Fq(fl,[[a[0]*Math.cos(f0),a[1]+dz,a[0]*Math.sin(f0)],
+           [b[0]*Math.cos(f0),b[1]+dz,b[0]*Math.sin(f0)],
+           [b[0]*Math.cos(f1),b[1]+dz,b[0]*Math.sin(f1)],
+           [a[0]*Math.cos(f1),a[1]+dz,a[0]*Math.sin(f1)]],
       [nx*Math.cos(fm),ny,nx*Math.sin(fm)]);
    }
   }
-  // ос на въртене + скрити канали от отворите (пунктир)
-  const ax0=rotV(0,bb.y0-diag*0.16,0),ax1=rotV(0,bb.y1+diag*0.16,0);
-  post=`<line x1="${ax0[0].toFixed(2)}" y1="${(-ax0[1]).toFixed(2)}" x2="${ax1[0].toFixed(2)}" y2="${(-ax1[1]).toFixed(2)}" stroke="#facc15" stroke-width="${diag*0.004}" opacity=".7" stroke-dasharray="${diag*0.03} ${diag*0.012} ${diag*0.005} ${diag*0.012}"/>`;
-  for(const hh of (holes||[])){
-   const c=[];
-   for(let k=0;k<=48;k++){const t=2*Math.PI*k/48;c.push(scrP([hh.x*Math.cos(t),hh.y,hh.x*Math.sin(t)]));}
-   post+=`<path d="M${c.join("L")}" fill="none" stroke="#5b8def" stroke-width="${diag*0.0035}" stroke-dasharray="${diag*0.018} ${diag*0.012}" opacity=".85"/>`;
+  if(!full){ // плоски крайни стени
+   const capF=(f,n)=>{
+    let d="M"+prof.map(p=>scrP([p[0]*Math.cos(f),p[1]+dz,p[0]*Math.sin(f)])).join("L")+"Z";
+    for(const hh of (fp.geom.holes||[]))
+     d+="M"+circlePts(hh,20).map(p=>scrP([p[0]*Math.cos(f),p[1]+dz,p[0]*Math.sin(f)])).join("L")+"Z";
+    return `<path d="${d}" fill="${fillFor(shade(n))}" fill-rule="evenodd" stroke="rgba(45,212,191,.3)" stroke-width="${R3*0.004}"/>`;
+   };
+   let s=drawFaces(fl);
+   s+=capF(0,[0,0,-1])+capF(th,[-Math.sin(th),0,Math.cos(th)]);
+   return s;
   }
-  const ym=(bb.y0+bb.y1)/2;
-  C0=[0,ym,0];
-  for(const p of prof)R3=Math.max(R3,Math.hypot(p[0],p[1]-ym));
-  cap=`REVOLVE 360° около оста · влачи за завъртане${(holes||[]).length?" · пунктир = скрити канали от отворите":""}`;
+  let s=drawFaces(fl);
+  return s;
+ };
+ /* ---- LOFT ---- */
+ const emitLoft=(F,fp)=>{
+  const [z0,z1]=fp.span,rA=fp.geom2.rA,rB=fp.geom2.rB,L=8;
+  const at=t=>rA.map((p,i)=>[p[0]+(rB[i][0]-p[0])*t,p[1]+(rB[i][1]-p[1])*t]);
+  const fl=[];
+  for(let l=0;l<L;l++){
+   const r0=at(l/L),r1=at((l+1)/L),za=z0+(z1-z0)*l/L,zc=z0+(z1-z0)*(l+1)/L;
+   for(let i=0;i<r0.length;i++){
+    const j=(i+1)%r0.length;
+    Fq(fl,[[r0[i][0],za,r0[i][1]],[r0[j][0],za,r0[j][1]],[r1[j][0],zc,r1[j][1]],[r1[i][0],zc,r1[i][1]]],
+      [r0[j][1]-r0[i][1],0,-(r0[j][0]-r0[i][0])]);
+   }
+  }
+  let s=`<path d="M${rA.map(p=>scrP([p[0],z0,p[1]])).join("L")}Z" fill="hsl(207 9% 10%)"/>`;
+  s+=drawFaces(fl);
+  s+=`<path d="M${rB.map(p=>scrP([p[0],z1,p[1]])).join("L")}Z" fill="${fillFor(shade([0,1,0]))}" stroke="rgba(45,212,191,.4)" stroke-width="${R3*0.006}"/>`;
+  if(F===mp.base.F){baseRing=rB;baseHoleR=[];zb0=z0;zb1=z1;}
+  return s;
+ };
+ /* ---- призрак за частични изрязвания ---- */
+ const emitGhost=(F,fp)=>{
+  const [z0,z1]=fp.span;
+  const ring=decimate(fp.sp.ring.pts,48);
+  let s="";
+  const top="M"+ring.map(p=>scrP([p[0],z1,p[1]])).join("L")+"Z";
+  const bot="M"+ring.map(p=>scrP([p[0],z0,p[1]])).join("L")+"Z";
+  let side="";
+  const st=Math.max(1,Math.floor(ring.length/12));
+  for(let i=0;i<ring.length;i+=st)
+   side+=`M${scrP([ring[i][0],z0,ring[i][1]])}L${scrP([ring[i][0],z1,ring[i][1]])}`;
+  s+=`<path d="${bot}${top}" fill="rgba(248,113,113,.14)" stroke="#f87171" stroke-width="${R3*0.004}" stroke-dasharray="${R3*0.03} ${R3*0.015}"/>`;
+  s+=`<path d="${side}" fill="none" stroke="#f87171" stroke-width="${R3*0.003}" stroke-dasharray="${R3*0.02} ${R3*0.015}" opacity=".8"/>`;
+  return s;
+ };
+ // ---- сглобяване ----
+ const thr=throughCutsOf(mp);
+ const order=mp.feats.filter(r=>r.F.kind!=="cut").slice().sort((a,b)=>a.fp.span[0]-b.fp.span[0]);
+ let s="";
+ for(const {F,fp} of order){
+  if(F.kind==="extrude"){
+   const extra=(F===mp.base.F)?thr.map(t=>decimate(t.fp.sp.ring.pts,40).slice().reverse()):[];
+   s+=emitExtrude(F,fp,extra);
+  }
+  else if(F.kind==="revolve")s+=emitRevolve(F,fp);
+  else if(F.kind==="loft")s+=emitLoft(F,fp);
  }
- faces.sort((p,q)=>p.d-q.d);
- let s=pre;
- const swf=R3*0.004;
- for(const f of faces)
-  s+=`<path d="M${f.scr.map(p=>p[0].toFixed(2)+" "+p[1].toFixed(2)).join("L")}Z" fill="${f.fill}" stroke="${f.fill}" stroke-width="${swf}"/>`;
- s+=post;
- // ---- обяснителен 3D слой ----
+ // ос при revolve основа
+ if(mp.base.F.kind==="revolve"){
+  const dz=mp.base.F.p.dz||0,byy=mp.base.fp.sp.ring.bbox;
+  const ax0=rotV(0,byy.y0+dz-R3*0.16,0),ax1=rotV(0,byy.y1+dz+R3*0.16,0);
+  s+=`<line x1="${ax0[0].toFixed(2)}" y1="${(-ax0[1]).toFixed(2)}" x2="${ax1[0].toFixed(2)}" y2="${(-ax1[1]).toFixed(2)}" stroke="#facc15" stroke-width="${R3*0.006}" opacity=".7" stroke-dasharray="${R3*0.05} ${R3*0.02} ${R3*0.008} ${R3*0.02}"/>`;
+  for(const hh of (mp.base.fp.geom.holes||[])){
+   const c=[];for(let k=0;k<=48;k++){const t=2*Math.PI*k/48;c.push(scrP([hh.x*Math.cos(t),hh.y+dz,hh.x*Math.sin(t)]));}
+   s+=`<path d="M${c.join("L")}" fill="none" stroke="#5b8def" stroke-width="${R3*0.005}" stroke-dasharray="${R3*0.03} ${R3*0.02}" opacity=".85"/>`;
+  }
+ }
+ // призраци — най-отгоре (рентген)
+ let nGhost=0;
+ for(const {F,fp} of mp.feats)
+  if(F.kind==="cut"&&!thr.some(t=>t.F===F)){s+=emitGhost(F,fp);nGhost++;}
+ // ---- обяснителен 3D слой (върху базовата операция) ----
  let expCap=null;
  if(state.explain&&EXPLAIN[state.explain]&&!EXPLAIN[state.explain].body){
   const key=state.explain,AM="#facc15";
   expCap=EXPLAIN[key].t;
-  const isExt=body.op==="ext";
-  const h=isExt?body.h:0,cxp=sp.Cx,cyp=sp.Cy;
+  const bF=mp.base.F,bfp=mp.base.fp;
+  const isExt=bF.kind!=="revolve";
+  const sp=bfp.sp,holes=bfp.geom.holes||[];
+  const cxp=sp.Cx,cyp=sp.Cy,hTop=isExt?zb1:0,hMid=isExt?(zb0+zb1)/2:C0r[1];
   const sw3=R3*0.008,ah=R3*0.06;
   const pl=(pts,w,col,dash)=>`<path d="M${pts.map(p=>scrP(p)).join("L")}" fill="none" stroke="${col||AM}" stroke-width="${w||sw3}"${dash?` stroke-dasharray="${dash}"`:""} stroke-linecap="round"/>`;
   const head=(pPrev,pEnd,col)=>{
@@ -1408,12 +1819,11 @@ function buildViz3D(sp,contour,holes,body){
   };
   const cross3=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
   const norm3=v=>{const m=Math.hypot(v[0],v[1],v[2])||1;return[v[0]/m,v[1]/m,v[2]/m];};
-  // ос през ЦТ по направление dir + моментни стрелки около нея в двата края
   const bendGlyph=dir=>{
    const d=norm3(dir);
    let u=cross3(d,[0,1,0]);if(Math.hypot(u[0],u[1],u[2])<1e-6)u=cross3(d,[1,0,0]);
    u=norm3(u);const v=norm3(cross3(d,u));
-   const P0=isExt?[cxp,h/2,cyp]:[0,C0[1],0],LA=R3*0.95,r=R3*0.24;
+   const P0=isExt?[cxp,hMid,cyp]:[0,C0r[1],0],LA=R3*0.95,r=R3*0.24;
    let g=pl([[P0[0]-d[0]*LA,P0[1]-d[1]*LA,P0[2]-d[2]*LA],[P0[0]+d[0]*LA,P0[1]+d[1]*LA,P0[2]+d[2]*LA]],sw3,AM,`${R3*0.05} ${R3*0.025}`);
    for(const sgn of[-1,1]){
     const Q=[P0[0]+d[0]*LA*0.72*sgn,P0[1]+d[1]*LA*0.72*sgn,P0[2]+d[2]*LA*0.72*sgn];
@@ -1426,13 +1836,19 @@ function buildViz3D(sp,contour,holes,body){
    }
    return g;
   };
+  const baseCapPath=noHoles=>{
+   if(!baseRing)return null;
+   let d="M"+baseRing.map(p=>scrP([p[0],zb1,p[1]])).join("L")+"Z";
+   if(!noHoles)for(const r of baseHoleR)d+="M"+r.map(p=>scrP([p[0],zb1,p[1]])).join("L")+"Z";
+   return d;
+  };
   if(key==="Ix")s+=bendGlyph([1,0,0]);
   else if(key==="Iy")s+=bendGlyph([0,0,1]);
   else if(key==="I1"||key==="I2"||key==="th"){
-   const thr=sp.thp*Math.PI/180;
-   s+=bendGlyph(key==="I2"?[-Math.sin(thr),0,Math.cos(thr)]:[Math.cos(thr),0,Math.sin(thr)]);
+   const thr2=sp.thp*Math.PI/180;
+   s+=bendGlyph(key==="I2"?[-Math.sin(thr2),0,Math.cos(thr2)]:[Math.cos(thr2),0,Math.sin(thr2)]);
   }else if(key==="J0"||key==="i0"){
-   const y0=isExt?-R3*0.1:C0[1]-R3*0.8,y1=isExt?h+R3*0.1:C0[1]+R3*0.8;
+   const y0=isExt?zb0-R3*0.1:C0r[1]-R3*0.8,y1=isExt?zb1+R3*0.1:C0r[1]+R3*0.8;
    const ax=isExt?[cxp,0,cyp]:[0,0,0];
    s+=pl([[ax[0],y0,ax[2]],[ax[0],y1,ax[2]]],sw3,AM,`${R3*0.05} ${R3*0.025}`);
    const r=R3*0.4,helix=[];
@@ -1441,41 +1857,37 @@ function buildViz3D(sp,contour,holes,body){
     helix.push([ax[0]+r*Math.cos(t),y0+(y1-y0)*(0.12+0.76*i/40),ax[2]+r*Math.sin(t)]);
    }
    s+=pl(helix,sw3)+head(helix[helix.length-2],helix[helix.length-1]);
-  }else if(isExt&&(key==="Wx"||key==="Wy"||key==="ext")){
-   // градиент на напрежението върху горния капак — червено при най-натовареното влакно
-   let eP=capRing[0],best=0;
-   for(const p of capRing){
+  }else if(isExt&&baseRing&&(key==="Wx"||key==="Wy"||key==="ext")){
+   let eP=baseRing[0],best=0;
+   for(const p of baseRing){
     const dd=key==="Wy"?Math.abs(p[0]-cxp):Math.abs(p[1]-cyp);
     if(dd>best){best=dd;eP=p;}
    }
-   const g0=rotV(cxp,h,cyp),g1=key==="Wy"?rotV(eP[0],h,cyp):rotV(cxp,h,eP[1]);
+   const g0=rotV(cxp,zb1,cyp),g1=key==="Wy"?rotV(eP[0],zb1,cyp):rotV(cxp,zb1,eP[1]);
    s+=`<defs><linearGradient id="sg3" gradientUnits="userSpaceOnUse" x1="${g0[0].toFixed(2)}" y1="${(-g0[1]).toFixed(2)}" x2="${g1[0].toFixed(2)}" y2="${(-g1[1]).toFixed(2)}"><stop offset="0" stop-color="rgba(248,113,113,0)"/><stop offset="1" stop-color="rgba(248,113,113,.8)"/></linearGradient></defs>`;
-   s+=`<path d="${capFn(h)}" fill="url(#sg3)" fill-rule="evenodd"/>`;
-   const tip=[eP[0],h,eP[1]];
-   s+=pl([[cxp,h,cyp],tip],sw3)+head([cxp,h,cyp],tip)
+   s+=`<path d="${baseCapPath(false)}" fill="url(#sg3)" fill-rule="evenodd"/>`;
+   const tip=[eP[0],zb1,eP[1]];
+   s+=pl([[cxp,zb1,cyp],tip],sw3)+head([cxp,zb1,cyp],tip)
     +`<text x="${rotV(tip[0],tip[1],tip[2])[0].toFixed(2)}" y="${(-rotV(tip[0],tip[1],tip[2])[1]-R3*0.06).toFixed(2)}" fill="#f87171" font-size="${R3*0.09}" font-family="ui-monospace,Consolas,monospace">max σ</text>`;
-  }else if(isExt&&(key==="A"||key==="Agross"))
-   s+=`<path d="${capFn(h,key==="Agross")}" fill="rgba(45,212,191,.35)"${key==="A"?' fill-rule="evenodd"':''}/>`;
+  }else if(isExt&&baseRing&&(key==="A"||key==="Agross"))
+   s+=`<path d="${baseCapPath(key==="Agross")}" fill="rgba(45,212,191,.35)"${key==="A"?' fill-rule="evenodd"':''}/>`;
   else if(isExt&&key==="holeA"){
-   for(const hh of (holes||[])){
-    const c=[];for(let k=0;k<24;k++){const t=2*Math.PI*k/24;c.push(scrP([hh.x+hh.r*Math.cos(t),h,hh.y+hh.r*Math.sin(t)]));}
-    s+=`<path d="M${c.join("L")}Z" fill="rgba(91,141,239,.5)"/>`;
-   }
-  }else if(isExt&&(key==="P"||key==="L")){
-   s+=`<path d="M${capRing.map(p=>scrP([p[0],h,p[1]])).join("L")}Z" fill="none" stroke="${AM}" stroke-width="${sw3*1.2}"/>`;
-   if(key==="L")for(const hh of (holes||[])){
-    const c=[];for(let k=0;k<24;k++){const t=2*Math.PI*k/24;c.push(scrP([hh.x+hh.r*Math.cos(t),h,hh.y+hh.r*Math.sin(t)]));}
-    s+=`<path d="M${c.join("L")}Z" fill="none" stroke="${AM}" stroke-width="${sw3*1.2}"/>`;
-   }
+   for(const hh of holes)
+    s+=`<path d="M${circlePts(hh,24).map(p=>scrP([p[0],zb1,p[1]])).join("L")}Z" fill="rgba(91,141,239,.5)"/>`;
+  }else if(isExt&&baseRing&&(key==="P"||key==="L")){
+   s+=`<path d="M${baseRing.map(p=>scrP([p[0],zb1,p[1]])).join("L")}Z" fill="none" stroke="${AM}" stroke-width="${sw3*1.2}"/>`;
+   if(key==="L")for(const hh of holes)
+    s+=`<path d="M${circlePts(hh,24).map(p=>scrP([p[0],zb1,p[1]])).join("L")}Z" fill="none" stroke="${AM}" stroke-width="${sw3*1.2}"/>`;
   }
  }
- const q0=rotV(C0[0],C0[1],C0[2]);
+ const q0=rotV(C0r[0],C0r[1],C0r[2]);
  const vb=`${(q0[0]-R3*1.28).toFixed(2)} ${(-q0[1]-R3*1.28).toFixed(2)} ${(R3*2.56).toFixed(2)} ${(R3*2.56).toFixed(2)}`;
- return {inner:s,viewBox:vb,cap:expCap?"ℹ "+expCap:cap};
+ const capTx=`${mp.items.length} операции · ${KIND_BG[mp.base.F.kind]}${nGhost?` · ${nGhost} частични изрязвания (призрак)`:""} · влачи за завъртане · колело за мащаб`;
+ return {inner:s,viewBox:vb,cap:expCap?"ℹ "+expCap:capTx};
 }
 
 /* ================= UI ================= */
-const state={mode:"profile",fig:"rect",body:{src:"catalog",op:"ext"},viz3d:true,last:null};
+const state={mode:"profile",fig:"rect",viz3d:true,last:null,editingFeature:null};
 const byId=id=>document.getElementById(id);
 
 function renderChips(){
@@ -1549,18 +1961,121 @@ function renderRows(sp,F){
  +rowHTML("i_y (инерц. радиус)",fmt(sp.iy),"mm",g("iy"),"iy")
  +rowHTML("i₀ (полярен радиус)",fmt(sp.i0),"mm",g("i0"),"i0");
 }
-function renderBodyRows(b,rho){
- if(!b){byId("rowsB").innerHTML=rowHTML("Обем V","—","");return;}
- const m=isFinite(rho)&&rho>0?rho*b.V*1e-6:NaN;
- let s=rowHTML("Обем V",fmt(b.V)+` <span class="u">mm³</span> <span class="u">(≈ ${fmt(b.V/1000,2)} cm³)</span>`,"",b.op==="ext"?F_DEF.Vext:F_DEF.Vrev,"V")
- +rowHTML("Повърхнина S",fmt(b.S),"mm²",b.op==="ext"?F_DEF.Sext:F_DEF.Srev,"S");
- if(b.op==="rev")s+=rowHTML("Радиус на ЦТ x̄",fmt(b.Rbar),"mm",F_DEF.Rbar,"Rbar");
- s+=rowHTML("Маса m",isFinite(m)?(m<1000?fmt(m,2)+` <span class="u">g</span>`:fmt(m/1000,4)+` <span class="u">kg</span>`):"—","",F_DEF.m,"m");
- if(b.op==="ext"&&b.h>0&&isFinite(rho)&&rho>0){
-  const mlin=rho*(b.V/b.h)*1e-6; // kg/m — независимо от h
-  s+=rowHTML("Маса на 1 m дължина",fmt(mlin,3),"kg/m",F_DEF.mlin,"mlin");
- }
+function renderModelRows(mp,rho){
+ if(!mp){byId("rowsB").innerHTML=rowHTML("Обем V","—","");return;}
+ const m=isFinite(rho)&&rho>0?rho*mp.V*1e-6:NaN;
+ let s=rowHTML("Обем V (модел)",fmt(mp.V)+` <span class="u">mm³</span> <span class="u">(≈ ${fmt(mp.V/1000,2)} cm³)</span>`,"","V = Σ ±Vᵢ по операциите","V")
+ +rowHTML("Маса m",isFinite(m)?(m<1000?fmt(m,2)+` <span class="u">g</span>`:fmt(m/1000,4)+` <span class="u">kg</span>`):"—","",F_DEF.m,"m")
+ +rowHTML("ЦТ X / Y / Z",`${fmt(mp.C[0],2)} / ${fmt(mp.C[1],2)} / ${fmt(mp.C[2],2)}`,"mm","3D център на тежестта на целия модел","CG3");
+ if(mp.bb3)s+=rowHTML("Габарит 3D (X×Y×Z)",`${fmt(mp.bb3.x1-mp.bb3.x0,1)} × ${fmt(mp.bb3.y1-mp.bb3.y0,1)} × ${fmt(mp.bb3.z1-mp.bb3.z0,1)}`,"mm","","bb3");
+ s+=rowHTML("Повърхнина S",mp.S!=null?fmt(mp.S):"—",mp.S!=null?"mm²":"","точна S се дава само при модел с една операция","S");
+ if(mp.mlin!=null&&isFinite(rho)&&rho>0)s+=rowHTML("Маса на 1 m",fmt(rho*mp.mlin*1e-6,3),"kg/m",F_DEF.mlin,"mlin");
+ for(const it of mp.items)
+  s+=rowHTML(`${it.V<0?"−":"+"} ${esc(it.name)}`,fmt(Math.abs(it.V)/1000,2),"cm³","");
  byId("rowsB").innerHTML=s;
+}
+/* ---------- дърво на операциите ---------- */
+function featSummary(f){
+ const p=f.p;
+ if(f.kind==="revolve")return `ъгъл ${nn(p.ang||360)}°${p.dz?` · z=${nn(p.dz)}`:""}${p.rot?` · rot=${nn(p.rot)}°`:""}`;
+ let s=(f.kind==="cut"&&p.through)?"през всичко":`h=${nn(p.h)}`;
+ if(p.dz)s+=` · z=${nn(p.dz)}`;
+ if(p.dx||p.dy)s+=` · (${nn(p.dx)}, ${nn(p.dy)})`;
+ if(p.draft)s+=` · наклон ${nn(p.draft)}°`;
+ return s;
+}
+function featParamsHTML(f,i){
+ const p=f.p;
+ const num=(k,lab,val,tit)=>`<label class="fp"><span>${lab}</span><input type="number" step="any" data-i="${i}" data-p="${k}" value="${nn(val||0)}" title="${tit||""}"></label>`;
+ let h="";
+ if(f.kind==="revolve"){
+  h+=num("ang","ъгъл °",p.ang||360,"Частично завъртане: 1–360°")
+   +num("dz","z старт",p.dz,"Отместване по височина")
+   +num("rot","rot °",p.rot,"Завъртане на скицата (за друга ос на revolve)")
+   +num("dx","dx",p.dx)+num("dy","dy",p.dy);
+  h+=`<div class="note">Ос на въртене = вертикалата през x=0. Скицата трябва да е при x ≥ 0.</div>`;
+ }else{
+  if(!(f.kind==="cut"&&p.through))h+=num("h","h, mm",p.h,"Височина на екструдиране");
+  if(f.kind==="cut")h+=`<label class="fp"><span>през всичко</span><input type="checkbox" data-i="${i}" data-p="through"${p.through?" checked":""}></label>`;
+  h+=num("dz","z старт",p.dz,"Отместване по височина")
+   +num("dx","dx",p.dx,"Преместване на скицата по X")
+   +num("dy","dy",p.dy,"Преместване на скицата по Y")
+   +num("rot","rot °",p.rot,"Завъртане на скицата");
+  if(f.kind!=="cut")h+=num("draft","наклон °",p.draft,"Стените се стесняват нагоре (модел чрез мащабиране на горния контур)");
+ }
+ if(i===0)h+=`<div class="fp" style="grid-column:1/-1"><span>тип на основата</span><span class="seg tiny">`
+  +["extrude","revolve","loft"].map(k=>`<button data-i="${i}" data-kind="${k}"${f.kind===k?' class="on"':''}>${KIND_BG[k]}</button>`).join("")+`</span></div>`;
+ if(f.kind==="loft")h+=`<div class="note">Loft: „✎“ = долно сечение, „✎²“ = горно. Отвори не се поддържат.</div>`;
+ return h;
+}
+function renderFeatures(){
+ const el=byId("featList");if(!el)return;
+ if(el.contains(document.activeElement))return; // не убивай фокуса при писане в параметър
+ const open=new Set([...el.querySelectorAll(".fpars:not(.hide)")].map(x=>x.dataset.fp));
+ el.innerHTML=MODEL.features.map((f,i)=>
+  `<div class="feat${i===MODEL.active?" act":""}${f.on?"":" off"}" data-i="${i}">
+   <span class="fk">${KIND_IC[f.kind]||"?"}</span>
+   <span class="fn">${esc(f.name)}<small>${featSummary(f)}</small></span>
+   <span class="fbtns">
+    <button data-a="eye" title="${f.on?"Изключи от модела":"Включи"}">${f.on?"👁":"◌"}</button>
+    <button data-a="sketch" title="Редактирай скицата">✎</button>${f.kind==="loft"?'<button data-a="sketch2" title="Горно сечение на loft">✎²</button>':""}
+    <button data-a="par" title="Параметри">⚙</button>
+    <button data-a="del" title="Изтрий операцията">✕</button>
+   </span></div>
+   <div class="fpars${open.has(String(i))?"":" hide"}" data-fp="${i}">${featParamsHTML(f,i)}</div>`).join("");
+}
+function activeFeatData(mp){
+ const F=MODEL.features[MODEL.active]||MODEL.features[0];
+ if(!mp||!mp.feats||!mp.feats.length)return null;
+ const rec=(F&&mp.feats.find(r=>r.F===F))||mp.feats[0]; // изключена активна → базата
+ return rec?{sp:rec.fp.sp,contour:rec.fp.geom.contour,holes:rec.fp.geom.holes,name:rec.F.name}:null;
+}
+/* редактиране на скица на операция */
+function openFeatureSketch(i,second){
+ const f=MODEL.features[i];if(!f)return;
+ state.editingFeature={i,second:!!second};
+ byId("taScript").value=(second?f.script2:f.script)||"";
+ byId("ebName").textContent=f.name+(second?" — горно сечение":"");
+ byId("editBanner").classList.remove("hide");
+ state.mode="profile";updateVis();recompute();
+}
+function syncFeatureScript(){
+ const ef=state.editingFeature;if(!ef)return;
+ const f=MODEL.features[ef.i];if(!f)return;
+ if(ef.second)f.script2=byId("taScript").value;
+ else f.script=byId("taScript").value;
+}
+function closeFeatureSketch(){
+ syncFeatureScript();
+ state.editingFeature=null;
+ byId("editBanner").classList.add("hide");
+ state.mode="body";updateVis();recompute();
+}
+/* проект: запис/зареждане */
+function saveProject(){
+ if(!MODEL.features.length){toast("Няма модел за запазване — влез в „Модел“");return;}
+ const data={app:"AVKO GeoLab",ver:VERSION,rho:byId("inpRho").value,features:MODEL.features};
+ download(`geolab_проект_${dateStr()}.geolab`,JSON.stringify(data,null,1),"application/json");
+ toast("Проектът е записан (файлът се създаде само от този клик)");
+}
+function loadProjectData(txt){
+ let d;
+ try{d=JSON.parse(txt);}catch(e){toast("Невалиден файл: не е JSON");return;}
+ if(!d||!Array.isArray(d.features)||!d.features.length){toast("Невалиден проект: няма операции");return;}
+ const feats=[];
+ for(const f of d.features){
+  if(!f||typeof f.script!=="string"||!KIND_BG[f.kind]){toast("Невалидна операция в проекта");return;}
+  MODEL.seq++;
+  feats.push({id:MODEL.seq,name:String(f.name||KIND_BG[f.kind]).slice(0,60),kind:f.kind,
+   script:f.script,script2:typeof f.script2==="string"?f.script2:null,
+   p:Object.assign({h:10,dz:0,dx:0,dy:0,rot:0,draft:0,ang:360,through:false},(typeof f.p==="object"&&f.p)||{}),
+   on:f.on!==false});
+ }
+ MODEL.features=feats;MODEL.active=0;
+ if(d.rho&&isFinite(parseFloat(d.rho)))byId("inpRho").value=d.rho;
+ state.editingFeature=null;byId("editBanner").classList.add("hide");
+ state.mode="body";updateVis();recompute();
+ toast(`Зареден проект: ${feats.length} операции`);
 }
 function renderMsgs(errs,warns){
  byId("msgs").innerHTML=
@@ -1572,8 +2087,9 @@ function renderViz(S,body){
  const viz=byId("viz"),cap=byId("vizCap");
  if(!S||!S.sp){viz.innerHTML="";viz.setAttribute("viewBox","0 0 100 100");viz.dataset.fit="0 0 100 100";cap.textContent="—";updateExpBox(false);return;}
  let out;
- if(state.mode==="body"&&state.viz3d&&body&&!body.errsShown)out=buildViz3D(S.sp,S.contour,S.holes,body);
- else out=buildViz2D(S.sp,S.contour,S.holes,state.mode==="body"&&state.body.op==="rev");
+ const actRev=state.mode==="body"&&MODEL.features[MODEL.active]&&MODEL.features[MODEL.active].kind==="revolve";
+ if(state.mode==="body"&&state.viz3d&&body&&body.bb3)out=buildModel3D(body);
+ else out=buildViz2D(S.sp,S.contour,S.holes,actRev);
  if(state.explain&&EXPLAIN[state.explain]&&EXPLAIN[state.explain].body)out.cap="ℹ "+EXPLAIN[state.explain].t;
  viz.innerHTML=out.inner;
  viz.setAttribute("viewBox",out.viewBox);
@@ -1599,10 +2115,10 @@ function renderTiles(sp,body){
  if(state.mode==="body"&&body){
   const rho=parseNum(byId("inpRho").value);
   const m=isFinite(rho)&&rho>0?rho*body.V*1e-6:NaN;
-  h=T("Площ A",fmt(sp.A),"mm²")
-   +T("Обем V",fmt(body.V/1000,2),"cm³")
-   +T("Повърхнина S",fmt(body.S),"mm²")
-   +T("Маса m",isFinite(m)?(m<1000?fmt(m,2):fmt(m/1000,3)):"—",isFinite(m)?(m<1000?"g":"kg"):"");
+  h=T("Обем V",fmt(body.V/1000,2),"cm³")
+   +T("Маса m",isFinite(m)?(m<1000?fmt(m,2):fmt(m/1000,3)):"—",isFinite(m)?(m<1000?"g":"kg"):"")
+   +T("ЦТ X·Y·Z",`${fmt(body.C[0],1)}·${fmt(body.C[1],1)}·${fmt(body.C[2],1)}`,"mm")
+   +T("Операции",String(body.items.length),"");
  }else{
   h=T("Площ A",fmt(sp.A),"mm²")+T("Ix",fmt(sp.Ixc),"mm⁴")+T("Iy",fmt(sp.Iyc),"mm⁴")+T("Wx",fmt(sp.Wx),"mm³");
  }
@@ -1828,6 +2344,7 @@ function drawFinish(){
  if(fr>0)L.push(`FILLET ${nn(fr)}`);
  for(const a of DRAW.acts)if(a.kind==="hole")L.push(`HOLE ${nn(a.x)} ${nn(a.y)} D${nn(2*a.r)}`);
  byId("taScript").value=L.join("\n");
+ syncFeatureScript();
  drawExit();
  recompute();
  toast("Скицата е в командите · за 3D: режим „Тяло“ → EXTRUDE / REVOLVE");
@@ -1904,52 +2421,53 @@ function updateVis(){
  byId("btnModeCat").classList.toggle("on",m==="catalog");
  byId("btnModeProf").classList.toggle("on",m==="profile");
  byId("btnModeBody").classList.toggle("on",m==="body");
- const showCat=m==="catalog"||(m==="body"&&state.body.src==="catalog");
- const showProf=m==="profile"||(m==="body"&&state.body.src==="profile");
- byId("cardCatalog").classList.toggle("hide",!showCat);
- byId("cardProfile").classList.toggle("hide",!showProf);
+ byId("cardCatalog").classList.toggle("hide",m!=="catalog");
+ byId("cardProfile").classList.toggle("hide",m!=="profile");
  byId("cardBody").classList.toggle("hide",m!=="body");
  byId("resBody").classList.toggle("hide",m!=="body");
  byId("vizSeg").classList.toggle("hide",m!=="body");
- byId("btnSrcCat").classList.toggle("on",state.body.src==="catalog");
- byId("btnSrcProf").classList.toggle("on",state.body.src==="profile");
- byId("btnOpExt").classList.toggle("on",state.body.op==="ext");
- byId("btnOpRev").classList.toggle("on",state.body.op==="rev");
  byId("btnViz2D").classList.toggle("on",!state.viz3d);
  byId("btnViz3D").classList.toggle("on",state.viz3d);
- byId("lblH").classList.toggle("hide",state.body.op==="rev");
- byId("revNote").classList.toggle("hide",state.body.op!=="rev");
+ if(m!=="profile")byId("editBanner").classList.add("hide");
 }
 function recompute(){
- const src=state.mode==="body"?state.body.src:(state.mode==="profile"?"profile":"catalog");
- const S=computeSource(src);
- let errs=S.errs.slice(),warns=S.warns.slice(),body=null;
- if(state.mode==="body"&&S.sp){
+ if(state.mode==="body"){
   const rho=parseNum(byId("inpRho").value);
-  if(state.body.op==="ext"){
-   const h=parseNum(byId("inpH").value);
-   const b=extrudeProps(S.sp,h);
-   if(b.errs.length)errs=errs.concat(b.errs.map(m=>({line:0,msg:m})));
-   else body={op:"ext",h,V:b.V,S:b.S};
-  }else{
-   const b=revolveProps(S.sp,S.holes);
-   if(b.errs.length)errs=errs.concat(b.errs.map(m=>({line:0,msg:m})));
-   else body={op:"rev",V:b.V,S:b.S,Rbar:b.Rbar};
-  }
+  const mp=modelProps();
+  const warns=mp.warns.slice();
   if(!(rho>0))warns.push("невалидна плътност ρ — масата не е изчислена");
-  renderBodyRows(body,rho);
- }else if(state.mode==="body")renderBodyRows(null,NaN);
+  const ok=mp.errs.length===0;
+  const act=ok?activeFeatData(mp):null;
+  state.last=act?{contour:act.contour,holes:act.holes,sp:act.sp,tag:"model"}:null;
+  state.lastS=act?{sp:act.sp,contour:act.contour,holes:act.holes}:null;
+  state.lastBody=ok?mp:null;
+  byId("secWho").textContent=act?"— "+act.name:"";
+  renderMsgs(mp.errs.map(x=>({line:0,msg:x})),warns);
+  renderRows(act?act.sp:null,{});
+  renderViz(state.lastS,state.lastBody);
+  renderTiles(act?act.sp:null,ok?mp:null);
+  renderModelRows(ok?mp:null,rho);
+  byId("btnDXF").disabled=!state.last;
+  byId("btnCSV").disabled=!state.last;
+  byId("btnSVG").disabled=!state.last;
+  byId("btnSTL").disabled=!ok;
+  renderFeatures();
+  return;
+ }
+ const S=computeSource(state.mode==="profile"?"profile":"catalog");
+ const errs=S.errs.slice(),warns=S.warns.slice();
  const ok=errs.length===0&&!!S.sp;
  state.last=ok?{contour:S.contour,holes:S.holes,sp:S.sp,tag:S.tag}:null;
+ state.lastS=ok?S:null;state.lastBody=null;
+ byId("secWho").textContent=state.editingFeature?"— "+(MODEL.features[state.editingFeature.i]||{}).name:"";
  renderMsgs(errs,warns);
  renderRows(ok?S.sp:null,S.F);
- state.lastS=ok?S:null;state.lastBody=body;
- renderViz(state.lastS,body);
- renderTiles(ok?S.sp:null,body);
+ renderViz(state.lastS,null);
+ renderTiles(ok?S.sp:null,null);
  byId("btnDXF").disabled=!ok;
  byId("btnCSV").disabled=!ok;
  byId("btnSVG").disabled=!ok;
- byId("btnSTL").disabled=!(ok&&state.mode==="body"&&!!body);
+ byId("btnSTL").disabled=true;
 }
 let tmr=null;
 function recomputeSoon(){clearTimeout(tmr);tmr=setTimeout(recompute,150);}
@@ -1973,16 +2491,13 @@ function exportCSV(){
   ["Wx",csvVal(sp.Wx),"mm3"],["Wy",csvVal(sp.Wy),"mm3"],
   ["ix",csvVal(sp.ix),"mm"],["iy",csvVal(sp.iy),"mm"],["i0",csvVal(sp.i0),"mm"]
  ];
- if(state.mode==="body"){
-  const rho=parseNum(byId("inpRho").value);
-  const b=state.body.op==="ext"?extrudeProps(sp,parseNum(byId("inpH").value)):revolveProps(sp,state.last.holes);
-  if(!b.errs.length){
-   rows.push(["Обем V",csvVal(b.V),"mm3"],["Повърхнина S",csvVal(b.S),"mm2"]);
-   if(rho>0){
-    rows.push(["Маса m",csvVal(rho*b.V*1e-6),"g"]);
-    if(state.body.op==="ext")rows.push(["Маса на 1 m",csvVal(rho*sp.A*1e-6),"kg/m"]);
-   }
-  }
+ if(state.mode==="body"&&state.lastBody){
+  const mp=state.lastBody,rho=parseNum(byId("inpRho").value);
+  rows.push(["Обем V (модел)",csvVal(mp.V),"mm3"]);
+  if(mp.S!=null)rows.push(["Повърхнина S",csvVal(mp.S),"mm2"]);
+  if(rho>0)rows.push(["Маса m",csvVal(rho*mp.V*1e-6),"g"]);
+  rows.push(["ЦТ X",csvVal(mp.C[0]),"mm"],["ЦТ Y",csvVal(mp.C[1]),"mm"],["ЦТ Z",csvVal(mp.C[2]),"mm"]);
+  for(const it of mp.items)rows.push([(it.V<0?"- ":"+ ")+it.name,csvVal(it.V),"mm3"]);
  }
  download(`geolab_${state.last.tag}_${dateStr()}.csv`,buildCSV(rows),"text/csv;charset=utf-8");
 }
@@ -2072,21 +2587,96 @@ function init(){
   const t=e.target.closest("[data-ex]");const k=t?t.dataset.ex:null;
   if(k&&EXAMPLES[k]){byId("taScript").value=EXAMPLES[k];recompute();}
  });
- byId("taScript").addEventListener("input",recomputeSoon);
+ byId("taScript").addEventListener("input",()=>{syncFeatureScript();recomputeSoon();});
  byId("btnModeCat").addEventListener("click",()=>{state.mode="catalog";updateVis();recompute();});
  byId("btnModeProf").addEventListener("click",()=>{state.mode="profile";updateVis();recompute();});
  byId("btnModeBody").addEventListener("click",()=>{
-  if(state.mode==="profile")state.body.src="profile";
-  else if(state.mode==="catalog")state.body.src="catalog";
+  if(state.editingFeature){closeFeatureSketch();return;}
+  if(!MODEL.features.length){
+   let sc=null;
+   if(state.mode==="catalog")sc=catalogToScript(state.fig,readFigVals());
+   if(!sc)sc=byId("taScript").value;
+   MODEL.features=[newFeature("extrude",sc,"Основа")];
+   MODEL.active=0;
+  }
   state.mode="body";updateVis();recompute();
  });
- byId("btnSrcCat").addEventListener("click",()=>{state.body.src="catalog";updateVis();recompute();});
- byId("btnSrcProf").addEventListener("click",()=>{state.body.src="profile";updateVis();recompute();});
- byId("btnOpExt").addEventListener("click",()=>{state.body.op="ext";updateVis();recompute();});
- byId("btnOpRev").addEventListener("click",()=>{state.body.op="rev";updateVis();recompute();});
+ byId("btnAddPad").addEventListener("click",()=>{
+  MODEL.features.push(newFeature("extrude",null,"Добавка "+(MODEL.seq+1)));
+  MODEL.active=MODEL.features.length-1;
+  renderFeatures();recompute();
+  toast("Нова добавка · ✎ за форма, ⚙ за размери/позиция");
+ });
+ byId("btnAddCut").addEventListener("click",()=>{
+  if(!MODEL.features.length||MODEL.features.filter(f=>f.on&&f.kind!=="cut").length===0){toast("Първо създай основа");return;}
+  MODEL.features.push(newFeature("cut",null,"Изрязване "+(MODEL.seq+1)));
+  MODEL.active=MODEL.features.length-1;
+  renderFeatures();recompute();
+  toast("Ново изрязване („през всичко“) · ✎ за форма, ⚙ за настройки");
+ });
+ byId("featList").addEventListener("click",e=>{
+  const kb=e.target.closest("[data-kind]");
+  if(kb){
+   const f=MODEL.features[+kb.dataset.i];
+   f.kind=kb.dataset.kind;
+   if(f.kind==="loft"&&!f.script2)f.script2="; горно сечение\nCIRCLE D60";
+   f.p.through=false;
+   renderFeatures();recompute();
+   return;
+  }
+  const b=e.target.closest("[data-a]");
+  const row=e.target.closest(".feat");
+  if(!b){
+   if(row){MODEL.active=+row.dataset.i;renderFeatures();recompute();}
+   return;
+  }
+  const i=+b.closest(".feat").dataset.i,f=MODEL.features[i],a=b.dataset.a;
+  MODEL.active=i;
+  if(a==="eye"){f.on=!f.on;renderFeatures();recompute();}
+  else if(a==="del"){
+   if(MODEL.features.length===1){toast("Моделът трябва да има поне една операция");return;}
+   MODEL.features.splice(i,1);
+   MODEL.active=Math.max(0,Math.min(MODEL.active,MODEL.features.length-1));
+   renderFeatures();recompute();
+  }
+  else if(a==="par"){
+   const fp=byId("featList").querySelector(`[data-fp="${i}"]`);
+   if(fp)fp.classList.toggle("hide");
+  }
+  else if(a==="sketch"||a==="sketch2")openFeatureSketch(i,a==="sketch2");
+ });
+ byId("featList").addEventListener("input",e=>{
+  const t=e.target;
+  if(t.dataset.p===undefined)return;
+  const f=MODEL.features[+t.dataset.i];if(!f)return;
+  if(t.type==="checkbox"){
+   f.p[t.dataset.p]=t.checked;
+   t.blur();renderFeatures(); // полетата зависят от чекбокса (напр. h при „през всичко“)
+  }else{const v=parseNum(t.value);f.p[t.dataset.p]=isFinite(v)?v:0;}
+  recomputeSoon();
+ });
+ byId("btnDoneEdit").addEventListener("click",closeFeatureSketch);
+ byId("btnSaveP").addEventListener("click",saveProject);
+ byId("btnLoadP").addEventListener("click",()=>byId("fileP").click());
+ byId("fileP").addEventListener("change",e=>{
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>loadProjectData(String(r.result));
+  r.readAsText(f);
+  e.target.value="";
+ });
+ window.addEventListener("dragover",e=>e.preventDefault());
+ window.addEventListener("drop",e=>{
+  e.preventDefault();
+  const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
+  if(f&&/\.(geolab|json)$/i.test(f.name)){
+   const r=new FileReader();
+   r.onload=()=>loadProjectData(String(r.result));
+   r.readAsText(f);
+  }
+ });
  byId("btnViz2D").addEventListener("click",()=>{state.viz3d=false;updateVis();recompute();});
  byId("btnViz3D").addEventListener("click",()=>{state.viz3d=true;updateVis();recompute();});
- byId("inpH").addEventListener("input",recomputeSoon);
  byId("inpRho").addEventListener("input",recomputeSoon);
  byId("selMat").addEventListener("change",()=>{
   const v=parseFloat(byId("selMat").value);
@@ -2232,7 +2822,8 @@ document.addEventListener("DOMContentLoaded",init);
 window.GEO={VERSION,parseNum,fmt,arcFromBulge,arcToSegs,mkPolySegs,normalizeCCW,ringFromContour,
  polyProps,sectionProps,validateSection,applyFillet,parseScript,CAT,buildCatalog,catalogToScript,
  genScriptFromSegs,extrudeProps,revolveProps,buildDXF,buildCSV,EXAMPLES,F_DEF,MATS,
- DIMS,figureSketch,figureIcon,bodyMesh,meshVolume,buildSTL,earClip,mergeHoles};
+ DIMS,figureSketch,figureIcon,bodyMesh,meshVolume,buildSTL,earClip,mergeHoles,
+ MODEL,newFeature,featProps,modelProps,transformGeom,resampleRing,throughCutsOf,modelMesh};
 </script>
 </body>
 </html>
