@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0f1115">
-<title>AVKO GeoLab v3.0</title>
+<title>AVKO GeoLab v3.1</title>
 <style>
 :root{--bg:#0b0d12;--panel:#12161f;--panel2:#1a2029;--line:#252d3a;--line2:#354158;
  --teal:#2dd4bf;--blue:#5b8def;--amber:#facc15;--red:#f87171;
@@ -150,6 +150,11 @@ details.help .note{display:block;margin-top:6px}
 .dbtn.primary{border-color:var(--teal);color:var(--teal);background:rgba(45,212,191,.10)}
 .dbtn:hover{border-color:var(--line2)}
 #viz.drawing{cursor:crosshair}
+#viz.moveall{cursor:move}
+#pip{position:absolute;right:12px;bottom:44px;width:30%;max-width:340px;aspect-ratio:1.15;background:var(--panel);border:1px solid var(--line2);border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.5);cursor:pointer;overflow:hidden;z-index:7}
+#pip:hover{border-color:var(--teal)}
+#pip svg{width:100%;height:100%;display:block}
+.stage{position:relative}
 
 /* ---------- мобилен изглед ---------- */
 @media(max-width:1099px){
@@ -184,7 +189,7 @@ details.help .note{display:block;margin-top:6px}
 <body>
 <div class="app">
 <header class="topbar">
- <div class="brand"><h1>AVKO GeoLab</h1><span class="ver">v3.0</span></div>
+ <div class="brand"><h1>AVKO GeoLab</h1><span class="ver">v3.1</span></div>
  <nav class="seg" id="modeSeg">
   <button id="btnModeProf" class="on">Скица</button>
   <button id="btnModeBody">Модел</button>
@@ -261,7 +266,7 @@ BOLTS n BC140 D18 [A0]  n отвора на болтова окр. Ø140
   <div class="stagehead">
    <div class="cap" id="vizCap">—</div>
    <div class="seg tiny hide" id="vizSeg"><button id="btnViz2D">2D</button><button id="btnViz3D" class="on">3D</button></div>
-   <div class="zctl"><button id="btnZIn" title="Приближи">+</button><button id="btnZOut" title="Отдалечи">−</button><button id="btnZFit" title="Побери цялата схема (или двоен клик)">⌂</button></div>
+   <div class="zctl"><button id="btnZIn" title="Приближи">+</button><button id="btnZOut" title="Отдалечи">−</button><button id="btnZFit" title="Побери цялата схема (или двоен клик)">⌂</button><button id="btnPip" title="Мини-изглед 2D/3D (в един прозорец)">⧉</button></div>
   </div>
   <div class="drawbar hide" id="drawbar">
    <div class="seg tiny">
@@ -280,6 +285,9 @@ BOLTS n BC140 D18 [A0]  n отвора на болтова окр. Ø140
    <button class="dbtn" id="dCancel" title="Изход без запис (Esc)">✕</button>
   </div>
   <svg id="viz" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"></svg>
+  <div id="pip" class="hide" title="Клик = размяна 2D ↔ 3D">
+   <svg id="pipViz" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
   <div class="legend">
    <span><i style="background:#2dd4bf"></i>контур</span>
    <span><i style="background:#5b8def"></i>отвор</span>
@@ -305,7 +313,7 @@ BOLTS n BC140 D18 [A0]  n отвора на болтова окр. Ø140
 <script>
 "use strict";
 /* ================= AVKO GeoLab v1.1 — ядро ================= */
-const VERSION="3.0";
+const VERSION="3.1";
 const COMPUTE_TOL=0.0005;   // sagitta [mm] за полигонизация при смятане
 const EPS=1e-9;
 
@@ -1887,7 +1895,7 @@ function buildModel3D(mp){
 }
 
 /* ================= UI ================= */
-const state={mode:"profile",fig:"rect",viz3d:true,last:null,editingFeature:null};
+const state={mode:"profile",fig:"rect",viz3d:true,last:null,editingFeature:null,pipOn:true};
 const byId=id=>document.getElementById(id);
 
 function renderChips(){
@@ -2031,13 +2039,60 @@ function activeFeatData(mp){
  return rec?{sp:rec.fp.sp,contour:rec.fp.geom.contour,holes:rec.fp.geom.holes,name:rec.F.name}:null;
 }
 /* редактиране на скица на операция */
+function bakeFeatureTransform(f,second){
+ const p=f.p;
+ if(!p.dx&&!p.dy&&!p.rot)return;
+ const src=second?f.script2:f.script;
+ const pr=parseScript(src||"");
+ if(pr.errs.length||!pr.contour)return;
+ const tg=transformGeom(pr.contour,pr.holes,p);
+ let sc;
+ if(tg.contour.type==="circle"){
+  sc=`CIRCLE D${nn(2*tg.contour.R)}`;
+  for(const hh of tg.holes)sc+=`\nHOLE ${nn(hh.x)} ${nn(hh.y)} D${nn(2*hh.r)}`;
+ }else sc=genScriptFromSegs(normalizeCCW(tg.contour.segs),tg.holes);
+ sc="; "+f.name+"\n"+sc;
+ if(second)f.script2=sc;else f.script=sc;
+ if(!second){p.dx=0;p.dy=0;p.rot=0;}
+}
+function buildRefUnderlay(f){
+ DRAW.ref=[];DRAW.refPts=[];
+ const mp=modelProps();
+ if(!mp||!mp.feats)return;
+ for(const rec of mp.feats){
+  if(rec.F===f)continue;
+  const ring=decimate(rec.fp.sp.ring.pts,80);
+  DRAW.ref.push({ring,holes:rec.fp.geom.holes||[],cut:rec.F.kind==="cut",base:mp.base&&rec.F===mp.base.F});
+  for(const q of decimate(ring,32))DRAW.refPts.push(q);
+  for(const hh of (rec.fp.geom.holes||[]))DRAW.refPts.push([hh.x,hh.y]);
+ }
+ if(mp.base)DRAW.refPts.push([mp.base.fp.sp.Cx,mp.base.fp.sp.Cy]);
+}
+function fitDrawView(){
+ let x0=1/0,y0=1/0,x1=-1/0,y1=-1/0;
+ const eat=q=>{if(q[0]<x0)x0=q[0];if(q[0]>x1)x1=q[0];if(q[1]<y0)y0=q[1];if(q[1]>y1)y1=q[1];};
+ for(const rf of DRAW.ref)for(const q of rf.ring)eat(q);
+ if(DRAW.start){eat([DRAW.start.x,DRAW.start.y]);for(const a of DRAW.acts)eat([a.x,a.y]);}
+ if(!isFinite(x0))return;
+ const w=Math.max(x1-x0,1),hh=Math.max(y1-y0,1),pad=Math.max(w,hh)*0.28;
+ byId("viz").setAttribute("viewBox",`${(x0-pad).toFixed(2)} ${(-y1-pad).toFixed(2)} ${(w+2*pad).toFixed(2)} ${(hh+2*pad).toFixed(2)}`);
+}
 function openFeatureSketch(i,second){
  const f=MODEL.features[i];if(!f)return;
+ bakeFeatureTransform(f,!!second);
  state.editingFeature={i,second:!!second};
  byId("taScript").value=(second?f.script2:f.script)||"";
  byId("ebName").textContent=f.name+(second?" — горно сечение":"");
  byId("editBanner").classList.remove("hide");
- state.mode="profile";updateVis();recompute();
+ state.mode="profile";updateVis();
+ drawImport();
+ if(DRAW.on){
+  buildRefUnderlay(f);
+  fitDrawView();
+  drawPreview();
+  if(DRAW.ref.length)toast("Чертаеш върху изглед отгоре · пунктир = моделът · хвани контура отвътре = местене");
+ }else recompute();
+ schedulePip();
 }
 function syncFeatureScript(){
  const ef=state.editingFeature;if(!ef)return;
@@ -2049,6 +2104,7 @@ function closeFeatureSketch(){
  syncFeatureScript();
  state.editingFeature=null;
  byId("editBanner").classList.add("hide");
+ if(DRAW.on)drawExit();
  state.mode="body";updateVis();recompute();
 }
 /* проект: запис/зареждане */
@@ -2085,7 +2141,7 @@ function renderMsgs(errs,warns){
 function renderViz(S,body){
  if(DRAW.on)return;
  const viz=byId("viz"),cap=byId("vizCap");
- if(!S||!S.sp){viz.innerHTML="";viz.setAttribute("viewBox","0 0 100 100");viz.dataset.fit="0 0 100 100";cap.textContent="—";updateExpBox(false);return;}
+ if(!S||!S.sp){viz.innerHTML="";viz.setAttribute("viewBox","0 0 100 100");viz.dataset.fit="0 0 100 100";cap.textContent="—";updateExpBox(false);renderPip();return;}
  let out;
  const actRev=state.mode==="body"&&MODEL.features[MODEL.active]&&MODEL.features[MODEL.active].kind==="revolve";
  if(state.mode==="body"&&state.viz3d&&body&&body.bb3)out=buildModel3D(body);
@@ -2096,6 +2152,7 @@ function renderViz(S,body){
  viz.dataset.fit=out.viewBox;
  cap.textContent=out.cap;
  updateExpBox(!!S.sp);
+ renderPip();
 }
 function updateExpBox(hasData){
  const bx=byId("expBox");if(!bx)return;
@@ -2124,6 +2181,48 @@ function renderTiles(sp,body){
  }
  el.innerHTML=h;
 }
+/* ---------- PiP: 2D и 3D в един прозорец ---------- */
+let pipPend=false;
+function schedulePip(){
+ if(pipPend)return;pipPend=true;
+ requestAnimationFrame(()=>{pipPend=false;renderPip();});
+}
+function setPipOut(out){
+ const pip=byId("pip");if(!pip)return;
+ if(!out){pip.classList.add("hide");return;}
+ const pv=byId("pipViz");
+ pv.innerHTML=out.inner;
+ pv.setAttribute("viewBox",out.viewBox);
+ pip.classList.remove("hide");
+}
+function renderPip(){
+ const pip=byId("pip");if(!pip)return;
+ const sketching=DRAW.on&&state.editingFeature;
+ if(!state.pipOn||(state.mode!=="body"&&!sketching)){pip.classList.add("hide");return;}
+ let out=null;
+ if(sketching){
+  // живо 3D на модела с чернова на текущата скица
+  const ef=state.editingFeature,f=MODEL.features[ef.i];
+  if(f){
+   const orig=ef.second?f.script2:f.script;
+   const draft=drawScriptText();
+   if(draft){if(ef.second)f.script2=draft;else f.script=draft;}
+   try{
+    const mp=modelProps();
+    if(!mp.errs.length)out=buildModel3D(mp);
+   }catch(_){out=null;}
+   if(ef.second)f.script2=orig;else f.script=orig;
+  }
+ }else{
+  // режим Модел: PiP показва „другия“ изглед
+  const mp=state.lastBody,act=mp?activeFeatData(mp):null;
+  try{
+   if(state.viz3d&&act)out=buildViz2D(act.sp,act.contour,act.holes,false);
+   else if(!state.viz3d&&mp&&mp.bb3)out=buildModel3D(mp);
+  }catch(_){out=null;}
+ }
+ setPipOut(out);
+}
 /* пре-рендер на 3D при въртене (rAF) */
 let vizPend=false;
 function reViz(){
@@ -2131,7 +2230,7 @@ function reViz(){
  requestAnimationFrame(()=>{vizPend=false;renderViz(state.lastS,state.lastBody);});
 }
 /* ---------- чертане с мишката ---------- */
-const DRAW={on:false,tool:"line",acts:[],start:null,cur:null,mouse:null,drag:null,hot:null,suppress:false,moved:false};
+const DRAW={on:false,tool:"line",acts:[],start:null,cur:null,mouse:null,drag:null,hot:null,suppress:false,moved:false,ref:[],refPts:[]};
 function drawStep(){return parseFloat(byId("dSnap").value)||5;}
 function vizToModel(e){
  const svg=byId("viz"),r=svg.getBoundingClientRect();
@@ -2145,6 +2244,18 @@ function drawSnap(p,e,noClose){
  if(!noClose&&DRAW.start&&DRAW.acts.some(a=>a.kind==="seg")&&
     Math.hypot(x-DRAW.start.x,y-DRAW.start.y)<st*0.75)
   return{x:DRAW.start.x,y:DRAW.start.y,close:true};
+ // магнит към характерни точки на модела (центрове на отвори, върхове, ЦТ)
+ if(DRAW.refPts.length){
+  const svg=byId("viz"),r=svg.getBoundingClientRect();
+  const vb=svg.getAttribute("viewBox").split(/\s+/).map(Number);
+  const tol=Math.max(vb[2]/r.width,vb[3]/r.height)*12;
+  let bp=null,bd=tol;
+  for(const q of DRAW.refPts){
+   const d=Math.hypot(x-q[0],y-q[1]);
+   if(d<bd){bd=d;bp=q;}
+  }
+  if(bp)return{x:+bp[0].toFixed(4),y:+bp[1].toFixed(4),mag:true};
+ }
  if(e&&e.shiftKey&&DRAW.cur){
   const dx=x-DRAW.cur[0],dy=y-DRAW.cur[1];
   const ang=Math.round(Math.atan2(dy,dx)/(Math.PI/4))*(Math.PI/4);
@@ -2178,6 +2289,13 @@ function drawPreview(){
   s+=`<path d="${g}" stroke="rgba(138,147,160,.13)" stroke-width="${sw*0.5}" fill="none"/>`;
  }
  s+=`<path d="M${nn(vb[0])} 0H${nn(vb[0]+vb[2])}M0 ${nn(vb[1])}V${nn(vb[1]+vb[3])}" stroke="rgba(138,147,160,.4)" stroke-width="${sw*0.7}" fill="none"/>`;
+ // референтни контури на модела (скициране върху модела)
+ for(const rf of (DRAW.ref||[])){
+  const col=rf.cut?"rgba(248,113,113,.45)":(rf.base?"rgba(45,212,191,.5)":"rgba(45,212,191,.28)");
+  s+=`<path d="M${rf.ring.map(p=>p[0].toFixed(2)+" "+(-p[1]).toFixed(2)).join("L")}Z" fill="none" stroke="${col}" stroke-width="${sw}" stroke-dasharray="${sw*4} ${sw*3}"/>`;
+  for(const hh of rf.holes)
+   s+=`<circle cx="${hh.x}" cy="${-hh.y}" r="${hh.r}" fill="none" stroke="${col}" stroke-width="${sw*0.8}" stroke-dasharray="${sw*3} ${sw*2.5}"/>`;
+ }
  if(DRAW.start){
   let d=`M${DRAW.start.x} ${-DRAW.start.y}`,px=DRAW.start.x,py=DRAW.start.y;
   for(const a of DRAW.acts){
@@ -2223,7 +2341,8 @@ function drawPreview(){
    if(DRAW.tool==="line")s+=`<line x1="${DRAW.cur[0]}" y1="${-DRAW.cur[1]}" x2="${m.x}" y2="${-m.y}" stroke="#facc15" ${dash} stroke-width="${sw}"/>`;
    else s+=`<path d="M${DRAW.cur[0]} ${-DRAW.cur[1]}${drawArcPath(DRAW.cur[0],DRAW.cur[1],m.x,m.y,parseFloat(byId("dArcR").value),byId("dCCW").classList.contains("on")?"CCW":"CW")}" fill="none" stroke="#facc15" ${dash} stroke-width="${sw}"/>`;
   }
-  s+=`<circle cx="${m.x}" cy="${-m.y}" r="${sw*2}" fill="${m.close?"#2dd4bf":"#facc15"}"/>`;
+  if(m.mag)s+=`<circle cx="${m.x}" cy="${-m.y}" r="${sw*4}" fill="none" stroke="#2dd4bf" stroke-width="${sw}"/>`;
+  s+=`<circle cx="${m.x}" cy="${-m.y}" r="${sw*2}" fill="${m.close?"#2dd4bf":m.mag?"#2dd4bf":"#facc15"}"/>`;
  }
  svg.innerHTML=s;
 }
@@ -2234,6 +2353,7 @@ function drawCap(m){
   t+=`   ·   L = ${fmt(Math.hypot(dx,dy),2)} mm   ∠ = ${fmt(Math.atan2(dy,dx)*180/Math.PI,1)}°`;
  }
  if(m&&m.close)t+="   ·   клик = затваряне на контура";
+ if(m&&m.mag)t+="   ·   ⌖ прилепнало към точка от модела";
  byId("vizCap").textContent=t||"Клик = точка · влачене = корекция · 2×клик на отсечка = дъга↔линия · десен клик = трие · Shift = 45° · Enter затваря";
 }
 function drawHit(p){
@@ -2314,7 +2434,7 @@ function drawClick(e){
  if(Math.hypot(p.x-DRAW.cur[0],p.y-DRAW.cur[1])<1e-9)return;
  if(DRAW.tool==="line")DRAW.acts.push({kind:"seg",t:"L",x:p.x,y:p.y});
  else DRAW.acts.push({kind:"seg",t:"A",x:p.x,y:p.y,R:parseFloat(byId("dArcR").value)||0,dir:byId("dCCW").classList.contains("on")?"CCW":"CW"});
- DRAW.cur=[p.x,p.y];drawPreview();
+ DRAW.cur=[p.x,p.y];drawPreview();schedulePip();
 }
 function drawUndo(){
  if(DRAW.acts.length){
@@ -2324,11 +2444,11 @@ function drawUndo(){
    DRAW.cur=segs.length?[segs[segs.length-1].x,segs[segs.length-1].y]:[DRAW.start.x,DRAW.start.y];
   }
  }else if(DRAW.start){DRAW.start=null;DRAW.cur=null;}
- drawPreview();
+ drawPreview();schedulePip();
 }
-function drawFinish(){
+function drawScriptText(){
  const segs=DRAW.acts.filter(a=>a.kind==="seg");
- if(!DRAW.start||segs.length<2){toast("Нужни са поне 2 отсечки преди затваряне");return;}
+ if(!DRAW.start||segs.length<2)return null;
  const L=["; скица с мишката",`START ${nn(DRAW.start.x)} ${nn(DRAW.start.y)}`];
  let px=DRAW.start.x,py=DRAW.start.y;
  for(const a of segs){
@@ -2343,11 +2463,17 @@ function drawFinish(){
  const fr=parseFloat(byId("dFil").value);
  if(fr>0)L.push(`FILLET ${nn(fr)}`);
  for(const a of DRAW.acts)if(a.kind==="hole")L.push(`HOLE ${nn(a.x)} ${nn(a.y)} D${nn(2*a.r)}`);
- byId("taScript").value=L.join("\n");
+ return L.join("\n");
+}
+function drawFinish(){
+ const sc=drawScriptText();
+ if(!sc){toast("Нужни са поне 2 отсечки преди затваряне");return;}
+ byId("taScript").value=sc;
  syncFeatureScript();
  drawExit();
+ if(state.editingFeature){closeFeatureSketch();toast("Скицата е записана в операцията");return;}
  recompute();
- toast("Скицата е в командите · за 3D: режим „Тяло“ → EXTRUDE / REVOLVE");
+ toast("Скицата е в командите · за 3D: режим „Модел“");
 }
 function drawSetTool(t){
  DRAW.tool=t;
@@ -2362,6 +2488,7 @@ function drawEnter(){
  state.mode="profile";updateVis();
  DRAW.on=true;DRAW.acts=[];DRAW.start=null;DRAW.cur=null;DRAW.mouse=null;
  DRAW.drag=null;DRAW.hot=null;DRAW.suppress=false;DRAW.moved=false;
+ DRAW.ref=[];DRAW.refPts=[];
  byId("drawbar").classList.remove("hide");
  byId("viz").classList.add("drawing");
  byId("viz").setAttribute("viewBox","-25 -130 220 155");
@@ -2601,18 +2728,26 @@ function init(){
   }
   state.mode="body";updateVis();recompute();
  });
+ const defShapeAtBase=r=>{
+  const mp=state.lastBody;
+  if(mp&&mp.base){
+   const cx=mp.base.fp.sp.Cx,cy=mp.base.fp.sp.Cy;
+   return genScriptFromSegs(normalizeCCW(arcToSegs(cx,cy,r,0,2*Math.PI)),[]);
+  }
+  return null;
+ };
  byId("btnAddPad").addEventListener("click",()=>{
-  MODEL.features.push(newFeature("extrude",null,"Добавка "+(MODEL.seq+1)));
+  MODEL.features.push(newFeature("extrude",defShapeAtBase(20),"Добавка "+(MODEL.seq+1)));
   MODEL.active=MODEL.features.length-1;
   renderFeatures();recompute();
-  toast("Нова добавка · ✎ за форма, ⚙ за размери/позиция");
+  openFeatureSketch(MODEL.features.length-1,false);
  });
  byId("btnAddCut").addEventListener("click",()=>{
   if(!MODEL.features.length||MODEL.features.filter(f=>f.on&&f.kind!=="cut").length===0){toast("Първо създай основа");return;}
-  MODEL.features.push(newFeature("cut",null,"Изрязване "+(MODEL.seq+1)));
+  MODEL.features.push(newFeature("cut",defShapeAtBase(10),"Изрязване "+(MODEL.seq+1)));
   MODEL.active=MODEL.features.length-1;
   renderFeatures();recompute();
-  toast("Ново изрязване („през всичко“) · ✎ за форма, ⚙ за настройки");
+  openFeatureSketch(MODEL.features.length-1,false);
  });
  byId("featList").addEventListener("click",e=>{
   const kb=e.target.closest("[data-kind]");
@@ -2690,6 +2825,13 @@ function init(){
  byId("btnPrint").addEventListener("click",()=>window.print());
  byId("btnCopy").addEventListener("click",copyResults);
  byId("noticeX").addEventListener("click",()=>byId("notice").classList.add("hide"));
+ byId("pip").addEventListener("click",()=>{
+  if(DRAW.on)return; // при скициране PiP е само визьор
+  state.viz3d=!state.viz3d;
+  updateVis();
+  renderViz(state.lastS,state.lastBody);
+ });
+ byId("btnPip").addEventListener("click",()=>{state.pipOn=!state.pipOn;renderPip();});
  setupStage();
  byId("btnDraw").addEventListener("click",drawEnter);
  byId("tLine").addEventListener("click",()=>drawSetTool("line"));
@@ -2700,20 +2842,44 @@ function init(){
  byId("dSnap").addEventListener("change",drawPreview);
  byId("dUndo").addEventListener("click",drawUndo);
  byId("dClose").addEventListener("click",drawFinish);
- byId("dCancel").addEventListener("click",()=>{drawExit();recompute();});
+ byId("dCancel").addEventListener("click",()=>{drawExit();if(state.editingFeature)closeFeatureSketch();else recompute();});
  byId("viz").addEventListener("click",drawClick);
  byId("viz").addEventListener("pointerdown",e=>{
   if(!DRAW.on||e.button!==0)return;
-  const hit=drawHit(vizToModel(e));
-  if(hit){DRAW.drag=hit;DRAW.moved=false;try{byId("viz").setPointerCapture(e.pointerId);}catch(_){}}
+  const raw=vizToModel(e);
+  const hit=drawHit(raw);
+  if(hit){DRAW.drag=hit;DRAW.moved=false;try{byId("viz").setPointerCapture(e.pointerId);}catch(_){}return;}
+  // хващане вътре в контура → местене на цялата скица
+  if(DRAW.start){
+   const pts=[[DRAW.start.x,DRAW.start.y]];
+   for(const a of DRAW.acts)if(a.kind==="seg")pts.push([a.x,a.y]);
+   if(pts.length>=3&&pointInPoly(raw,pts)){
+    DRAW.drag={kind:"all",o:raw,
+     snap:{sx:DRAW.start.x,sy:DRAW.start.y,acts:DRAW.acts.map(a=>({x:a.x,y:a.y}))}};
+    DRAW.moved=false;
+    try{byId("viz").setPointerCapture(e.pointerId);}catch(_){}
+   }
+  }
  });
  byId("viz").addEventListener("pointermove",e=>{
   if(!DRAW.on)return;
   const raw=vizToModel(e);
   if(DRAW.drag){
+   const t=DRAW.drag;
+   if(t.kind==="all"){
+    DRAW.moved=true;
+    const st=drawStep();
+    const dx=Math.round((raw[0]-t.o[0])/st)*st,dy=Math.round((raw[1]-t.o[1])/st)*st;
+    DRAW.start={x:+(t.snap.sx+dx).toFixed(4),y:+(t.snap.sy+dy).toFixed(4)};
+    DRAW.acts.forEach((a,i)=>{a.x=+(t.snap.acts[i].x+dx).toFixed(4);a.y=+(t.snap.acts[i].y+dy).toFixed(4);});
+    const segs=DRAW.acts.filter(a=>a.kind==="seg"),la=segs[segs.length-1];
+    DRAW.cur=la?[la.x,la.y]:[DRAW.start.x,DRAW.start.y];
+    DRAW.mouse=null;
+    byId("vizCap").textContent=`преместване: Δx=${nn(dx)}  Δy=${nn(dy)}`;
+    drawPreview();return;
+   }
    const q=drawSnap(raw,e,true);
    DRAW.moved=true;
-   const t=DRAW.drag;
    if(t.kind==="start"){
     const ox=DRAW.start.x,oy=DRAW.start.y;
     DRAW.start={x:q.x,y:q.y};
@@ -2732,12 +2898,17 @@ function init(){
    return;
   }
   DRAW.hot=drawHit(raw);
+  if(!DRAW.hot&&DRAW.start){
+   const pts=[[DRAW.start.x,DRAW.start.y]];
+   for(const a of DRAW.acts)if(a.kind==="seg")pts.push([a.x,a.y]);
+   byId("viz").classList.toggle("moveall",pts.length>=3&&pointInPoly(raw,pts));
+  }else byId("viz").classList.remove("moveall");
   DRAW.mouse=drawSnap(raw,e);
   drawCap(DRAW.mouse);drawPreview();
  });
  byId("viz").addEventListener("pointerup",()=>{
   if(DRAW.drag){
-   if(DRAW.moved){DRAW.suppress=true;drawPreview();} // прерисуване само при реално влачене — иначе убива click/dblclick
+   if(DRAW.moved){DRAW.suppress=true;drawPreview();schedulePip();} // прерисуване само при реално влачене
    DRAW.drag=null;
   }
  });
@@ -2763,11 +2934,31 @@ function init(){
   const t=e.target.closest("[data-start]");if(!t)return;
   const k=t.dataset.start;
   const vals=Object.fromEntries(CAT[k].fields.map(f=>[f.id,f.def]));
-  const sc=catalogToScript(k,vals);
+  let sc=catalogToScript(k,vals);
   if(!sc)return;
+  // при скица на операция: премести формата в ЦТ на основата
+  if(state.editingFeature){
+   const pr=parseScript(sc);
+   if(!pr.errs.length&&pr.contour){
+    const spx=sectionProps(pr.contour,pr.holes);
+    const f=MODEL.features[state.editingFeature.i];
+    const mp2=modelProps();
+    if(mp2&&mp2.base&&mp2.base.F!==f){
+     const tg=transformGeom(pr.contour,pr.holes,{dx:mp2.base.fp.sp.Cx-spx.Cx,dy:mp2.base.fp.sp.Cy-spx.Cy,rot:0});
+     sc="; "+CAT[k].name+"\n"+(tg.contour.type==="circle"
+      ?`CIRCLE D${nn(2*tg.contour.R)}`+tg.holes.map(hh=>`\nHOLE ${nn(hh.x)} ${nn(hh.y)} D${nn(2*hh.r)}`).join("")
+      :genScriptFromSegs(normalizeCCW(tg.contour.segs),tg.holes));
+    }
+   }
+  }
   byId("taScript").value=sc;
-  recompute();
+  syncFeatureScript();
   drawImport();
+  if(state.editingFeature&&DRAW.on){
+   buildRefUnderlay(MODEL.features[state.editingFeature.i]);
+   fitDrawView();drawPreview();schedulePip();
+  }
+  if(!DRAW.on)recompute();
  });
  byId("expX").addEventListener("click",()=>{
   state.explain=null;
@@ -2803,7 +2994,7 @@ function init(){
  });
  document.addEventListener("keydown",e=>{
   if(!DRAW.on)return;
-  if(e.key==="Escape"){drawExit();recompute();}
+  if(e.key==="Escape"){drawExit();if(state.editingFeature)closeFeatureSketch();else recompute();}
   else if(e.key==="Enter"){e.preventDefault();drawFinish();}
   else if((e.key==="z"||e.key==="Z")&&(e.ctrlKey||e.metaKey)){e.preventDefault();drawUndo();}
  });
