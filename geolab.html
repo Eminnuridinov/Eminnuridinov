@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0f1115">
-<title>AVKO GeoLab v3.8</title>
+<title>AVKO GeoLab v3.9</title>
 <style>
 :root{--bg:#0b0d12;--panel:#12161f;--panel2:#1a2029;--line:#252d3a;--line2:#354158;
  --teal:#2dd4bf;--blue:#5b8def;--amber:#facc15;--red:#f87171;
@@ -32,6 +32,15 @@ html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--text);
 .actions button:hover:not(:disabled){border-color:var(--line2)}
 .actions button.primary{border-color:var(--teal);color:var(--teal);background:rgba(45,212,191,.10)}
 .actions button:disabled{opacity:.35;cursor:not-allowed}
+.menu{position:relative}
+.menubtn{white-space:nowrap}
+.menu.open .menubtn{border-color:var(--teal);color:var(--teal)}
+.menupop{position:absolute;top:calc(100% + 4px);right:0;min-width:190px;background:var(--panel2);border:1px solid var(--line2);border-radius:10px;padding:5px;box-shadow:0 10px 30px rgba(0,0,0,.55);z-index:40;display:none;flex-direction:column;gap:2px}
+.menu.open .menupop{display:flex}
+.menupop button{display:block;width:100%;text-align:left;background:none;border:0;color:var(--text);padding:8px 11px;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer;min-height:34px}
+.menupop button:hover:not(:disabled){background:var(--line)}
+.menupop button:disabled{opacity:.4;cursor:not-allowed}
+.menusep{height:1px;background:var(--line);margin:4px 2px}
 
 /* ---------- лента „нищо не се записва“ ---------- */
 .notice{display:flex;align-items:center;gap:8px;padding:5px 14px;background:rgba(45,212,191,.06);border-bottom:1px solid var(--line);color:var(--muted);font-size:11.5px}
@@ -194,9 +203,6 @@ details.help .note{display:block;margin-top:6px}
 #torsWrap,#psWrap{position:fixed;inset:0;background:rgba(5,7,10,.92);z-index:60;display:flex;flex-direction:column;padding:14px;overflow:auto}
 .torslegend{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted)}
 .torslegend i{flex:1;height:12px;border-radius:6px;background:linear-gradient(90deg,rgb(41,53,102),rgb(45,140,180),rgb(52,180,120),rgb(250,204,21),rgb(248,113,113))}
-#pip{position:absolute;right:12px;bottom:44px;width:30%;max-width:340px;aspect-ratio:1.15;background:var(--panel);border:1px solid var(--line2);border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.5);cursor:pointer;overflow:hidden;z-index:7}
-#pip:hover{border-color:var(--teal)}
-#pip svg{width:100%;height:100%;display:block}
 .stage{position:relative}
 
 /* ---------- мобилен изглед ---------- */
@@ -214,8 +220,7 @@ details.help .note{display:block;margin-top:6px}
  .legend .hint{display:none}
  .notice .nlong{display:none}
  .actions button{padding:6px 7px;font-size:11.5px;min-height:30px}
- #pip{width:44%;bottom:38px}
-}
+ }
 
 /* ---------- печат (PDF) ---------- */
 @media print{
@@ -244,28 +249,45 @@ details.help .note{display:block;margin-top:6px}
 <body>
 <div class="app">
 <header class="topbar">
- <div class="brand"><h1>AVKO GeoLab</h1><span class="ver">v3.8</span></div>
+ <div class="brand"><h1>AVKO GeoLab</h1><span class="ver">v3.9</span></div>
  <nav class="seg" id="modeSeg">
   <button id="btnModeProf" class="on">Скица</button>
   <button id="btnModeBody">Модел</button>
   <button id="btnModeCat">Каталог</button>
  </nav>
  <div class="actions">
-  <button id="btnDXF" class="primary" title="Записва .dxf в „Изтегляния“ — само при натискане">⬇ DXF</button>
-  <button id="btnCSV" title="Записва .csv с всички резултати — само при натискане">⬇ CSV</button>
-  <button id="btnSVG" title="Записва схемата като .svg — само при натискане">⬇ SVG</button>
-  <button id="btnSTL" title="3D модел за печат/CAD (двоичен STL, mm) — активен в режим „Модел“" disabled>⬇ STL</button>
-  <button id="btnSaveP" title="Запазва целия модел като .geolab файл — файл се създава САМО при този клик">💾 Проект</button>
-  <button id="btnLoadP" title="Зарежда .geolab проект (само чете избрания файл; може и с влачене върху прозореца)">📂</button>
+  <div class="menu" id="menuAnalysis">
+   <button class="menubtn" data-menu="menuAnalysis" title="Инженерен анализ на текущото сечение (FEM)">📐 Анализ ▾</button>
+   <div class="menupop">
+    <button id="btnBeam" title="Греда (FEM): огъване, провисване, напрежение и коефициент на сигурност за текущото сечение">🔩 Греда — огъване</button>
+    <button id="btnTors" title="Усукване (2D FEM): истинска торсионна константа + топлинна карта на тангенциалното напрежение">🌀 Усукване</button>
+    <button id="btnPS" title="2D напрежение (FEM): натоварена пластина/детайл → карта на напрежението по Мизес и концентрации около отвори">🎯 2D напрежение</button>
+   </div>
+  </div>
+  <div class="menu" id="menuModel">
+   <button class="menubtn" data-menu="menuModel" title="Внасяне на 3D модел и проекти">🧊 Модел ▾</button>
+   <div class="menupop">
+    <button id="btnImpSTL" title="Внеси STL от Onshape/CAD → обем, маса, център на тежестта, инерция + 3D преглед (влачи файла и направо)">⬆ Внеси STL (Onshape)</button>
+    <button id="btnSheet" title="Работилничен чертеж от модела: изгледи + размери + таблица на отворите (режим „Модел“)" disabled>📄 Работилничен чертеж</button>
+    <div class="menusep"></div>
+    <button id="btnSaveP" title="Запазва целия модел като .geolab файл — файл се създава САМО при този клик">💾 Запази проект</button>
+    <button id="btnLoadP" title="Зарежда .geolab проект (само чете избрания файл; може и с влачене върху прозореца)">📂 Отвори проект</button>
+   </div>
+  </div>
+  <div class="menu" id="menuExport">
+   <button class="menubtn" data-menu="menuExport" title="Запазване и печат — файл се създава само при натискане">⬇ Експорт ▾</button>
+   <div class="menupop">
+    <button id="btnDXF" title="Записва .dxf в „Изтегляния“ — само при натискане">⬇ DXF (2D геометрия)</button>
+    <button id="btnCSV" title="Записва .csv с всички резултати — само при натискане">⬇ CSV (данни)</button>
+    <button id="btnSVG" title="Записва схемата като .svg — само при натискане">⬇ SVG (схема)</button>
+    <button id="btnSTL" title="3D модел за печат/CAD (двоичен STL, mm) — активен в режим „Модел“" disabled>⬇ STL (3D модел)</button>
+    <div class="menusep"></div>
+    <button id="btnCopy" title="Копира всички резултати в клипборда — без файл на диска">📋 Копирай резултати</button>
+    <button id="btnPrint" title="Системен печат — там избери „Запиши като PDF“">🖨 Печат / PDF</button>
+   </div>
+  </div>
   <input type="file" id="fileP" accept=".geolab,.json" class="hide">
-  <button id="btnImpSTL" title="Внеси STL от Onshape/CAD → обем, маса, център на тежестта, инерция + 3D преглед (влачи файла и направо)">⬆ Внеси STL</button>
   <input type="file" id="fileSTL" accept=".stl" class="hide">
-  <button id="btnSheet" title="Работилничен чертеж от модела: изгледи + размери + таблица на отворите (режим „Модел“)" disabled>📄 Чертеж</button>
-  <button id="btnBeam" title="Греда (FEM): огъване, провисване, напрежение и коефициент на сигурност за текущото сечение">🔩 Греда</button>
-  <button id="btnTors" title="Усукване (2D FEM): истинска торсионна константа + топлинна карта на тангенциалното напрежение">🌀 Усукване</button>
-  <button id="btnPS" title="2D напрежение (FEM): натоварена пластина/детайл → карта на напрежението по Мизес и концентрации около отвори">🎯 2D напрежение</button>
-  <button id="btnPrint" title="Системен печат — там избери „Запиши като PDF“">🖨 Печат</button>
-  <button id="btnCopy" title="Копира всички резултати в клипборда — без файл на диска">📋 Копирай</button>
  </div>
 </header>
 <div class="notice" id="notice">🛡<span><b>Нищо не се записва на този компютър.</b><span class="nlong"> Работи изцяло в паметта на браузъра — файл се създава само при натискане на бутон за експорт (папка „Изтегляния“). Затвориш ли таба, всичко изчезва.</span></span><button id="noticeX" title="Скрий">✕</button></div>
@@ -329,7 +351,7 @@ BOLTS n BC140 D18 [A0]  n отвора на болтова окр. Ø140
   <div class="stagehead">
    <div class="cap" id="vizCap">—</div>
    <div class="seg tiny hide" id="vizSeg"><button id="btnViz2D">2D</button><button id="btnViz3D" class="on">3D</button></div>
-   <div class="zctl"><button id="btnZIn" title="Приближи">+</button><button id="btnZOut" title="Отдалечи">−</button><button id="btnZFit" title="Побери цялата схема (или двоен клик)">⌂</button><button id="btnPip" title="Мини-изглед 2D/3D (в един прозорец)">⧉</button></div>
+   <div class="zctl"><button id="btnZIn" title="Приближи">+</button><button id="btnZOut" title="Отдалечи">−</button><button id="btnZFit" title="Побери цялата схема (или двоен клик)">⌂</button></div>
   </div>
   <div class="drawbar hide" id="drawbar">
    <div class="seg tiny">
@@ -359,9 +381,6 @@ BOLTS n BC140 D18 [A0]  n отвора на болтова окр. Ø140
    <div class="seg tiny" style="width:100%"><button id="arrCirc" class="on" style="flex:1">⭕ Окръжност</button><button id="arrRowB" style="flex:1">⇉ Редица</button></div>
    <div class="arow hide" id="arrRowP"><span>Δx</span><input id="arrDx" type="number" step="any" value="20"><span>Δy</span><input id="arrDy" type="number" step="any" value="0"></div>
    <div class="arow"><button class="dbtn" id="arrOk" style="flex:1">✔ Приложи</button><button class="dbtn" id="arrX">✕</button></div>
-  </div>
-  <div id="pip" class="hide" title="Клик = размяна 2D ↔ 3D">
-   <svg id="pipViz" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"></svg>
   </div>
   <div class="legend">
    <span><i style="background:#2dd4bf"></i>контур</span>
@@ -497,7 +516,7 @@ BOLTS n BC140 D18 [A0]  n отвора на болтова окр. Ø140
 <script>
 "use strict";
 /* ================= AVKO GeoLab v1.1 — ядро ================= */
-const VERSION="3.8";
+const VERSION="3.9";
 const COMPUTE_TOL=0.0005;   // sagitta [mm] за полигонизация при смятане
 const EPS=1e-9;
 
@@ -3371,48 +3390,9 @@ function renderTiles(sp,body){
  }
  el.innerHTML=h;
 }
-/* ---------- PiP: 2D и 3D в един прозорец ---------- */
-let pipPend=false;
-function schedulePip(){
- if(pipPend)return;pipPend=true;
- requestAnimationFrame(()=>{pipPend=false;renderPip();});
-}
-function setPipOut(out){
- const pip=byId("pip");if(!pip)return;
- if(!out){pip.classList.add("hide");return;}
- const pv=byId("pipViz");
- pv.innerHTML=out.inner;
- pv.setAttribute("viewBox",out.viewBox);
- pip.classList.remove("hide");
-}
-function renderPip(){
- const pip=byId("pip");if(!pip)return;
- const sketching=DRAW.on&&state.editingFeature;
- if(!state.pipOn||(state.mode!=="body"&&!sketching)){pip.classList.add("hide");return;}
- let out=null;
- if(sketching){
-  // живо 3D на модела с чернова на текущата скица
-  const ef=state.editingFeature,f=MODEL.features[ef.i];
-  if(f){
-   const orig=ef.second?f.script2:f.script;
-   const draft=drawScriptText();
-   if(draft){if(ef.second)f.script2=draft;else f.script=draft;}
-   try{
-    const mp=modelProps();
-    if(!mp.errs.length)out=buildModel3D(mp);
-   }catch(_){out=null;}
-   if(ef.second)f.script2=orig;else f.script=orig;
-  }
- }else{
-  // режим Модел: PiP показва „другия“ изглед
-  const mp=state.lastBody,act=mp?activeFeatData(mp):null;
-  try{
-   if(state.viz3d&&act)out=buildViz2D(act.sp,act.contour,act.holes,false);
-   else if(!state.viz3d&&mp&&mp.bb3)out=buildModel3D(mp);
-  }catch(_){out=null;}
- }
- setPipOut(out);
-}
+/* ---------- PiP премахнат (v3.9) ---------- */
+function schedulePip(){}
+function renderPip(){}
 /* пре-рендер на 3D при въртене (rAF) */
 let vizPend=false;
 function reViz(){
@@ -4215,7 +4195,6 @@ HOLE 60 30 D24`
 
 function init(){
  byId("selMat").innerHTML=MATS.map((m,i)=>`<option value="${m[1]}"${i===0?" selected":""}>${m[0]}</option>`).join("");
- if(window.matchMedia&&window.matchMedia("(max-width:699px)").matches)state.pipOn=false;
  renderChips();renderFields();
  byId("figChips").addEventListener("click",e=>{
   const t=e.target.closest("[data-fig]");const f=t?t.dataset.fig:null;
@@ -4397,13 +4376,16 @@ function init(){
  byId("btnPrint").addEventListener("click",()=>window.print());
  byId("btnCopy").addEventListener("click",copyResults);
  byId("noticeX").addEventListener("click",()=>byId("notice").classList.add("hide"));
- byId("pip").addEventListener("click",()=>{
-  if(DRAW.on)return; // при скициране PiP е само визьор
-  state.viz3d=!state.viz3d;
-  updateVis();
-  renderViz(state.lastS,state.lastBody);
- });
- byId("btnPip").addEventListener("click",()=>{state.pipOn=!state.pipOn;renderPip();});
+ document.querySelectorAll(".menubtn").forEach(btn=>btn.addEventListener("click",e=>{
+  e.stopPropagation();
+  const menu=byId(btn.dataset.menu),wasOpen=menu.classList.contains("open");
+  document.querySelectorAll(".menu.open").forEach(m=>m.classList.remove("open"));
+  if(!wasOpen)menu.classList.add("open");
+ }));
+ document.querySelectorAll(".menupop button").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll(".menu.open").forEach(m=>m.classList.remove("open"));
+ }));
+ document.addEventListener("click",()=>document.querySelectorAll(".menu.open").forEach(m=>m.classList.remove("open")));
  setupStage();
  byId("btnDraw").addEventListener("click",drawEnter);
  byId("tRect").addEventListener("click",()=>drawSetTool("rect"));
