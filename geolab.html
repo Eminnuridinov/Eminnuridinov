@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0f1115">
-<title>AVKO GeoLab v4.2</title>
+<title>AVKO GeoLab v4.3</title>
 <style>
 :root{--bg:#0b0d12;--panel:#12161f;--panel2:#1a2029;--line:#252d3a;--line2:#354158;
  --teal:#2dd4bf;--blue:#5b8def;--amber:#facc15;--red:#f87171;
@@ -249,7 +249,7 @@ details.help .note{display:block;margin-top:6px}
 <body>
 <div class="app">
 <header class="topbar">
- <div class="brand"><h1>AVKO GeoLab</h1><span class="ver">v4.2</span></div>
+ <div class="brand"><h1>AVKO GeoLab</h1><span class="ver">v4.3</span></div>
  <nav class="seg" id="modeSeg">
   <button id="btnModeProf" class="on">Скица</button>
   <button id="btnModeBody">Модел</button>
@@ -2372,7 +2372,7 @@ function buildMesh3D(tris,props){
   return [xr,Y*ce-zr*se,Y*se+zr*ce]; // [екран-x, нагоре, дълбочина към зрителя]
  };
  const rot=(x,y,z)=>rotDir(x-C[0],y-C[1],z-C[2]); // позиция: центрирай, после същата линейна част
- const R3=Math.max(1,0.5*Math.hypot(bb.x1-bb.x0,bb.y1-bb.y0,bb.z1-bb.z0));
+ const R3=Math.max(1e-9,0.5*Math.hypot(bb.x1-bb.x0,bb.y1-bb.y0,bb.z1-bb.z0));
  // осветление в координатите на камерата (фар при зрителя) → стабилно при въртене
  const shade=nv=>{const m=Math.hypot(nv[0],nv[1],nv[2])||1;
   const L=[-0.3,0.55,0.78];return Math.max(0,(nv[0]*L[0]+nv[1]*L[1]+nv[2]*L[2])/m);};
@@ -2393,14 +2393,17 @@ function buildMesh3D(tris,props){
   faces.push({d:d/3,scr,fill:fillFor(shade(nv))});
  }
  faces.sort((p,q)=>p.d-q.d);
- const sw=R3*0.0025;
+ // мащабирай към фиксиран viewBox → точността не зависи от единиците на модела
+ // (файл в метри има координати ~0.03; toFixed(2) би ги слял → затова нормализираме)
+ const S=100/R3;
+ const sw=0.25;                               // = R3*0.0025 · S
  let s="";
  for(const f of faces)
-  s+=`<path d="M${f.scr.map(p=>p[0].toFixed(2)+" "+p[1].toFixed(2)).join("L")}Z" fill="${f.fill}" stroke="${f.fill}" stroke-width="${sw}"/>`;
+  s+=`<path d="M${f.scr.map(p=>(p[0]*S).toFixed(2)+" "+(p[1]*S).toFixed(2)).join("L")}Z" fill="${f.fill}" stroke="${f.fill}" stroke-width="${sw}"/>`;
  // маркер на ЦТ
- const cc=rot(C[0],C[1],C[2]),cs=R3*0.05;
- s+=`<g stroke="#facc15" stroke-width="${R3*0.006}" fill="none"><line x1="${(cc[0]-cs).toFixed(2)}" y1="${(-cc[1]).toFixed(2)}" x2="${(cc[0]+cs).toFixed(2)}" y2="${(-cc[1]).toFixed(2)}"/><line x1="${cc[0].toFixed(2)}" y1="${(-cc[1]-cs).toFixed(2)}" x2="${cc[0].toFixed(2)}" y2="${(-cc[1]+cs).toFixed(2)}"/><circle cx="${cc[0].toFixed(2)}" cy="${(-cc[1]).toFixed(2)}" r="${(cs*0.5).toFixed(2)}"/></g>`;
- const vb=`${(-R3*1.35).toFixed(2)} ${(-R3*1.35).toFixed(2)} ${(R3*2.7).toFixed(2)} ${(R3*2.7).toFixed(2)}`;
+ const cc=rot(C[0],C[1],C[2]),cx=cc[0]*S,cy=-cc[1]*S,cs=5;
+ s+=`<g stroke="#facc15" stroke-width="0.6" fill="none"><line x1="${(cx-cs).toFixed(2)}" y1="${cy.toFixed(2)}" x2="${(cx+cs).toFixed(2)}" y2="${cy.toFixed(2)}"/><line x1="${cx.toFixed(2)}" y1="${(cy-cs).toFixed(2)}" x2="${cx.toFixed(2)}" y2="${(cy+cs).toFixed(2)}"/><circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${(cs*0.5).toFixed(2)}"/></g>`;
+ const vb=`-135 -135 270 270`;
  return {inner:s,viewBox:vb};
 }
 function renderSTLview(){
