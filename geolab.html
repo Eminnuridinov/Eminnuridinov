@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0f1115">
-<title>AVKO GeoLab v4.1</title>
+<title>AVKO GeoLab v4.2</title>
 <style>
 :root{--bg:#0b0d12;--panel:#12161f;--panel2:#1a2029;--line:#252d3a;--line2:#354158;
  --teal:#2dd4bf;--blue:#5b8def;--amber:#facc15;--red:#f87171;
@@ -249,7 +249,7 @@ details.help .note{display:block;margin-top:6px}
 <body>
 <div class="app">
 <header class="topbar">
- <div class="brand"><h1>AVKO GeoLab</h1><span class="ver">v4.1</span></div>
+ <div class="brand"><h1>AVKO GeoLab</h1><span class="ver">v4.2</span></div>
  <nav class="seg" id="modeSeg">
   <button id="btnModeProf" class="on">Скица</button>
   <button id="btnModeBody">Модел</button>
@@ -2362,24 +2362,28 @@ function buildMesh3D(tris,props){
  const ca=Math.cos(VIEW3D.az),sa=Math.sin(VIEW3D.az);
  const ce=Math.cos(VIEW3D.el),se=Math.sin(VIEW3D.el);
  const C=props.C,bb=props.bb;
- const rot=(x,y,z)=>{ // STL z-up → екран (втора ос нагоре)
-  const X=x-C[0],Y=z-C[2],Z=y-C[1];   // центрирай + z нагоре
+ // линейна част на камерата (посоки: нормали) — STL x→X, z→нагоре, y→дълбочина
+ const rotDir=(x,y,z)=>{
+  const X=x,Y=z,Z=y;
   const xr=X*ca+Z*sa,zr=-X*sa+Z*ca;
-  return [xr,Y*ce-zr*se,Y*se+zr*ce];
+  return [xr,Y*ce-zr*se,Y*se+zr*ce]; // [екран-x, нагоре, дълбочина към зрителя]
  };
+ const rot=(x,y,z)=>rotDir(x-C[0],y-C[1],z-C[2]); // позиция: центрирай, после същата линейна част
  const R3=Math.max(1,0.5*Math.hypot(bb.x1-bb.x0,bb.y1-bb.y0,bb.z1-bb.z0));
- const shade=n=>{const q=[n[0]*ca+n[2]*sa,0,0];const m=Math.hypot(n[0],n[1],n[2])||1;
-  // осветление в световни коорд (леко отгоре-отпред)
-  const L=[-0.3,0.55,0.78];return Math.max(0,(n[0]*L[0]+n[2]*L[1]+n[1]*L[2])/m);};
+ // осветление в координатите на камерата (фар при зрителя) → стабилно при въртене
+ const shade=nv=>{const m=Math.hypot(nv[0],nv[1],nv[2])||1;
+  const L=[-0.3,0.55,0.78];return Math.max(0,(nv[0]*L[0]+nv[1]*L[1]+nv[2]*L[2])/m);};
  const fillFor=l=>`hsl(207 9% ${Math.min(88,12+42*l+30*Math.pow(l,6)).toFixed(1)}%)`;
  const faces=[];
  for(const t of tris){
   const a=t[0],b=t[1],c=t[2];
   const e1=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],e2=[c[0]-a[0],c[1]-a[1],c[2]-a[2]];
   const nrm=[e1[1]*e2[2]-e1[2]*e2[1],e1[2]*e2[0]-e1[0]*e2[2],e1[0]*e2[1]-e1[1]*e2[0]];
+  const nv=rotDir(nrm[0],nrm[1],nrm[2]);      // нормала в координатите на камерата
+  if(nv[2]<=0)continue;                        // отрязване на задните стени
   let d=0;const scr=[];
   for(const p of t){const q=rot(p[0],p[1],p[2]);scr.push([q[0],-q[1]]);d+=q[2];}
-  faces.push({d:d/3,scr,fill:fillFor(shade(nrm))});
+  faces.push({d:d/3,scr,fill:fillFor(shade(nv))});
  }
  faces.sort((p,q)=>p.d-q.d);
  const sw=R3*0.0025;
