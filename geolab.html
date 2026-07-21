@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0f1115">
-<title>AVKO GeoLab v4.0</title>
+<title>AVKO GeoLab v4.1</title>
 <style>
 :root{--bg:#0b0d12;--panel:#12161f;--panel2:#1a2029;--line:#252d3a;--line2:#354158;
  --teal:#2dd4bf;--blue:#5b8def;--amber:#facc15;--red:#f87171;
@@ -249,7 +249,7 @@ details.help .note{display:block;margin-top:6px}
 <body>
 <div class="app">
 <header class="topbar">
- <div class="brand"><h1>AVKO GeoLab</h1><span class="ver">v4.0</span></div>
+ <div class="brand"><h1>AVKO GeoLab</h1><span class="ver">v4.1</span></div>
  <nav class="seg" id="modeSeg">
   <button id="btnModeProf" class="on">Скица</button>
   <button id="btnModeBody">Модел</button>
@@ -332,12 +332,15 @@ BOLTS n BC140 D18 [A0]  n отвора на болтова окр. Ø140
    </details>
   </div>
   <div class="card hide" id="cardBody">
-    <h2>Модел — операции <span class="h2n">· основа + добавки − изрязвания</span></h2>
+    <h2>Модел — обем и маса <span class="h2n">· extrude / revolve на сечението</span></h2>
     <div id="featList"></div>
-    <div class="rowbtns">
-     <button class="mini" id="btnAddPad" title="Добавя материал: нова Extrude стъпка (бобышка, стъпало)">＋ Добавка</button>
-     <button class="mini" id="btnAddCut" title="Маха материал: джоб или отвор (изважда се от обема)">－ Изрязване</button>
-    </div>
+    <details class="help" id="advModel"><summary>Разширено — съставно моделиране (добавки / изрязвания)</summary>
+     <div class="note" style="margin-bottom:8px">За сложни детайли по-добре моделирай в Onshape и внеси STL (меню „Модел“). Тук може да наслагваш стъпки:</div>
+     <div class="rowbtns">
+      <button class="mini" id="btnAddPad" title="Добавя материал: нова Extrude стъпка (бобышка, стъпало)">＋ Добавка</button>
+      <button class="mini" id="btnAddCut" title="Маха материал: джоб или отвор (изважда се от обема)">－ Изрязване</button>
+     </div>
+    </details>
     <div class="grid2" style="margin-top:10px">
      <label><span class="lt"><i class="dot y"></i>Материал</span><select id="selMat"></select></label>
      <label><span class="lt"><i class="dot y"></i>Плътност ρ, kg/m³</span><input type="number" id="inpRho" value="7850" step="any"></label>
@@ -516,7 +519,7 @@ BOLTS n BC140 D18 [A0]  n отвора на болтова окр. Ø140
 <script>
 "use strict";
 /* ================= AVKO GeoLab v1.1 — ядро ================= */
-const VERSION="4.0";
+const VERSION="4.1";
 const COMPUTE_TOL=0.0005;   // sagitta [mm] за полигонизация при смятане
 const EPS=1e-9;
 
