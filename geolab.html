@@ -2277,18 +2277,21 @@ function parseSTL(buf){
   const cnt=dv.getUint32(80,true);
   let o=84;
   for(let i=0;i<cnt;i++){
-   o+=12; // прескочи нормалата
+   const nrm=[dv.getFloat32(o,true),dv.getFloat32(o+4,true),dv.getFloat32(o+8,true)];o+=12;
    const t=[];
    for(let k=0;k<3;k++){t.push([dv.getFloat32(o,true),dv.getFloat32(o+4,true),dv.getFloat32(o+8,true)]);o+=12;}
    o+=2;
+   t.n=nrm;                                   // нормала от файла (за рендер)
    tris.push(t);
   }
  }else{
   const dec=new TextDecoder();const txt=dec.decode(buf);
+  const nre=/facet\s+normal\s+(-?[\d.eE+]+)\s+(-?[\d.eE+]+)\s+(-?[\d.eE+]+)/g;
+  const norms=[];let mn;while((mn=nre.exec(txt)))norms.push([parseFloat(mn[1]),parseFloat(mn[2]),parseFloat(mn[3])]);
   const re=/vertex\s+(-?[\d.eE+]+)\s+(-?[\d.eE+]+)\s+(-?[\d.eE+]+)/g;
   const vs=[];let m;
   while((m=re.exec(txt)))vs.push([parseFloat(m[1]),parseFloat(m[2]),parseFloat(m[3])]);
-  for(let i=0;i+2<vs.length;i+=3)tris.push([vs[i],vs[i+1],vs[i+2]]);
+  for(let i=0;i+2<vs.length;i+=3){const t=[vs[i],vs[i+1],vs[i+2]];const ni=i/3;if(norms[ni])t.n=norms[ni];tris.push(t);}
  }
  return tris;
 }
@@ -2377,8 +2380,12 @@ function buildMesh3D(tris,props){
  const faces=[];
  for(const t of tris){
   const a=t[0],b=t[1],c=t[2];
-  const e1=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],e2=[c[0]-a[0],c[1]-a[1],c[2]-a[2]];
-  const nrm=[e1[1]*e2[2]-e1[2]*e2[1],e1[2]*e2[0]-e1[0]*e2[2],e1[0]*e2[1]-e1[1]*e2[0]];
+  // нормала: първо от файла (авторитетна посока НАВЪН), иначе от навиването
+  let nrm=t.n;
+  if(!nrm||(!nrm[0]&&!nrm[1]&&!nrm[2])){
+   const e1=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],e2=[c[0]-a[0],c[1]-a[1],c[2]-a[2]];
+   nrm=[e1[1]*e2[2]-e1[2]*e2[1],e1[2]*e2[0]-e1[0]*e2[2],e1[0]*e2[1]-e1[1]*e2[0]];
+  }
   const nv=rotDir(nrm[0],nrm[1],nrm[2]);      // нормала в координатите на камерата
   if(nv[2]<=0)continue;                        // отрязване на задните стени
   let d=0;const scr=[];
