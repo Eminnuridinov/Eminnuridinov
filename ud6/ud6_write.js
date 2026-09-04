@@ -230,5 +230,33 @@
     return cat(head.concat(layer, parts, trailer));
   }
 
-  return { buildUD6, normalize, renderPreview, tokenize, enc35, enc14, dec35, XOR };
+  // ------------------------------------------------------------ декодер (огледало на ud6_decode.py)
+  /* Чете обратно генерирания файл: контури в µm, брояч на сегменти, header записи.
+     Ползва се за преглед на екрана — рисува се това, което наистина е във файла. */
+  function s14(p, o) { const v = ((p[o] ^ XOR) << 7) | (p[o + 1] ^ XOR); return v >= 8192 ? v - 16384 : v; }
+  function decode(data) {
+    const T = tokenize(data);
+    const contours = [], counts = { dd: 0, dc: 0, de: 0, df: 0, fd: 0, fc: 0 }, header = {};
+    let cur = null, x = 0, y = 0, bbox = {}, layers = 0;
+    for (const [op, p] of T) {
+      if (op === 0xFC) {
+        x = dec35(p, 0); y = dec35(p, 5); counts.fc++;
+        cur = { pts: [[x, y]], bbox, idx: null }; bbox = {}; contours.push(cur);
+      } else if (op === 0xDC) { x = dec35(p, 0); y = dec35(p, 5); counts.dc++; cur.pts.push([x, y]); }
+      else if (op === 0xDD) { x += s14(p, 0); y += s14(p, 2); counts.dd++; cur.pts.push([x, y]); }
+      else if (op === 0xDE) { x += s14(p, 0); counts.de++; cur.pts.push([x, y]); }
+      else if (op === 0xDF) { y += s14(p, 0); counts.df++; cur.pts.push([x, y]); }
+      else if (op === 0xFD) { x += s14(p, 0); y += s14(p, 2); counts.fd++; cur.pts.push([x, y]); }
+      else if (op === 0xB0 && p.length === 11) {
+        const r = p[0] ^ XOR;
+        if (r === 0x14) { bbox.ymin = dec35(p, 1); bbox.ymax = dec35(p, 6); }
+        if (r === 0x15) { bbox.xmin = dec35(p, 1); bbox.xmax = dec35(p, 6); }
+      } else if (op === 0xB0 && p.length === 6 && (p[0] ^ XOR) === 0x23 && cur) cur.idx = dec35(p, 1);
+      else if (op === 0xB7 && (p[0] ^ XOR) === 4) layers++;
+      else if (op === 0x94 && p.length) header[p[0] ^ XOR] = p;
+    }
+    return { contours, counts, header, layers, tokens: T.length };
+  }
+
+  return { buildUD6, normalize, renderPreview, tokenize, decode, enc35, enc14, dec35, s14, XOR };
 }));

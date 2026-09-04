@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>EMIN Nesting Lab v1.8</title>
+<title>EMIN Nesting Lab v1.9</title>
 <style>
 :root{
   --bg:#0f1115; --panel:#181b22; --panel2:#1f242d; --line:#2a313c;
@@ -77,11 +77,19 @@ svg{display:block;width:100%;height:auto}
 .scroll{overflow-x:auto}
 @media print{
   body{background:#fff;color:#000}
-  header,.col-l,.nav,.legend,#viz,.noprint{display:none!important}
+  header,.col-l,.nav,.noprint{display:none!important}
   .wrap{display:block;max-width:none;height:auto;padding:0}
   .card{border:1px solid #999;background:#fff;page-break-inside:avoid}
   .card h2,td,th{color:#000} td,th{border-color:#bbb} .hint{color:#333}
+  /* схемата на листа се печата — за цеха */
+  #viz{display:block!important;position:static;padding:0;background:#fff;page-break-after:always}
+  #svgbox{background:#fff;border:1px solid #999}
+  #svgbox svg{max-height:20cm}
+  .legend{display:flex!important;color:#000}
+  .legend span{color:#333}
+  #printHead{display:block!important}
 }
+#printHead{display:none;font-size:12px;margin-bottom:6px}
 @media(min-width:900px){
   .wrap{max-width:1380px;display:grid;grid-template-columns:400px 1fr;gap:14px;align-items:start;
     height:calc(100vh - 52px);padding:14px}
@@ -94,7 +102,7 @@ svg{display:block;width:100%;height:auto}
 <body>
 <header>
   <h1>EMIN Nesting Lab</h1>
-  <span class="badge mono" id="ver">v1.8</span>
+  <span class="badge mono" id="ver">v1.9</span>
   <span class="sub mono" id="hdrOrder">—</span>
 </header>
 
@@ -148,6 +156,7 @@ svg{display:block;width:100%;height:auto}
       <div><label><i class="dot y"></i>Kerf по ID, mm (само .ud6)</label><input type="number" id="ki" value="1" step="0.1"></div>
       <div><label><i class="dot y"></i>Застъпване, mm (само .ud6)</label><input type="number" id="ov" value="3" step="0.5"></div>
       <div><label><i class="dot y"></i>Скорост на ножа, mm/s</label><input type="number" id="sp" value="20" step="1"></div>
+      <div><label><i class="dot y"></i>Бърз ход, mm/s (0 = не се брои)</label><input type="number" id="rs" value="0" step="10"></div>
     </div>
     <div class="hint" id="kerfHint"></div>
   </div>
@@ -247,11 +256,13 @@ svg{display:block;width:100%;height:auto}
 <div class="col-r">
 
   <div id="viz">
+    <div id="printHead" class="mono"></div>
     <div id="svgbox"><svg viewBox="0 0 1500 1500"></svg></div>
     <div class="nav">
       <button id="prev">‹</button>
       <div class="lbl mono" id="navlbl">—</div>
       <button id="next">›</button>
+      <button id="ud6view" title="Преглед на .ud6" style="width:auto;padding:0 10px;font-size:12px">.ud6</button>
     </div>
     <div class="legend" id="legend"></div>
   </div>
@@ -518,7 +529,35 @@ svg{display:block;width:100%;height:auto}
     return cat(head.concat(layer, parts, trailer));
   }
 
-  return { buildUD6, normalize, renderPreview, tokenize, enc35, enc14, dec35, XOR };
+  // ------------------------------------------------------------ декодер (огледало на ud6_decode.py)
+  /* Чете обратно генерирания файл: контури в µm, брояч на сегменти, header записи.
+     Ползва се за преглед на екрана — рисува се това, което наистина е във файла. */
+  function s14(p, o) { const v = ((p[o] ^ XOR) << 7) | (p[o + 1] ^ XOR); return v >= 8192 ? v - 16384 : v; }
+  function decode(data) {
+    const T = tokenize(data);
+    const contours = [], counts = { dd: 0, dc: 0, de: 0, df: 0, fd: 0, fc: 0 }, header = {};
+    let cur = null, x = 0, y = 0, bbox = {}, layers = 0;
+    for (const [op, p] of T) {
+      if (op === 0xFC) {
+        x = dec35(p, 0); y = dec35(p, 5); counts.fc++;
+        cur = { pts: [[x, y]], bbox, idx: null }; bbox = {}; contours.push(cur);
+      } else if (op === 0xDC) { x = dec35(p, 0); y = dec35(p, 5); counts.dc++; cur.pts.push([x, y]); }
+      else if (op === 0xDD) { x += s14(p, 0); y += s14(p, 2); counts.dd++; cur.pts.push([x, y]); }
+      else if (op === 0xDE) { x += s14(p, 0); counts.de++; cur.pts.push([x, y]); }
+      else if (op === 0xDF) { y += s14(p, 0); counts.df++; cur.pts.push([x, y]); }
+      else if (op === 0xFD) { x += s14(p, 0); y += s14(p, 2); counts.fd++; cur.pts.push([x, y]); }
+      else if (op === 0xB0 && p.length === 11) {
+        const r = p[0] ^ XOR;
+        if (r === 0x14) { bbox.ymin = dec35(p, 1); bbox.ymax = dec35(p, 6); }
+        if (r === 0x15) { bbox.xmin = dec35(p, 1); bbox.xmax = dec35(p, 6); }
+      } else if (op === 0xB0 && p.length === 6 && (p[0] ^ XOR) === 0x23 && cur) cur.idx = dec35(p, 1);
+      else if (op === 0xB7 && (p[0] ^ XOR) === 4) layers++;
+      else if (op === 0x94 && p.length) header[p[0] ^ XOR] = p;
+    }
+    return { contours, counts, header, layers, tokens: T.length };
+  }
+
+  return { buildUD6, normalize, renderPreview, tokenize, decode, enc35, enc14, dec35, s14, XOR };
 }));
 /* ================= /ud6_write.js ================= */
 
@@ -543,7 +582,7 @@ var ORDER='R0006489', CLIENT='ОЙ Бринолф Гронмарк', MATERIAL='�
 var LSKEY='EMIN_NEST_'+ORDER;
 var PALETTE=['#5aa9e6','#2dd4bf','#facc15','#f87171','#c084fc','#34d399','#fb923c','#38bdf8',
              '#a78bfa','#f472b6','#94a3b8','#e879f9','#4ade80','#fbbf24','#60a5fa'];
-var state={mode:'one', nest:1, res:null, cur:0, cfg:null, zones:[], journal:[], remaining:null};
+var state={mode:'one', nest:1, res:null, cur:0, cfg:null, zones:[], journal:[], remaining:null, ud6view:false};
 function partId(od,idd){return nf(od)+'/'+nf(idd);}
 function nextColor(){
   for(var i=0;i<PALETTE.length;i++){
@@ -911,13 +950,14 @@ function sheetContours(rings,kerfId,overlap,noPath){
   });
   return out;
 }
-/* празен ход при подадения ред на контурите */
+/* Празен ход при подадения ред: от КРАЯ на предишния контур (след застъпването) до старта на
+   следващия — това мери ножът наистина. Съвпада с измереното върху декодирания .ud6. */
 function travelOf(cs){
   var d=0,px=null,py=null;
   for(var i=0;i<cs.length;i++){
-    var p=ptsOf(cs[i].pts)[0];
-    if(px!==null) d+=Math.sqrt(Math.pow(p[0]-px,2)+Math.pow(p[1]-py,2));
-    px=p[0]; py=p[1];
+    var P=ptsOf(cs[i].pts),s=P[0],e=P[P.length-1];
+    if(px!==null) d+=Math.sqrt(Math.pow(s[0]-px,2)+Math.pow(s[1]-py,2));
+    px=e[0]; py=e[1];
   }
   return d;
 }
@@ -1014,6 +1054,50 @@ function renderExtra(){
   box.innerHTML='<div class="hint">В свободното място на този лист се събират още (ако режеш само тази позиция):<br>'+
     e.map(function(x){return '<span style="color:'+x.col+'">поз.'+x.pos+' ('+x.id+') × '+x.n+(x.capped?'+':'')+'</span>';}).join(' · ')+
     '<br>Резерв срещу брак — вадиш ги от този лист, без да започваш нов.</div>';
+}
+
+/* ================= Остатък: най-голямото цяло свободно парче ================= */
+/* Мрежа през RECT_STEP mm; клетката е свободна, ако центърът ѝ е извън всеки кръг и всяка зона
+   с половин диагонал резерв (консервативно — по-скоро подценява парчето, отколкото да го надуе).
+   После максимален правоъгълник в двоичната матрица по хистограмния метод. */
+var RECT_STEP=10, RECT_MIN=100;   /* по-тясно от това не е парче, а ивица */
+function freeRect(sh,c,step){
+  step=step||RECT_STEP;
+  var m=c.margin,W=c.W,H=c.H;
+  var nx=Math.floor((W-2*m)/step),ny=Math.floor((H-2*m)/step);
+  if(nx<1||ny<1) return null;
+  var half=step*Math.SQRT2/2,i,j,k;
+  var circ=[]; for(k=0;k<sh.length;k++) if(sh[k].depth===0) circ.push({x:sh[k].x,y:sh[k].y,r:sh[k].od/2});
+  var zones=c.zones||[];
+  var g=new Uint8Array(nx*ny);
+  for(j=0;j<ny;j++) for(i=0;i<nx;i++){
+    var cx=m+(i+0.5)*step,cy=m+(j+0.5)*step,free=1;
+    for(k=0;k<circ.length;k++){
+      var dx=cx-circ[k].x,dy=cy-circ[k].y,need=circ[k].r+half;
+      if(dx*dx+dy*dy<need*need){free=0;break;}
+    }
+    if(free) for(k=0;k<zones.length;k++){
+      var z=zones[k];
+      if(cx>z.x-half&&cx<z.x+z.w+half&&cy>z.y-half&&cy<z.y+z.h+half){free=0;break;}
+    }
+    g[j*nx+i]=free;
+  }
+  var hgt=new Int32Array(nx),best={w:0,h:0,x:0,y:0,area:0};
+  for(j=0;j<ny;j++){
+    for(i=0;i<nx;i++) hgt[i]=g[j*nx+i]?hgt[i]+1:0;
+    var st=[];
+    for(i=0;i<=nx;i++){
+      var cur=i<nx?hgt[i]:0;
+      while(st.length&&hgt[st[st.length-1]]>=cur){
+        var h=hgt[st.pop()],left=st.length?st[st.length-1]+1:0,w=i-left;
+        var area=w*h*step*step;
+        if(area>best.area) best={w:w*step,h:h*step,x:m+left*step,y:m+(j-h+1)*step,area:area};
+      }
+      st.push(i);
+    }
+  }
+  if(!best.area||Math.min(best.w,best.h)<RECT_MIN) return null;
+  return best;
 }
 
 /* ================= Прагове по размер на листа ================= */
@@ -1156,7 +1240,7 @@ function renderRemaining(){
 function cfg(){
   return {W:+$('sw').value,H:+$('sh').value,margin:+$('mg').value,gap:+$('gp').value,
           kerf:+$('kf').value||0,kerfId:+$('ki').value||0,overlap:+$('ov').value||0,
-          speed:+$('sp').value||20,nest:state.nest,zones:zonesAbs()};
+          speed:+$('sp').value||20,rapid:+$('rs').value||0,nest:state.nest,zones:zonesAbs()};
 }
 function validate(){
   var c=cfg(),errs=[],warns=[];
@@ -1165,6 +1249,7 @@ function validate(){
   if(c.kerf<0||c.kerfId<0) errs.push('Kerf не може да е отрицателен.');
   if(c.overlap<0) errs.push('Застъпването не може да е отрицателно.');
   if(c.speed<=0) errs.push('Скоростта на ножа трябва да е положителна.');
+  if(c.rapid<0) errs.push('Бързият ход не може да е отрицателен.');
   PARTS.forEach(function(p){
     if(p.idd>=p.od) errs.push('Поз. '+p.pos+': ID трябва да е по-малко от OD.');
     if(p.qty<0) errs.push('Поз. '+p.pos+': отрицателно количество.');
@@ -1274,6 +1359,29 @@ function commit(){
   validate();
 }
 
+/* ================= Преглед на генерирания .ud6 ================= */
+/* Файлът се декодира обратно и се рисува това, което наистина е в него: контурите в реда на
+   рязане и празният ход между тях. Точките се разреждат само за екрана (до UD6_VIEW_PTS на контур). */
+var UD6_VIEW_PTS=64;
+function ud6View(sh,c){
+  var data=buildUD6Sheet(sh,c.kerfId,c.overlap),d=UD6.decode(data);
+  var xs=[],ys=[];
+  sh.forEach(function(r){ if(r.depth===0){xs.push(r.x-r.od/2);ys.push(r.y+r.od/2);} });
+  var ox=Math.min.apply(null,xs),oy=Math.max.apply(null,ys);   /* .ud6 началото в координатите на листа */
+  var out=[],travel=0,px=null,py=null;
+  d.contours.forEach(function(k,i){
+    var n=k.pts.length,step=Math.max(1,Math.ceil(n/UD6_VIEW_PTS)),pts=[];
+    for(var q=0;q<n;q+=step) pts.push([ox+k.pts[q][0]/1000, oy+k.pts[q][1]/1000]);
+    if(pts.length&&(n-1)%step) pts.push([ox+k.pts[n-1][0]/1000, oy+k.pts[n-1][1]/1000]);
+    var s=[ox+k.pts[0][0]/1000, oy+k.pts[0][1]/1000];
+    if(px!==null) travel+=Math.sqrt(Math.pow(s[0]-px,2)+Math.pow(s[1]-py,2));
+    var e=[ox+k.pts[n-1][0]/1000, oy+k.pts[n-1][1]/1000];
+    out.push({idx:k.idx,pts:pts,start:s,prev:px===null?null:[px,py]});
+    px=e[0]; py=e[1];
+  });
+  return {contours:out,travel:travel,bytes:data.length,segments:d.counts.dd+d.counts.dc+d.counts.de+d.counts.df};
+}
+
 /* ================= Визуализация ================= */
 function drawSheet(){
   var res=state.res,c=state.cfg,svg=document.querySelector('#svgbox svg');
@@ -1289,21 +1397,54 @@ function drawSheet(){
     p.push('<rect x="'+z.x+'" y="'+(c.H-z.y-z.h)+'" width="'+z.w+'" height="'+z.h+
            '" fill="url(#hz)" stroke="#f87171" stroke-width="3"/>');
   });
-  for(var i=0;i<sh.length;i++){
-    var r=sh[i],cy=c.H-r.y,col=colOf(r.type);
-    p.push('<circle cx="'+r.x.toFixed(2)+'" cy="'+cy.toFixed(2)+'" r="'+(r.od/2).toFixed(2)+
-           '" fill="'+col+'" fill-opacity="'+(r.depth===0?0.13:0.20)+'" stroke="'+col+'" stroke-width="2.5"/>');
-    p.push('<circle cx="'+r.x.toFixed(2)+'" cy="'+cy.toFixed(2)+'" r="'+(r.idd/2).toFixed(2)+
-           '" fill="#12151b" stroke="'+col+'" stroke-width="1.6" stroke-opacity="0.75"/>');
+  if(state.ud6view){
+    var V=ud6View(sh,c),n=V.contours.length;
+    V.contours.forEach(function(k,i){
+      var t=n>1?i/(n-1):0,col;
+      if(t<0.5){var u=t*2; col='rgb('+Math.round(45+45*u)+','+Math.round(212-43*u)+','+Math.round(191+39*u)+')';}
+      else{var u2=(t-0.5)*2; col='rgb('+Math.round(90+160*u2)+','+Math.round(169+35*u2)+','+Math.round(230-209*u2)+')';}
+      if(k.prev) p.push('<line x1="'+k.prev[0].toFixed(1)+'" y1="'+(c.H-k.prev[1]).toFixed(1)+
+        '" x2="'+k.start[0].toFixed(1)+'" y2="'+(c.H-k.start[1]).toFixed(1)+
+        '" stroke="#8a93a0" stroke-width="1" stroke-dasharray="6 5" stroke-opacity="0.55"/>');
+      p.push('<polyline points="'+k.pts.map(function(q){return q[0].toFixed(1)+','+(c.H-q[1]).toFixed(1);}).join(' ')+
+        '" fill="none" stroke="'+col+'" stroke-width="2"/>');
+      if(i===0||(i+1)%20===0) p.push('<text x="'+(k.start[0]+6).toFixed(1)+'" y="'+(c.H-k.start[1]-6).toFixed(1)+
+        '" fill="#e6e9ee" font-size="20" font-family="monospace">'+(k.idx||i+1)+'</text>');
+    });
+    p.push('<circle cx="'+V.contours[0].start[0].toFixed(1)+'" cy="'+(c.H-V.contours[0].start[1]).toFixed(1)+
+      '" r="12" fill="none" stroke="#facc15" stroke-width="3"/>');
+  } else {
+    for(var i=0;i<sh.length;i++){
+      var r=sh[i],cy=c.H-r.y,col=colOf(r.type);
+      p.push('<circle cx="'+r.x.toFixed(2)+'" cy="'+cy.toFixed(2)+'" r="'+(r.od/2).toFixed(2)+
+             '" fill="'+col+'" fill-opacity="'+(r.depth===0?0.13:0.20)+'" stroke="'+col+'" stroke-width="2.5"/>');
+      p.push('<circle cx="'+r.x.toFixed(2)+'" cy="'+cy.toFixed(2)+'" r="'+(r.idd/2).toFixed(2)+
+             '" fill="#12151b" stroke="'+col+'" stroke-width="1.6" stroke-opacity="0.75"/>');
+    }
+    var fr=freeRect(sh,c);
+    if(fr){
+      p.push('<rect x="'+fr.x.toFixed(1)+'" y="'+(c.H-fr.y-fr.h).toFixed(1)+'" width="'+fr.w.toFixed(1)+
+        '" height="'+fr.h.toFixed(1)+'" fill="none" stroke="#2dd4bf" stroke-width="2" stroke-dasharray="16 10" stroke-opacity="0.6"/>');
+      p.push('<text x="'+(fr.x+6).toFixed(1)+'" y="'+(c.H-fr.y-fr.h+30).toFixed(1)+
+        '" fill="#2dd4bf" font-size="22" font-family="monospace">остатък '+Math.round(fr.w)+'×'+Math.round(fr.h)+'</text>');
+    }
   }
   p.push('</svg>');
   svg.outerHTML=p.join('');
   var cnt={}; sh.forEach(function(r){cnt[r.type]=(cnt[r.type]||0)+1;});
   $('navlbl').textContent=(state.mode==='one'?'Лист '+(state.journal.length+1)+' (нов) · ':'Лист '+(state.cur+1)+' / '+res.sheets.length+' · ')+
     c.W+'×'+c.H+' · '+sh.length+' бр';
-  $('legend').innerHTML=Object.keys(cnt).map(function(k){
-    return '<span><i style="background:'+colOf(k)+'"></i>'+k+' × '+cnt[k]+'</span>';}).join('')+
-    ((c.zones&&c.zones.length)?'<span><i style="background:#f87171"></i>дефект × '+c.zones.length+'</span>':'');
+  $('legend').innerHTML=state.ud6view
+    ? '<span><i style="background:#2dd4bf"></i>първи</span><span><i style="background:#5aa9e6"></i>среда</span>'+
+      '<span><i style="background:#facc15"></i>последни</span>'+
+      '<span><i style="background:#8a93a0"></i>празен ход</span><span>жълтият кръг е началото</span>'
+    : Object.keys(cnt).map(function(k){
+        return '<span><i style="background:'+colOf(k)+'"></i>'+k+' × '+cnt[k]+'</span>';}).join('')+
+      ((c.zones&&c.zones.length)?'<span><i style="background:#f87171"></i>дефект × '+c.zones.length+'</span>':'')+
+      '<span><i style="background:transparent;border:1px dashed #2dd4bf"></i>най-голям цял остатък</span>';
+  $('printHead').textContent=ORDER+' · лист '+(state.mode==='one'?(state.journal.length+1):(state.cur+1))+
+    ' · '+c.W+'×'+c.H+' mm · '+MATERIAL+' t'+nf(THICK)+' · ръб '+nf(c.margin)+' мостче '+nf(c.gap)+
+    ' kerf '+nf(c.kerf)+' · '+sh.length+' бр';
   renderDetail(); renderUD6Hint(); renderMTime(); renderExtra();
 }
 function renderMTime(){
@@ -1312,8 +1453,14 @@ function renderMTime(){
   if(!res||!res.sheets.length||!c){box.textContent='';return;}
   var sh=res.sheets[state.cur],t=machineTime(sh,c);
   var was=travelOf(sheetContours(sh,c.kerfId,c.overlap,true)),now=travelOf(sheetContours(sh,c.kerfId,c.overlap));
-  box.textContent='машинно време ≈ '+fmtTime(t.sec)+' · рязане '+nf(t.len/1000)+' m · '+t.pierces+
-    ' пробива при '+nf(c.speed)+' mm/s\nпразен ход '+nf(now/1000)+' m (без подреждане '+nf(was/1000)+' m) — не влиза във времето';
+  var L='машинно време ≈ '+fmtTime(t.sec)+(c.rapid?' + '+fmtTime(now/c.rapid)+' празен ход = '+fmtTime(t.sec+now/c.rapid):'')+
+    '\nрязане '+nf(t.len/1000)+' m при '+nf(c.speed)+' mm/s · '+t.pierces+' пробива'+
+    '\nпразен ход '+nf(now/1000)+' m (без подреждане '+nf(was/1000)+' m)'+
+    (c.rapid?' при '+nf(c.rapid)+' mm/s':' — не влиза във времето, задай бърз ход');
+  var fr=freeRect(sh,c);
+  L+=fr ? '\nнай-голям цял остатък ≈ '+Math.round(fr.w)+' × '+Math.round(fr.h)+' mm ('+nf(fr.area/1e6)+' m²)'
+        : '\nняма цяло свободно парче над '+RECT_MIN+' mm — листът е използван докрай';
+  box.textContent=L;
 }
 
 /* ================= Журнал / анализ ================= */
@@ -1720,6 +1867,7 @@ function applyMode(){
     ? 'Мери листа пред теб, въвеждаш размера и дефектите, режеш само него. Остатъчните количества се водят сами.'
     : 'Планов разкрой на цялата поръчка при един номинален размер — за оферта и норма.';
   $('kSheetsL').textContent = one?'реза':'листа';
+  state.ud6view=false;
   $('commit').disabled=true; $('dxfAll').disabled=true; $('dxf1').disabled=true; $('csv').disabled=true;
   $('ud61').disabled=true; $('ud6All').disabled=true; $('ud6Hint').textContent='';
   validate();
@@ -1733,7 +1881,7 @@ function init(){
   saveLS();                                   /* текущата поръчка да се вижда в историята веднага */
   renderParts(); renderRemaining(); renderZones(); renderJournal(); renderAnalysis(); renderHistory(); applyMode();
 
-  Array.prototype.forEach.call(document.querySelectorAll('#sw,#sh,#mg,#gp,#kf,#ki,#ov,#sp'),function(el){
+  Array.prototype.forEach.call(document.querySelectorAll('#sw,#sh,#mg,#gp,#kf,#ki,#ov,#sp,#rs'),function(el){
     el.addEventListener('change',function(){renderRemaining();validate();});});
   $('oNum').addEventListener('change',switchOrder);
   Array.prototype.forEach.call(document.querySelectorAll('#oCli,#oMat,#oThk,#oQty'),function(el){
@@ -1758,6 +1906,17 @@ function init(){
     state.zones.push({corner:'gl',w:150,h:150,x:0,y:0}); renderZones(); validate();});
   $('run').addEventListener('click',run);
   $('commit').addEventListener('click',commit);
+  $('ud6view').addEventListener('click',function(){
+    if(!state.res)return;
+    var b=$('ud6view'),on=!state.ud6view;
+    b.disabled=true; b.textContent=on?'…':'.ud6';
+    setTimeout(function(){                       /* генерирането и декодирането трае няколко секунди */
+      state.ud6view=on;
+      b.style.borderColor=on?'var(--teal)':'var(--line)';
+      b.style.color=on?'var(--teal)':'var(--text)';
+      drawSheet();
+      b.textContent='.ud6'; b.disabled=false;
+    },30);});
   $('prev').addEventListener('click',function(){
     if(!state.res)return; state.cur=(state.cur-1+state.res.sheets.length)%state.res.sheets.length; drawSheet();});
   $('next').addEventListener('click',function(){
@@ -1870,7 +2029,8 @@ window.run=run; window.drawSheet=drawSheet; window.renderAnalysis=renderAnalysis
 window.addPart=addPart; window.rekey=rekey; window.renumber=renumber; window.switchOrder=switchOrder; window.readMeta=readMeta; window.metaObj=metaObj;
 window.renderParts=renderParts; window.partId=partId; window.loadLS=loadLS; window.saveLS=saveLS;
 window.circlePoly=circlePoly; window.ptsOf=ptsOf; window.treeSeq=treeSeq; window.orderByPath=orderByPath;
-window.travelOf=travelOf; window.treeEnds=treeEnds; window.CORNERS=CORNERS; window.sheetContours=sheetContours; window.buildUD6Sheet=buildUD6Sheet; window.ud6Origin=ud6Origin;
+window.travelOf=travelOf; window.treeEnds=treeEnds; window.CORNERS=CORNERS;
+window.freeRect=freeRect; window.ud6View=ud6View; window.UD6=UD6; window.sheetContours=sheetContours; window.buildUD6Sheet=buildUD6Sheet; window.ud6Origin=ud6Origin;
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
 </script>
 </body>

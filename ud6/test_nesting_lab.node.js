@@ -1,4 +1,4 @@
-// Тест на EMIN_Nesting_Lab_v1.8.html през DOM mock:  node --test test_nesting_lab.node.js
+// Тест на EMIN_Nesting_Lab_v1.9.html през DOM mock:  node --test test_nesting_lab.node.js
 // 1) целият скрипт минава init без runtime грешки; 2) computeNesting -> buildUD6Sheet -> ud6_decode.py;
 // 3) ZIP с binary .ud6 през python zipfile; 4) вграденият модул == ud6_write.js.
 'use strict';
@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 const J = v => JSON.parse(JSON.stringify(v));   // масивите от vm контекста са друг realm
 const fs = require('fs'), path = require('path'), vm = require('vm'), cp = require('child_process');
 
-const HTML_PATH = path.join(__dirname, 'EMIN_Nesting_Lab_v1.8.html');
+const HTML_PATH = path.join(__dirname, 'EMIN_Nesting_Lab_v1.9.html');
 const html = fs.readFileSync(HTML_PATH, 'utf8');
 const script = html.slice(html.indexOf('<script>') + 8, html.lastIndexOf('</script>'));
 const TMP = fs.mkdtempSync(path.join(require('os').tmpdir(), 'nest-'));
@@ -54,7 +54,7 @@ function makeWindow() {
 }
 function boot() {
   const w = makeWindow();
-  for (const [id, v] of Object.entries({ sw: '1500', sh: '1500', mg: '5', gp: '2', kf: '1', ki: '1', ov: '3', sp: '20', thA: '1400', thB: '1500', thS: '10', mW: '1500', mH: '1500',
+  for (const [id, v] of Object.entries({ sw: '1500', sh: '1500', mg: '5', gp: '2', kf: '1', ki: '1', ov: '3', sp: '20', rs: '0', thA: '1400', thB: '1500', thS: '10', mW: '1500', mH: '1500',
        oNum: 'R0006489', oQty: '270', oCli: 'ОЙ Бринолф Гронмарк', oMat: 'модиф. ПТФЕ с барий', oThk: '1.5' }))
     w.document.getElementById(id).value = v;
   vm.createContext(w);
@@ -69,8 +69,8 @@ test('целият скрипт минава init без грешки; верс�
   assert.equal(typeof w.computeNesting, 'function');
   assert.equal(typeof w.buildUD6Sheet, 'function');
   assert.equal(typeof w.UD6.buildUD6, 'function');
-  assert.match(html, /<span class="badge mono" id="ver">v1\.8<\/span>/);
-  assert.match(html, /<title>EMIN Nesting Lab v1\.8/);
+  assert.match(html, /<span class="badge mono" id="ver">v1\.9<\/span>/);
+  assert.match(html, /<title>EMIN Nesting Lab v1\.9/);
   assert.ok(w._els.ud61 && w._els.ud6All && w._els.ud6Hint, 'нови елементи');
   assert.ok(w._els.oNum && w._els.oQty && w._els.addPart && w._els.ptab, 'карта Поръчка + позиции');
   assert.equal(w._els.hdrOrder.textContent, 'поръчка R0006489');
@@ -545,4 +545,81 @@ test('празен ход при един контур и при празен л
   const one = [{ type: 'A', od: 55, odn: 54, idd: 37, x: 100, y: 100, depth: 0, treeId: 1 }];
   assert.equal(w.sheetContours(one, 1, 3).length, 2);
   assert.ok(w.travelOf(w.sheetContours(one, 1, 3)) >= 0);
+});
+
+
+// ---------------------------------------------------------------- v1.9
+test('остатък: намира парчето, отказва ивиците, спазва зоните', () => {
+  const w = boot();
+  const c = { W: 1500, H: 1500, margin: 5, gap: 2, zones: [] };
+  // празен лист → почти целият е свободен
+  const empty = w.freeRect([], c);
+  assert.ok(empty.w > 1400 && empty.h > 1400, JSON.stringify(empty));
+  // един голям кръг в средата → парчето е отстрани
+  const one = [{ od: 900, idd: 800, x: 750, y: 750, depth: 0, treeId: 1 }];
+  const r = w.freeRect(one, c);
+  assert.ok(r && Math.min(r.w, r.h) >= 100);
+  assert.ok(r.x + r.w <= 1495 + 1e-6 && r.y + r.h <= 1495 + 1e-6, 'в границите');
+  // правоъгълникът не се застъпва с кръга
+  const cx = 750, cy = 750;
+  const near = Math.hypot(Math.max(r.x, Math.min(cx, r.x + r.w)) - cx, Math.max(r.y, Math.min(cy, r.y + r.h)) - cy);
+  assert.ok(near >= 450 - 8, 'разстояние до кръга ' + near.toFixed(1));
+  // зоната се изключва
+  const withZone = w.freeRect([], Object.assign({}, c, { zones: [{ x: 0, y: 0, w: 1400, h: 1400 }] }));
+  assert.ok(!withZone || withZone.area < 1400 * 1400, 'зоната се спазва');
+});
+
+test('остатък: пълен лист връща null', () => {
+  const w = boot();
+  const list = w.PARTS.map(p => ({ id: p.id, od: p.od, idd: p.idd, qty: p.qty }));
+  const cfg = { W: 1500, H: 1500, margin: 5, gap: 2, kerf: 1, nest: 1, zones: [], maxSheets: 1 };
+  const sh = w.computeNesting(list, cfg).sheets[0];
+  assert.equal(w.freeRect(sh, cfg), null, 'пълният лист няма цяло парче');
+});
+
+test('преглед на .ud6: чете се от самия файл и съвпада с разкроя', () => {
+  const w = boot();
+  const list = w.PARTS.map(p => ({ id: p.id, od: p.od, idd: p.idd, qty: p.qty }));
+  const cfg = { W: 1485, H: 1500, margin: 5, gap: 2, kerf: 1, kerfId: 1, overlap: 3, nest: 1, zones: [], maxSheets: 1 };
+  const sh = w.computeNesting(list, cfg).sheets[0];
+  const V = w.ud6View(sh, cfg);
+  // по два контура на пръстен
+  assert.equal(V.contours.length, sh.length * 2);
+  // поредните номера са 1..N в реда на рязане
+  assert.deepEqual(J(V.contours.map(k => k.idx)), J(V.contours.map((_, i) => i + 1)));
+  // празният ход от файла съвпада с този от разкроя (до 1 mm)
+  const fromPlan = w.travelOf(w.sheetContours(sh, cfg.kerfId, cfg.overlap));
+  assert.ok(Math.abs(V.travel - fromPlan) < 1, 'от файла ' + V.travel.toFixed(1) + ' срещу от разкроя ' + fromPlan.toFixed(1));
+  // всички точки са в границите на листа
+  for (const k of V.contours) for (const q of k.pts)
+    assert.ok(q[0] >= -1 && q[0] <= cfg.W + 1 && q[1] >= -1 && q[1] <= cfg.H + 1, 'точка извън листа ' + q);
+  assert.ok(V.segments > 0 && V.bytes > 60000);
+});
+
+test('бърз ход влиза във времето само ако е зададен', () => {
+  const w = boot();
+  const sh = [{ type: 'a', od: 219, odn: 218, idd: 169, x: 300, y: 300, depth: 0, treeId: 1 },
+              { type: 'a', od: 219, odn: 218, idd: 169, x: 900, y: 900, depth: 0, treeId: 2 }];
+  w.state.res = { sheets: [sh], sheetCount: 1, counts: {}, kim: 0 };
+  w.state.cur = 0;
+  w.state.cfg = { W: 1500, H: 1500, margin: 5, gap: 2, kerf: 1, kerfId: 1, overlap: 3, speed: 20, rapid: 0, zones: [] };
+  w.renderMTime !== undefined;
+  w.drawSheet();
+  assert.doesNotMatch(w._els.mtime.textContent, /празен ход =/);
+  assert.match(w._els.mtime.textContent, /задай бърз ход/);
+  w.state.cfg.rapid = 300;
+  w.drawSheet();
+  assert.match(w._els.mtime.textContent, /\+ .* празен ход = /);
+  assert.match(w._els.mtime.textContent, /при 300 mm\/s/);
+});
+
+test('печатното заглавие носи поръчка, лист и параметри', () => {
+  const w = boot();
+  w.state.mode = 'all';
+  const list = w.PARTS.map(p => ({ id: p.id, od: p.od, idd: p.idd, qty: p.qty }));
+  const cfg = { W: 1490, H: 1490, margin: 5, gap: 2, kerf: 1, kerfId: 1, overlap: 3, speed: 20, rapid: 0, nest: 1, zones: [], maxSheets: 1 };
+  w.state.res = w.computeNesting(list, cfg); w.state.cfg = cfg; w.state.cur = 0;
+  w.drawSheet();
+  const h = w._els.printHead.textContent;
+  assert.match(h, /R0006489/); assert.match(h, /1490×1490/); assert.match(h, /ръб 5/);
 });

@@ -10,25 +10,8 @@ const cases = JSON.parse(fs.readFileSync(path.join(F, 'cases.json')));
 const T1 = JSON.parse(fs.readFileSync(path.join(F, 'T1_points.json')));
 const T4 = new Uint8Array(fs.readFileSync(path.join(__dirname, 'samples', 'T4_order_ABC.UD6')));
 
-// мини-декодер (същата логика като ud6_decode.py) — контури в µm + header записи
-function decode(data) {
-  const T = U.tokenize(data);
-  const s14 = (p, o) => { let v = ((p[o] ^ U.XOR) << 7) | (p[o + 1] ^ U.XOR); return v >= 8192 ? v - 16384 : v; };
-  const contours = []; let cur = null, x = 0, y = 0, bbox = {}, layers = 0;
-  const counts = { dd: 0, dc: 0, de: 0, df: 0, fd: 0, fc: 0 }, header = {};
-  for (const [op, p] of T) {
-    if (op === 0xFC) { x = U.dec35(p, 0); y = U.dec35(p, 5); counts.fc++; cur = { pts: [[x, y]], bbox, idx: null }; bbox = {}; contours.push(cur); }
-    else if (op === 0xDC) { x = U.dec35(p, 0); y = U.dec35(p, 5); counts.dc++; cur.pts.push([x, y]); }
-    else if (op === 0xDD) { x += s14(p, 0); y += s14(p, 2); counts.dd++; cur.pts.push([x, y]); }
-    else if (op === 0xDE) { x += s14(p, 0); counts.de++; cur.pts.push([x, y]); }
-    else if (op === 0xDF) { y += s14(p, 0); counts.df++; cur.pts.push([x, y]); }
-    else if (op === 0xB0 && p.length === 11) { const r = p[0] ^ U.XOR; if (r === 0x14) { bbox.ymin = U.dec35(p, 1); bbox.ymax = U.dec35(p, 6); } if (r === 0x15) { bbox.xmin = U.dec35(p, 1); bbox.xmax = U.dec35(p, 6); } }
-    else if (op === 0xB0 && p.length === 6 && (p[0] ^ U.XOR) === 0x23) cur.idx = U.dec35(p, 1);
-    else if (op === 0xB7 && (p[0] ^ U.XOR) === 4) layers++;
-    else if (op === 0x94 && p.length) header[p[0] ^ U.XOR] = p;
-  }
-  return { tokens: T, contours, counts, header, layers };
-}
+const decode = U.decode;   // декодерът вече е част от модула
+const J = v => JSON.parse(JSON.stringify(v));
 const rec2 = (d, i) => [U.dec35(d.header[i], d.header[i].length - 10), U.dec35(d.header[i], d.header[i].length - 5)];
 const rec1 = (d, i) => U.dec35(d.header[i], 1);
 const area2 = P => P.reduce((a, p, i) => { const q = P[(i + 1) % P.length]; return a + p[0] * q[1] - q[0] * p[1]; }, 0);
@@ -50,6 +33,26 @@ test('enc14/enc35 roundtrip', () => {
   assert.throws(() => U.enc14(8192));
 });
 
+test('decode: същите числа като ud6_decode.py за всички образци', () => {
+  for (const n of ['T1_ring_circles', 'T2_ring_polylines', 'T3_two_layers', 'T4_order_ABC']) {
+    const d = U.decode(new Uint8Array(fs.readFileSync(path.join(__dirname, 'samples', n + '.UD6'))));
+    const py = JSON.parse(require('child_process').execFileSync('python3', ['-c', `
+import sys, json; sys.path.insert(0, ${JSON.stringify(__dirname)})
+from ud6_decode import decode, s35
+d = decode(open(${JSON.stringify(path.join(__dirname, 'samples'))} + '/' + '${n}.UD6', 'rb').read())
+print(json.dumps({'n': len(d['contours']), 'counts': d['counts'], 'rec5': s35(d['header'][5][1:6]),
+                  'pts': [len(c['pts']) for c in d['contours']],
+                  'first': d['contours'][0]['pts'][0], 'last': d['contours'][-1]['pts'][-1]}))
+`], { encoding: 'utf8' }));
+    assert.equal(d.contours.length, py.n, n);
+    assert.deepEqual(J(d.counts), py.counts, n);
+    assert.deepEqual(J(d.contours.map(c => c.pts.length)), py.pts, n);
+    assert.deepEqual(J(d.contours[0].pts[0]), py.first, n);
+    assert.deepEqual(J(d.contours[d.contours.length - 1].pts.slice(-1)[0]), py.last, n);
+    assert.equal(U.dec35(d.header[5], 1), py.rec5, n);
+  }
+});
+
 test('tokenize is lossless on T4', () => {
   const T = U.tokenize(T4); let n = 0; for (const [op, p] of T) n += 1 + p.length;
   assert.equal(n, T4.length); assert.equal(T[0][0], 0xA4); assert.equal(T[T.length - 1][0], 0xAC);
@@ -58,7 +61,8 @@ test('tokenize is lossless on T4', () => {
 // ------------------------------------------------------------ структура на изхода
 test('ABC: order A→B→C, CCW, header records, corner marks, single layer', () => {
   const sq = x => [[x, 0], [x + 40, 0], [x + 40, 40], [x, 40]];
-  const d = decode(U.buildUD6([sq(0), sq(300), sq(150)], { start: 'topleft' }));
+  const out = U.buildUD6([sq(0), sq(300), sq(150)], { start: 'topleft' });
+  const d = decode(out);
   assert.deepEqual(d.contours.map(c => c.idx), [1, 2, 3]);
   assert.deepEqual(d.contours.map(c => c.bbox.xmin), [0, 300000, 150000]);
   assert.deepEqual(d.contours.map(c => c.pts[0]), [[0, 0], [300000, 0], [150000, 0]]);
@@ -67,7 +71,7 @@ test('ABC: order A→B→C, CCW, header records, corner marks, single layer', ()
   assert.deepEqual(rec2(d, 3), [340000, -39999]); assert.deepEqual(rec2(d, 24), [340000, 40000]);
   assert.deepEqual(rec2(d, 17), [0, -39999]); assert.deepEqual(rec2(d, 18), [340000, 0]); assert.deepEqual(rec2(d, 21), [0, 340000]);
   assert.deepEqual(rec2(d, 9), [590000, 1495000]);
-  assert.equal(d.tokens.filter(([op, p]) => op === 0xB5 && p.length === 1 && (p[0] ^ U.XOR) === 0x30).length, 12);
+  assert.equal(U.tokenize(out).filter(([op, p]) => op === 0xB5 && p.length === 1 && (p[0] ^ U.XOR) === 0x30).length, 12);
   assert.equal(d.layers, 1);
 });
 
