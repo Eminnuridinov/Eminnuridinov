@@ -188,6 +188,45 @@ def encode_contour(pts, idx, corner_marks=True):
     return T, nseg
 
 
+# ---------------------------------------------------------------- preview bitmap (0xAE / 0xAF)
+PREVIEW_BG = 127        # фон
+PREVIEW_INK = 0         # стойност за (единствения) слой; в двуслойните образци вторият слой е 1
+
+def render_preview(polys, N):
+    """N×N bitmap на задачата (0xAE: N=208, 0xAF: N=136), както го рисува TroCutCAD.
+
+    Калибрирано по T4 (квадрати) и T3 (правоъгълник + кръг), пиксел по пиксел:
+      s = N / max(W, H);  X е ОГЛЕДАЛНО: px = round((W − x)·s), ограничено до N−1;
+      късата ос е центрирана: off = round((N − L·s)/2), py = off + round(−y·s).
+    Линиите са 1 px (Bresenham). Стойности: 127 фон, 0 контур."""
+    allx = [x for c in polys for x, y in c]; ally = [y for c in polys for x, y in c]
+    W = max(allx) - min(allx); H = max(ally) - min(ally)
+    L = max(W, H, 1)
+    s = N / L
+    rnd = lambda v: int(math.floor(v + 0.5))
+    offx = rnd((N - W * s) / 2) if W < L else 0
+    offy = rnd((N - H * s) / 2) if H < L else 0
+    clamp = lambda v: max(0, min(N - 1, v))
+    bm = bytearray([PREVIEW_BG]) * (N * N)
+    def plot(px, py): bm[clamp(py) * N + clamp(px)] = PREVIEW_INK
+    def line(x0, y0, x1, y1):
+        dx, dy = abs(x1 - x0), -abs(y1 - y0)
+        sx, sy = (1 if x0 < x1 else -1), (1 if y0 < y1 else -1)
+        err = dx + dy
+        while True:
+            plot(x0, y0)
+            if x0 == x1 and y0 == y1: break
+            e2 = 2 * err
+            if e2 >= dy: err += dy; x0 += sx
+            if e2 <= dx: err += dx; y0 += sy
+    for c in polys:
+        P = [(offx + rnd((W - x) * s), offy + rnd(-y * s)) for x, y in c]
+        for i in range(len(P)):
+            (x0, y0), (x1, y1) = P[i], P[(i + 1) % len(P)]
+            line(x0, y0, x1, y1)
+    return bytes(bm)
+
+
 # ---------------------------------------------------------------- header
 GEOM_RECS = (3, 4, 5, 9, 17, 18, 21, 24)
 
@@ -220,7 +259,7 @@ def header_records(tpl, W, H, xmax, ymin, nseg, rec9_mode='center'):
 
 
 # ---------------------------------------------------------------- писач
-def write_ud6(contours, template_path, corner_marks=True, rec9_mode='center', start='keep'):
+def write_ud6(contours, template_path, corner_marks=True, rec9_mode='center', start='keep', preview='render'):
     tpl = template_path if isinstance(template_path, Template) else Template.load(template_path)
     polys = normalize(contours, start)
 
@@ -247,8 +286,16 @@ def write_ud6(contours, template_path, corner_marks=True, rec9_mode='center', st
             header.append((op, p))        # всички останали записи — дословно от шаблона
 
     # trailer: 0x94 [0], 0xA4 [0x10, ???], 0xA5, 0xAD, 0xAE, 0xAF, 0xA2, 0xA1×13, 0xAC —
-    # копира се дословно; 0xA4 [0x10] и 0xAD са НЕИЗВЕСТНИ (§7)
-    return untokenize(header + tpl.layer + body + tpl.trailer)
+    # копира се дословно; 0xA4 [0x10] и 0xAD са НЕИЗВЕСТНИ (§7).
+    # 0xAE/0xAF са preview bitmap-и (208², 136²) — рендват се от геометрията (preview='render')
+    # или се копират от шаблона (preview='copy' — показва квадратите на T4).
+    trailer = []
+    for op, p in tpl.trailer:
+        if preview == 'render' and op in (0xAE, 0xAF):
+            N = 208 if op == 0xAE else 136
+            p = enc7(render_preview(polys, N))
+        trailer.append((op, p))
+    return untokenize(header + tpl.layer + body + trailer)
 
 
 # ---------------------------------------------------------------- CLI
@@ -260,9 +307,10 @@ if __name__ == '__main__':
     ap.add_argument('--no-corner-marks', action='store_true', help='без 0xB5 [0x30] след 0xDC (стил T4)')
     ap.add_argument('--rec9', choices=('center', 'copy'), default='center')
     ap.add_argument('--start', choices=('keep', 'topleft'), default='keep', help='стартова точка на контура')
+    ap.add_argument('--preview', choices=('render', 'copy'), default='render', help='0xAE/0xAF preview bitmap')
     a = ap.parse_args()
     from dxf_read import read_dxf
     contours = read_dxf(a.dxf)
-    data = write_ud6(contours, a.template, corner_marks=not a.no_corner_marks, rec9_mode=a.rec9, start=a.start)
+    data = write_ud6(contours, a.template, corner_marks=not a.no_corner_marks, rec9_mode=a.rec9, start=a.start, preview=a.preview)
     with open(a.out, 'wb') as f: f.write(data)
     print(f"{a.out}: {len(contours)} контура, {len(data)} байта")

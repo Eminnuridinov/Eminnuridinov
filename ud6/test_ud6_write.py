@@ -5,7 +5,7 @@ import os, math, io, sys, subprocess
 import pytest
 sys.path.insert(0, os.path.dirname(__file__))
 from ud6_write import (Template, write_ud6, tokenize, untokenize, enc35, enc14, dec35,
-                       normalize, header_records, XOR)
+                       normalize, header_records, render_preview, XOR)
 from ud6_decode import decode, s35, s14
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -126,10 +126,11 @@ def test_edge_at_threshold():
     assert d['counts']['de'] == 1 and d['counts']['dc'] == 2        # 8.000 -> rel, 8.001 и диагоналът -> abs
 
 def test_t4_selfrebuild_diff_only_segments():
-    """Собствената геометрия на T4 -> писач: всичко освен сегментите и rec5 е еднакво."""
+    """Собствената геометрия на T4 -> писач: всичко освен сегментите и rec5 е еднакво,
+    вкл. ренднатите preview bitmap-и 0xAE/0xAF (байт по байт)."""
     d0 = decode(rd(T4))
     sq = lambda x0: [(x0, 0), (x0 + 40, 0), (x0 + 40, -40), (x0, -40)]
-    out = write_ud6([sq(0), sq(150), sq(300)], T4, corner_marks=False)
+    out = write_ud6([sq(0), sq(150), sq(300)], T4, corner_marks=False, start='topleft')
     A = tokenize(rd(T4)); B = tokenize(out)
     seg = (0xDC, 0xDD, 0xDE, 0xDF, 0xFD)
     A1 = [t for t in A if t[0] not in seg and not (t[0] == 0x94 and t[1][0] ^ XOR == 5)]
@@ -137,6 +138,38 @@ def test_t4_selfrebuild_diff_only_segments():
     assert A1 == B1
     d = decode(out)
     assert [c['bbox'] for c in d['contours']] == [c['bbox'] for c in d0['contours']]
+
+# ---------------------------------------------------------------- preview bitmap
+def _bitmap(name, op):
+    p = [q for o, q in tokenize(rd(S(name))) if o == op][0]; return [b ^ XOR for b in p]
+
+@pytest.mark.parametrize('op,N', [(0xAE, 208), (0xAF, 136)])
+def test_preview_T4_exact(op, N):
+    sq = lambda x0: [(x0, 0), (x0, -40), (x0 + 40, -40), (x0 + 40, 0)]
+    bm = render_preview(normalize([sq(0), sq(150), sq(300)]), N)
+    assert list(bm) == _bitmap('T4_order_ABC.UD6', op)
+
+@pytest.mark.parametrize('name,op,N,tol', [('T3_two_layers.UD6', 0xAE, 208, 20), ('T3_two_layers.UD6', 0xAF, 136, 10),
+                                           ('T1_ring_circles.UD6', 0xAE, 208, 260), ('T1_ring_circles.UD6', 0xAF, 136, 100)])
+def test_preview_samples_ink_close(name, op, N, tol):
+    """Кръговете TroCutCAD ги рисува като дъги, ние — като полигон: сравнява се само ink/фон,
+    всеки ink пиксел на оригинала трябва да е на <= 1 px от наш."""
+    d = decode(rd(S(name)))
+    polys = normalize([[(x / 1000, y / 1000) for x, y in c['pts'][:-1]] for c in d['contours']])
+    bm = render_preview(polys, N); ref = _bitmap(name, op)
+    ink = lambda b, x, y: 0 <= x < N and 0 <= y < N and b[y * N + x] != 127
+    assert sum(1 for a, b in zip(bm, ref) if (a != 127) != (b != 127)) <= tol
+    assert all(any(ink(bm, x + a, y + b) for a in (-1, 0, 1) for b in (-1, 0, 1))
+               for y in range(N) for x in range(N) if ink(ref, x, y))
+
+def test_preview_copy_mode_keeps_template_bitmaps():
+    out = write_ud6([[(0, 0), (10, 0), (10, 10)]], T4, preview='copy')
+    assert [q for o, q in tokenize(out) if o == 0xAE][0] == [q for o, q in tokenize(rd(T4)) if o == 0xAE][0]
+
+def test_preview_tall_job_centered_x():
+    bm = render_preview(normalize([[(0, 0), (0, -100), (20, -100), (20, 0)]]), 208)
+    cols = sorted({i % 208 for i, v in enumerate(bm) if v != 127})
+    assert cols[0] == 83 and cols[-1] == 125 and 207 in {i // 208 for i, v in enumerate(bm) if v != 127}
 
 # ---------------------------------------------------------------- roundtrip T1
 def test_roundtrip_T1():
@@ -165,7 +198,7 @@ def test_roundtrip_T1():
         a, b = rec2(d, i), rec2(orig, i)
         assert abs(a[0] - b[0]) <= 3 and abs(a[1] - b[1]) <= 3, (i, a, b)
     assert abs(rec2(d, 4)[0] - rec2(orig, 4)[0]) <= 3 and abs(rec2(d, 4)[1] - rec2(orig, 4)[1]) <= 3
-    # trailer/AE/AF — от шаблона T4
+    # trailer — от шаблона T4 (0xAE/0xAF са ренднати наново)
     assert d['a4'] == decode(rd(T4))['a4']
 
 # ---------------------------------------------------------------- декодерът чете изхода
