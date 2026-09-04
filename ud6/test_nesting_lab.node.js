@@ -1,4 +1,4 @@
-// Тест на EMIN_Nesting_R0006489_v1.4.html през DOM mock:  node --test test_nesting_lab.node.js
+// Тест на EMIN_Nesting_Lab_v1.5.html през DOM mock:  node --test test_nesting_lab.node.js
 // 1) целият скрипт минава init без runtime грешки; 2) computeNesting -> buildUD6Sheet -> ud6_decode.py;
 // 3) ZIP с binary .ud6 през python zipfile; 4) вграденият модул == ud6_write.js.
 'use strict';
@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 const J = v => JSON.parse(JSON.stringify(v));   // масивите от vm контекста са друг realm
 const fs = require('fs'), path = require('path'), vm = require('vm'), cp = require('child_process');
 
-const HTML_PATH = path.join(__dirname, 'EMIN_Nesting_R0006489_v1.4.html');
+const HTML_PATH = path.join(__dirname, 'EMIN_Nesting_Lab_v1.5.html');
 const html = fs.readFileSync(HTML_PATH, 'utf8');
 const script = html.slice(html.indexOf('<script>') + 8, html.lastIndexOf('</script>'));
 const TMP = fs.mkdtempSync(path.join(require('os').tmpdir(), 'nest-'));
@@ -48,7 +48,8 @@ function makeWindow() {
 }
 function boot() {
   const w = makeWindow();
-  for (const [id, v] of Object.entries({ sw: '1500', sh: '1500', mg: '5', gp: '2', kf: '1', ki: '1', ov: '3', mW: '1500', mH: '1500' }))
+  for (const [id, v] of Object.entries({ sw: '1500', sh: '1500', mg: '5', gp: '2', kf: '1', ki: '1', ov: '3', mW: '1500', mH: '1500',
+       oNum: 'R0006489', oQty: '270', oCli: 'ОЙ Бринолф Гронмарк', oMat: 'модиф. ПТФЕ с барий', oThk: '1.5' }))
     w.document.getElementById(id).value = v;
   vm.createContext(w);
   vm.runInContext(script, w, { filename: 'nesting_lab.js' });
@@ -56,14 +57,17 @@ function boot() {
 }
 
 // ---------------------------------------------------------------- тестове
+function boot2() { const w = boot(); w.state.remaining = w.state.remaining || {}; return w; }
 test('целият скрипт минава init без грешки; версия 1.1', () => {
   const w = boot();
   assert.equal(typeof w.computeNesting, 'function');
   assert.equal(typeof w.buildUD6Sheet, 'function');
   assert.equal(typeof w.UD6.buildUD6, 'function');
-  assert.match(html, /<span class="badge mono" id="ver">v1\.4<\/span>/);
-  assert.match(html, /<title>EMIN Nesting Lab v1\.4/);
+  assert.match(html, /<span class="badge mono" id="ver">v1\.5<\/span>/);
+  assert.match(html, /<title>EMIN Nesting Lab v1\.5/);
   assert.ok(w._els.ud61 && w._els.ud6All && w._els.ud6Hint, 'нови елементи');
+  assert.ok(w._els.oNum && w._els.oQty && w._els.addPart && w._els.ptab, 'карта Поръчка + позиции');
+  assert.equal(w._els.hdrOrder.textContent, 'поръчка R0006489');
   assert.ok(w._els.ud61._listeners.click && w._els.ud6All._listeners.click, 'click handlers');
   assert.equal(w._els.ud61.disabled, true);
 });
@@ -166,4 +170,111 @@ test('UI поток: run() -> бутоните UD6 се активират, hint
   // click -> download без грешка (Blob/URL са mock-нати)
   w._els.ud61._listeners.click[0]();
   w._els.ud6All._listeners.click[0]();
+});
+
+
+// ---------------------------------------------------------------- поръчка и позиции (v1.5)
+test('addPart: нова позиция с уникално означение и свободен цвят', () => {
+  const w = boot();
+  const n = w.PARTS.length, cols = new Set(w.PARTS.map(p => p.col));
+  w.addPart();
+  assert.equal(w.PARTS.length, n + 1);
+  const p = w.PARTS[n];
+  assert.equal(p.pos, n + 1);
+  assert.equal(p.id, w.partId(p.od, p.idd));
+  assert.equal(new Set(w.PARTS.map(x => x.id)).size, n + 1, 'означенията са уникални');
+  assert.ok(!cols.has(p.col), 'цветът е свободен');
+  assert.equal(w.state.remaining[p.id], 0);
+  w.addPart();
+  assert.notEqual(w.PARTS[n].id, w.PARTS[n + 1].id);
+});
+
+test('смяна на размер: журналът и остатъците следват новото означение', () => {
+  const w = boot();
+  const p = w.PARTS[0], old = p.id;
+  w.state.remaining[old] = 7;
+  w.state.journal.push({ n: 1, date: '2026-09-04', W: 1500, H: 1500, counts: { [old]: 5 }, total: 5 });
+  p.od = 200; p.id = w.partId(p.od, p.idd); w.rekey(old, p.id);
+  assert.equal(w.state.remaining[p.id], 7);
+  assert.ok(!(old in w.state.remaining));
+  assert.equal(w.state.journal[0].counts[p.id], 5);
+  assert.ok(!(old in w.state.journal[0].counts));
+});
+
+test('validate: дублирани размери = грешка; разлика с шапката = предупреждение', () => {
+  const w = boot();
+  w.PARTS[1].od = w.PARTS[0].od; w.PARTS[1].idd = w.PARTS[0].idd; w.PARTS[1].id = w.PARTS[0].id;
+  assert.equal(w.validate(), false);
+  assert.match(w._els.warn.innerHTML, /еднакви размери/);
+  const w2 = boot();
+  w2._els.oQty.value = '999'; w2.readMeta();
+  assert.equal(w2.validate(), true);
+  assert.match(w2._els.warn.innerHTML, /Сборът по редове е 270 бр, а по шапка 999 бр/);
+});
+
+test('празна поръчка се отказва', () => {
+  const w = boot();
+  w.PARTS.length = 0;
+  assert.equal(w.validate(), false);
+  assert.match(w._els.warn.innerHTML, /Няма нито една позиция/);
+  assert.equal(w._els.run.disabled, true);
+});
+
+test('смяна на номера: отделен журнал за всяка поръчка, нищо не се трие', () => {
+  const w = boot();
+  w.state.journal.push({ n: 1, date: '2026-09-04', W: 1500, H: 1500, counts: { [w.PARTS[0].id]: 3 }, total: 3 });
+  w.saveLS();
+  w._els.oNum.value = 'M0001317'; w.switchOrder();
+  assert.equal(w.state.journal.length, 0, 'нова поръчка = празен журнал');
+  assert.equal(w._els.hdrOrder.textContent, 'поръчка M0001317');
+  w.addPart(); w.saveLS();
+  const nNew = w.PARTS.length;
+  w._els.oNum.value = 'R0006489'; w.switchOrder();
+  assert.equal(w.state.journal.length, 1, 'старият журнал се връща');
+  w._els.oNum.value = 'M0001317'; w.switchOrder();
+  assert.equal(w.PARTS.length, nNew, 'позициите на другата поръчка също се пазят');
+  assert.equal(w.state.journal.length, 0);
+});
+
+test('JSON: реквизити + позиции се възстановяват', () => {
+  const w = boot();
+  w.addPart(); w.PARTS[0].qty = 11;
+  w.state.journal.push({ n: 1, date: '2026-09-04', W: 1490, H: 1500, counts: { [w.PARTS[0].id]: 4 }, total: 4 });
+  const dump = { order: 'X1', meta: w.metaObj(), parts: w.PARTS.map(p => ({ id: p.id, od: p.od, idd: p.idd, qty: p.qty, col: p.col })),
+                 journal: w.state.journal, remaining: w.state.remaining };
+  dump.meta.order = 'X1'; dump.meta.client = 'Друг клиент'; dump.meta.material = 'ePTFE'; dump.meta.thickness = 2;
+  const w2 = boot();
+  w2.applyImport(JSON.parse(JSON.stringify(dump)));
+  assert.equal(w2.PARTS.length, dump.parts.length);
+  assert.deepEqual(J(w2.PARTS.map(p => p.id)), J(dump.parts.map(p => p.id)));
+  assert.deepEqual(J(w2.PARTS.map(p => p.pos)), J(dump.parts.map((_, i) => i + 1)));
+  assert.equal(w2._els.oNum.value, 'X1');
+  assert.equal(w2._els.oThk.value, 2);
+  assert.equal(w2.state.journal.length, 1);
+  assert.equal(w2._els.hdrOrder.textContent, 'поръчка X1');
+});
+
+test('блокът за Claude носи материала и дебелината от полетата', () => {
+  const w = boot();
+  w._els.oCli.value = 'Тест ЕООД'; w._els.oMat.value = 'ePTFE'; w._els.oThk.value = '2'; w.readMeta();
+  w.renderJournal();
+  const first = w._els.claudeBlock.value.split('\n')[0];
+  assert.equal(first, 'Разкрой — поръчка R0006489 (Тест ЕООД, ePTFE t2)');
+});
+
+test('нова поръчка от нула: изчислява и изнася .ud6', async () => {
+  const w = boot();
+  w._els.oNum.value = 'M0001317'; w.switchOrder();
+  w.PARTS.length = 0;
+  w.addPart(); w.PARTS[0].od = 218; w.PARTS[0].idd = 169; w.PARTS[0].id = w.partId(218, 169); w.PARTS[0].qty = 12;
+  w.addPart(); w.PARTS[1].od = 142; w.PARTS[1].idd = 90; w.PARTS[1].id = w.partId(142, 90); w.PARTS[1].qty = 8;
+  w.state.remaining = { [w.PARTS[0].id]: 12, [w.PARTS[1].id]: 8 };
+  w._els.oQty.value = '20'; w.readMeta();
+  assert.equal(w.validate(), true, w._els.warn.innerHTML);
+  w.state.mode = 'all';
+  w.run();
+  await new Promise(r => setTimeout(r, 300));
+  assert.ok(w.state.res && w.state.res.sheets.length > 0);
+  const data = w.buildUD6Sheet(w.state.res.sheets[0], 1, 3);
+  assert.ok(data.length > 60000 && data[0] === 0xA4 && data[data.length - 1] === 0xAC);
 });

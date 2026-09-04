@@ -13,7 +13,7 @@
 | `make_fixtures.py` | еталони за Node тестовете (`fixtures/`) |
 | `test_ud6_write.py` | `python3 -m pytest -q` |
 | `test_ud6_write.node.js` | `node --test test_ud6_write.node.js` (байтова идентичност с Python) |
-| `EMIN_Nesting_R0006489_v1.4.html` | Nesting Lab v1.4 с вграден писач (червен слой, kerf по ID, застъпване): бутони „UD6 — текущия лист“ / „ZIP UD6 — всички листове“ |
+| `EMIN_Nesting_Lab_v1.5.html` | Nesting Lab v1.5 с вграден писач (червен слой, kerf по ID, застъпване, редактируеми позиции): бутони „UD6 — текущия лист“ / „ZIP UD6 — всички листове“ |
 | `test_nesting_lab.node.js` | `node --test test_nesting_lab.node.js` — целият скрипт през DOM mock, изходът през `ud6_decode.py` и `zipfile` |
 
 ## Корекции спрямо спецификацията (проверени в T1–T4)
@@ -41,7 +41,7 @@
 
 `corner_marks`/`cornerMarks` (true), `start` (`keep`|`topleft`), `rec9` (`center`|`copy`), Python: `preview` (`render`|`copy`).
 
-## Nesting Lab v1.4 — UD6 експорт
+## Nesting Lab v1.5 — UD6 експорт
 
 - Ред на рязане: дърветата на влагане в реда на разкроя; в дърво най-дълбоко вложеният първи; за пръстен CUT_ID → CUT_OD.
 - Ножът реже всяка окръжност с ~kerf по-малка: OD се реже Ø(номинал + kerf OD), отворът Ø(номинал + kerf ID) — само в .ud6; DXF отворът е номинален.
