@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>EMIN Nesting Lab v1.2 — R0006489</title>
+<title>EMIN Nesting Lab v1.3 — R0006489</title>
 <style>
 :root{
   --bg:#0f1115; --panel:#181b22; --panel2:#1f242d; --line:#2a313c;
@@ -90,7 +90,7 @@ svg{display:block;width:100%;height:auto}
 <body>
 <header>
   <h1>EMIN Nesting Lab</h1>
-  <span class="badge mono" id="ver">v1.2</span>
+  <span class="badge mono" id="ver">v1.3</span>
   <span class="sub mono">поръчка R0006489</span>
 </header>
 
@@ -113,8 +113,8 @@ svg{display:block;width:100%;height:auto}
       <div><label><i class="dot g"></i>Височина, mm</label><input type="number" id="sh" value="1500" step="1"></div>
       <div><label><i class="dot y"></i>Ръб, mm</label><input type="number" id="mg" value="5" step="1"></div>
       <div><label><i class="dot y"></i>Мостче, mm</label><input type="number" id="gp" value="2" step="0.5"></div>
-      <div style="grid-column:span 2"><label><i class="dot y"></i>Kerf по OD, mm — реже се с толкова по-голям диаметър</label>
-        <input type="number" id="kf" value="1" step="0.1"></div>
+      <div><label><i class="dot y"></i>Kerf по OD, mm</label><input type="number" id="kf" value="1" step="0.1"></div>
+      <div><label><i class="dot y"></i>Kerf по ID, mm (само .ud6)</label><input type="number" id="ki" value="1" step="0.1"></div>
     </div>
     <div class="hint" id="kerfHint"></div>
   </div>
@@ -176,7 +176,7 @@ svg{display:block;width:100%;height:auto}
     <button class="btn sec" id="csv" disabled>Справочник CSV</button>
     <div class="hint">R12 ASCII, mm. Слоеве: SHEET, CUT_OD, CUT_ID, DEFECT, ORDER. Без Z — дълбочините се задават в TDP&nbsp;Pilot.
     В CUT_OD влиза диаметърът с kerf, в CUT_ID — номиналният отвор.</div>
-    <div class="hint">.ud6 — директно за Trocen ножа (червен слой), без TroCutCAD. Ред на рязане: по реда на разкроя, вложеният детайл преди
+    <div class="hint">.ud6 — директно за Trocen ножа (червен слой), без TroCutCAD. Отворите се режат Ø(ID + kerf по ID). Ред на рязане: по реда на разкроя, вложеният детайл преди
     хоста си, за всеки пръстен отвор → външен контур. Началото е горният ляв ъгъл на bbox-а на пръстените (както при TroCutCAD).</div>
     <div class="hint mono" id="ud6Hint"></div>
   </div>
@@ -673,20 +673,22 @@ function circlePoly(cx,cy,r,chord){
   return pts;
 }
 /* ред на рязане: дърветата на влагане в реда на разкроя; в дърво — най-дълбокият първи;
-   за всеки пръстен CUT_ID (номинален отвор) -> CUT_OD (режещ диаметър с kerf) */
-function sheetContours(rings){
+   за всеки пръстен CUT_ID -> CUT_OD. Ножът реже всяка окръжност с kerf по-малка, затова
+   и отворът се реже Ø(номинал + kerfId) — иначе излиза с kerf по-малък (потвърдено на машината). */
+function sheetContours(rings,kerfId){
+  kerfId=kerfId||0;
   var trees={},order=[],out=[];
   rings.forEach(function(r){ if(!trees[r.treeId]){trees[r.treeId]=[];order.push(r.treeId);} trees[r.treeId].push(r); });
   order.forEach(function(t){
     trees[t].slice().sort(function(a,b){return b.depth-a.depth;}).forEach(function(r){
-      out.push({layer:'CUT_ID',type:r.type,d:r.idd,pts:circlePoly(r.x,r.y,r.idd/2)});
+      out.push({layer:'CUT_ID',type:r.type,d:r.idd+kerfId,pts:circlePoly(r.x,r.y,(r.idd+kerfId)/2)});
       out.push({layer:'CUT_OD',type:r.type,d:r.od,pts:circlePoly(r.x,r.y,r.od/2)});
     });
   });
   return out;
 }
-function buildUD6Sheet(rings){
-  return UD6.buildUD6(sheetContours(rings).map(function(c){return c.pts;}),{start:'topleft'});
+function buildUD6Sheet(rings,kerfId){
+  return UD6.buildUD6(sheetContours(rings,kerfId).map(function(c){return c.pts;}),{start:'topleft'});
 }
 /* отместване на .ud6 началото от горния ляв ъгъл на листа (0,H): надясно / надолу, mm */
 function ud6Origin(rings,c){
@@ -697,7 +699,7 @@ function ud6Origin(rings,c){
 function renderUD6Hint(){
   var res=state.res,c=state.cfg;
   if(!res||!res.sheets.length||!c){$('ud6Hint').textContent='';return;}
-  var o=ud6Origin(res.sheets[state.cur],c),n=sheetContours(res.sheets[state.cur]).length;
+  var o=ud6Origin(res.sheets[state.cur],c),n=sheetContours(res.sheets[state.cur],c.kerfId).length;
   $('ud6Hint').textContent='.ud6 origin = горен ляв ъгъл на листа + '+nf(o.dx)+' mm надясно, '+nf(o.dy)+' mm надолу · '+n+' контура';
 }
 
@@ -831,13 +833,13 @@ function renderRemaining(){
 /* ================= Валидация ================= */
 function cfg(){
   return {W:+$('sw').value,H:+$('sh').value,margin:+$('mg').value,gap:+$('gp').value,
-          kerf:+$('kf').value||0,nest:state.nest,zones:zonesAbs()};
+          kerf:+$('kf').value||0,kerfId:+$('ki').value||0,nest:state.nest,zones:zonesAbs()};
 }
 function validate(){
   var c=cfg(),errs=[],warns=[];
   if(!(c.W>0&&c.H>0)) errs.push('Размерът на листа трябва да е положителен.');
   if(c.margin<0||c.gap<0) errs.push('Ръб и мостче не може да са отрицателни.');
-  if(c.kerf<0) errs.push('Kerf не може да е отрицателен.');
+  if(c.kerf<0||c.kerfId<0) errs.push('Kerf не може да е отрицателен.');
   PARTS.forEach(function(p){
     if(p.idd>=p.od) errs.push('Поз. '+p.pos+': ID трябва да е по-малко от OD.');
     if(p.qty<0) errs.push('Поз. '+p.pos+': отрицателно количество.');
@@ -859,9 +861,9 @@ function validate(){
         errs.push('Дори най-малкият останал детайл не се побира в този лист.');
     }
   }
-  $('kerfHint').textContent = c.kerf
-    ? 'Режещият контур е Ø(номинал + '+nf(c.kerf)+'). Отворът остава номинален. Габаритът в разкроя се смята по режещия диаметър.'
-    : '';
+  $('kerfHint').textContent = 'Ножът реже окръжността с толкова по-малък диаметър от програмирания. '+
+    'OD се реже Ø(номинал + '+nf(c.kerf)+'), отворът в .ud6 — Ø(номинал + '+nf(c.kerfId)+'); в DXF отворът е номинален. '+
+    'Габаритът в разкроя се смята по режещия OD.';
   var box=$('warn');box.innerHTML='';
   if(errs.length) box.innerHTML='<div class="msg err">'+errs.join('<br>')+'</div>';
   else if(warns.length) box.innerHTML='<div class="msg warn">'+warns.join('<br>')+'</div>';
@@ -927,7 +929,7 @@ function commit(){
   PARTS.forEach(function(p){ state.remaining[p.id]=Math.max(0,(state.remaining[p.id]||0)-(counts[p.id]||0)); });
   state.journal.push({
     n:state.journal.length+1, date:new Date().toISOString().slice(0,10),
-    W:c.W,H:c.H,margin:c.margin,gap:c.gap,kerf:c.kerf,zones:c.zones,counts:counts,
+    W:c.W,H:c.H,margin:c.margin,gap:c.gap,kerf:c.kerf,kerfId:c.kerfId,zones:c.zones,counts:counts,
     contours:sh.filter(function(r){return r.depth===0;}).length,
     total:sh.length, fill:+fillPct(sh,c).toFixed(1), band:band(c.W,c.H)
   });
@@ -1112,7 +1114,7 @@ function renderClaudeBlock(){
   var J=state.journal,L=[];
   L.push('Разкрой — поръчка '+ORDER+' ('+CLIENT+', модиф. ПТФЕ t'+THICK+')');
   L.push('Позиции: '+PARTS.map(function(p){return p.pos+') Ø'+nf(p.od)+'/Ø'+nf(p.idd)+' ×'+p.qty;}).join('; '));
-  L.push('Kerf по OD: '+nf(+$('kf').value||0)+' mm');
+  L.push('Kerf по OD: '+nf(+$('kf').value||0)+' mm; по ID (.ud6): '+nf(+$('ki').value||0)+' mm');
   L.push('Нарязани листове: '+J.length);
   if(J.length){
     L.push('№|W×H|ръб|мостче|kerf|дефекти|'+PARTS.map(function(p){return p.pos;}).join('|')+'|общо|запълв%');
@@ -1241,7 +1243,7 @@ function init(){
   if(!loadLS()) state.remaining=freshRemaining();
   renderParts(); renderRemaining(); renderZones(); renderJournal(); renderAnalysis(); applyMode();
 
-  Array.prototype.forEach.call(document.querySelectorAll('#sw,#sh,#mg,#gp,#kf'),function(el){
+  Array.prototype.forEach.call(document.querySelectorAll('#sw,#sh,#mg,#gp,#kf,#ki'),function(el){
     el.addEventListener('change',function(){renderRemaining();validate();});});
   Array.prototype.forEach.call($('segMode').querySelectorAll('button'),function(b){
     b.addEventListener('click',function(){
@@ -1283,10 +1285,10 @@ function init(){
   $('ud61').addEventListener('click',function(){
     if(!state.res)return;
     var n=state.mode==='one'?(state.journal.length+1):(state.cur+1);
-    download(ORDER+'_list'+n+'.ud6',buildUD6Sheet(state.res.sheets[state.cur]),'application/octet-stream');});
+    download(ORDER+'_list'+n+'.ud6',buildUD6Sheet(state.res.sheets[state.cur],state.cfg.kerfId),'application/octet-stream');});
   $('ud6All').addEventListener('click',function(){
     if(!state.res)return;
-    var files=state.res.sheets.map(function(sh,i){return {name:ORDER+'_list'+(i+1)+'.ud6',data:buildUD6Sheet(sh)};});
+    var files=state.res.sheets.map(function(sh,i){return {name:ORDER+'_list'+(i+1)+'.ud6',data:buildUD6Sheet(sh,state.cfg.kerfId)};});
     download(ORDER+'_razkroy_'+state.res.sheets.length+'lista_ud6.zip',makeZip(files),'application/zip');});
 
   $('jExp').addEventListener('click',function(){

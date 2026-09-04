@@ -1,4 +1,4 @@
-// Тест на EMIN_Nesting_R0006489_v1.2.html през DOM mock:  node --test test_nesting_lab.node.js
+// Тест на EMIN_Nesting_R0006489_v1.3.html през DOM mock:  node --test test_nesting_lab.node.js
 // 1) целият скрипт минава init без runtime грешки; 2) computeNesting -> buildUD6Sheet -> ud6_decode.py;
 // 3) ZIP с binary .ud6 през python zipfile; 4) вграденият модул == ud6_write.js.
 'use strict';
@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 const J = v => JSON.parse(JSON.stringify(v));   // масивите от vm контекста са друг realm
 const fs = require('fs'), path = require('path'), vm = require('vm'), cp = require('child_process');
 
-const HTML_PATH = path.join(__dirname, 'EMIN_Nesting_R0006489_v1.2.html');
+const HTML_PATH = path.join(__dirname, 'EMIN_Nesting_R0006489_v1.3.html');
 const html = fs.readFileSync(HTML_PATH, 'utf8');
 const script = html.slice(html.indexOf('<script>') + 8, html.lastIndexOf('</script>'));
 const TMP = fs.mkdtempSync(path.join(require('os').tmpdir(), 'nest-'));
@@ -48,7 +48,7 @@ function makeWindow() {
 }
 function boot() {
   const w = makeWindow();
-  for (const [id, v] of Object.entries({ sw: '1500', sh: '1500', mg: '5', gp: '2', kf: '1', mW: '1500', mH: '1500' }))
+  for (const [id, v] of Object.entries({ sw: '1500', sh: '1500', mg: '5', gp: '2', kf: '1', ki: '1', mW: '1500', mH: '1500' }))
     w.document.getElementById(id).value = v;
   vm.createContext(w);
   vm.runInContext(script, w, { filename: 'nesting_lab.js' });
@@ -61,8 +61,8 @@ test('целият скрипт минава init без грешки; верс�
   assert.equal(typeof w.computeNesting, 'function');
   assert.equal(typeof w.buildUD6Sheet, 'function');
   assert.equal(typeof w.UD6.buildUD6, 'function');
-  assert.match(html, /<span class="badge mono" id="ver">v1\.2<\/span>/);
-  assert.match(html, /<title>EMIN Nesting Lab v1\.2/);
+  assert.match(html, /<span class="badge mono" id="ver">v1\.3<\/span>/);
+  assert.match(html, /<title>EMIN Nesting Lab v1\.3/);
   assert.ok(w._els.ud61 && w._els.ud6All && w._els.ud6Hint, 'нови елементи');
   assert.ok(w._els.ud61._listeners.click && w._els.ud6All._listeners.click, 'click handlers');
   assert.equal(w._els.ud61.disabled, true);
@@ -94,20 +94,23 @@ test('sheetContours: ред = дърво по дърво, вложеният п�
     { type: 'C', od: 47, odn: 46, idd: 34, x: 200, y: 200, depth: 2, treeId: 7 },
     { type: 'D', od: 55, odn: 54, idd: 37, x: 600, y: 600, depth: 0, treeId: 9 },
   ];
-  const C = w.sheetContours(rings);
+  const C = w.sheetContours(rings, 1);
   assert.deepEqual(J(C.map(c => c.type + ':' + c.layer)), ['C:CUT_ID', 'C:CUT_OD', 'B:CUT_ID', 'B:CUT_OD', 'A:CUT_ID', 'A:CUT_OD', 'D:CUT_ID', 'D:CUT_OD']);
-  assert.deepEqual(J(C.map(c => c.d)), [34, 47, 181, 193, 289, 305, 37, 55]);
+  assert.deepEqual(J(C.map(c => c.d)), [35, 47, 182, 193, 290, 305, 38, 55]);          // ID + kerfId
+  assert.deepEqual(J(w.sheetContours(rings).map(c => c.d)), [34, 47, 181, 193, 289, 305, 37, 55]);
+  const P = w.sheetContours(rings, 1)[0].pts; const xs = P.map(p => p[0]);
+  assert.ok(Math.abs((Math.max(...xs) - Math.min(...xs)) - 35) < 0.01);
 });
 
 test('пълен лист: computeNesting -> buildUD6Sheet -> ud6_decode.py', () => {
   const w = boot();
   const list = w.PARTS.map(p => ({ id: p.id, od: p.od, idd: p.idd, qty: p.qty }));
-  const cfg = { W: 1500, H: 1500, margin: 5, gap: 2, kerf: 1, nest: 1, zones: [], maxSheets: 1 };
+  const cfg = { W: 1500, H: 1500, margin: 5, gap: 2, kerf: 1, kerfId: 1, nest: 1, zones: [], maxSheets: 1 };
   const res = w.computeNesting(list, cfg);
   const sh = res.sheets[0];
   assert.ok(sh.length > 10, 'лист с ' + sh.length + ' пръстена');
-  const C = w.sheetContours(sh);
-  const data = w.buildUD6Sheet(sh);
+  const C = w.sheetContours(sh, cfg.kerfId);
+  const data = w.buildUD6Sheet(sh, cfg.kerfId);
   const f = path.join(TMP, 'sheet1.ud6'); fs.writeFileSync(f, data);
   const out = cp.execFileSync('python3', [path.join(__dirname, 'ud6_decode.py'), f], { encoding: 'utf8' });
   assert.match(out, new RegExp(`: ${2 * sh.length} contours, 1 layer block`));
@@ -131,7 +134,7 @@ test('пълен лист: computeNesting -> buildUD6Sheet -> ud6_decode.py', ()
 test('ZIP с binary .ud6 през python zipfile', () => {
   const w = boot();
   const sh = [{ type: '46/34', od: 47, odn: 46, idd: 34, x: 100, y: 100, depth: 0, treeId: 1 }];
-  const files = [{ name: 'a_list1.ud6', data: w.buildUD6Sheet(sh) }, { name: 'a.csv', data: 'x;y\r\n1;2\r\n' }];
+  const files = [{ name: 'a_list1.ud6', data: w.buildUD6Sheet(sh, 1) }, { name: 'a.csv', data: 'x;y\r\n1;2\r\n' }];
   const z = path.join(TMP, 'x.zip'); fs.writeFileSync(z, w.makeZip(files));
   const py = `import zipfile,sys
 z=zipfile.ZipFile(sys.argv[1]); assert z.testzip() is None, z.testzip()
