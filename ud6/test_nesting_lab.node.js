@@ -1,4 +1,4 @@
-// Тест на EMIN_Nesting_Lab_v1.5.html през DOM mock:  node --test test_nesting_lab.node.js
+// Тест на EMIN_Nesting_Lab_v1.6.html през DOM mock:  node --test test_nesting_lab.node.js
 // 1) целият скрипт минава init без runtime грешки; 2) computeNesting -> buildUD6Sheet -> ud6_decode.py;
 // 3) ZIP с binary .ud6 през python zipfile; 4) вграденият модул == ud6_write.js.
 'use strict';
@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 const J = v => JSON.parse(JSON.stringify(v));   // масивите от vm контекста са друг realm
 const fs = require('fs'), path = require('path'), vm = require('vm'), cp = require('child_process');
 
-const HTML_PATH = path.join(__dirname, 'EMIN_Nesting_Lab_v1.5.html');
+const HTML_PATH = path.join(__dirname, 'EMIN_Nesting_Lab_v1.6.html');
 const html = fs.readFileSync(HTML_PATH, 'utf8');
 const script = html.slice(html.indexOf('<script>') + 8, html.lastIndexOf('</script>'));
 const TMP = fs.mkdtempSync(path.join(require('os').tmpdir(), 'nest-'));
@@ -63,8 +63,8 @@ test('целият скрипт минава init без грешки; верс�
   assert.equal(typeof w.computeNesting, 'function');
   assert.equal(typeof w.buildUD6Sheet, 'function');
   assert.equal(typeof w.UD6.buildUD6, 'function');
-  assert.match(html, /<span class="badge mono" id="ver">v1\.5<\/span>/);
-  assert.match(html, /<title>EMIN Nesting Lab v1\.5/);
+  assert.match(html, /<span class="badge mono" id="ver">v1\.6<\/span>/);
+  assert.match(html, /<title>EMIN Nesting Lab v1\.6/);
   assert.ok(w._els.ud61 && w._els.ud6All && w._els.ud6Hint, 'нови елементи');
   assert.ok(w._els.oNum && w._els.oQty && w._els.addPart && w._els.ptab, 'карта Поръчка + позиции');
   assert.equal(w._els.hdrOrder.textContent, 'поръчка R0006489');
@@ -277,4 +277,91 @@ test('нова поръчка от нула: изчислява и изнася 
   assert.ok(w.state.res && w.state.res.sheets.length > 0);
   const data = w.buildUD6Sheet(w.state.res.sheets[0], 1, 3);
   assert.ok(data.length > 60000 && data[0] === 0xA4 && data[data.length - 1] === 0xAC);
+});
+
+
+// ---------------------------------------------------------------- разкрой (v1.6)
+test('шест стратегии за поставяне, всяка дава валиден лист', () => {
+  const w = boot();
+  assert.deepEqual(J(w.STRATEGIES), ['bl', 'contact', 'tl', 'corner', 'edge', 'edgeContact']);
+  const items = Array.from({ length: 30 }, (_, i) => ({ uid: i, type: 'x', od: 305, idd: 289 }));
+  for (const s of w.STRATEGIES) {
+    const p = w.packOneSheet(items, 1500, 1500, 5, 2, s, []);
+    assert.ok(p.length > 0, s);
+    for (let i = 0; i < p.length; i++) {
+      assert.ok(p[i].x - 152.5 >= 5 - 1e-6 && p[i].x + 152.5 <= 1495 + 1e-6, s + ' в листа');
+      for (let j = i + 1; j < p.length; j++)
+        assert.ok(Math.hypot(p[i].x - p[j].x, p[i].y - p[j].y) >= 307 - 1e-6, s + ' без застъпване');
+    }
+  }
+});
+
+test('spotInHole: първият детайл ляга до стената, вторият се побира до него', () => {
+  const w = boot();
+  const R = 140.5, r = 30.5;
+  const a = w.spotInHole(r, [], R, 2);
+  assert.ok(Math.abs(Math.hypot(a.x, a.y) - (R - r)) < 1e-6, 'до стената, а не в центъра');
+  const b = w.spotInHole(r, [{ x: a.x, y: a.y, r }], R, 2);
+  assert.ok(b, 'второто дете се побира');
+  assert.ok(Math.hypot(b.x - a.x, b.y - a.y) >= 2 * r + 2 - 1e-6, 'без застъпване');
+  assert.ok(Math.hypot(b.x, b.y) + r <= R + 1e-6, 'в отвора');
+  assert.equal(w.spotInHole(200, [], R, 2), null, 'по-голямо от отвора се отказва');
+});
+
+test('treeSizes: бройките в дървото', () => {
+  const w = boot();
+  const inst = [{ uid: 0, kids: [1, 2] }, { uid: 1, kids: [3] }, { uid: 2, kids: [] }, { uid: 3, kids: [] }];
+  assert.deepEqual(J(w.treeSizes(inst)), { 0: 4, 1: 2, 2: 1, 3: 1 });
+});
+
+test('новият разкрой не е по-лош от стария при никой размер', () => {
+  const w = boot();
+  const list = w.PARTS.map(p => ({ id: p.id, od: p.od, idd: p.idd, qty: p.qty }));
+  const было = { 1400: 120, 1430: 126, 1440: 128, 1470: 130, 1490: 130, 1500: 130 };
+  for (const W of [1400, 1430, 1440, 1470, 1490, 1500]) {
+    const r = w.computeNesting(list, { W, H: W, margin: 5, gap: 2, kerf: 1, nest: 1, zones: [], maxSheets: 1 });
+    assert.ok(r.sheets[0].length >= было[W], W + ': ' + r.sheets[0].length + ' < ' + было[W]);
+  }
+  const r = w.computeNesting(list, { W: 1485, H: 1500, margin: 5, gap: 2, kerf: 1, nest: 1, zones: [], maxSheets: 1 });
+  assert.ok(r.sheets[0].length >= 140, 'реалният лист 1485×1500: ' + r.sheets[0].length);
+});
+
+test('геометрията е валидна: без застъпване, в листа, децата в отвора си', () => {
+  const w = boot();
+  const list = w.PARTS.map(p => ({ id: p.id, od: p.od, idd: p.idd, qty: p.qty }));
+  const cfg = { W: 1500, H: 1500, margin: 5, gap: 2, kerf: 1, nest: 1, zones: [] };
+  const r = w.computeNesting(list, cfg);
+  w.PARTS.forEach(p => assert.equal(r.counts[p.id] || 0, p.qty, 'брой ' + p.id));
+  for (const sh of r.sheets) {
+    for (let i = 0; i < sh.length; i++) {
+      const a = sh[i];
+      assert.ok(a.x - a.od / 2 >= cfg.margin - 1e-6 && a.x + a.od / 2 <= cfg.W - cfg.margin + 1e-6, 'в листа X');
+      assert.ok(a.y - a.od / 2 >= cfg.margin - 1e-6 && a.y + a.od / 2 <= cfg.H - cfg.margin + 1e-6, 'в листа Y');
+      for (let j = i + 1; j < sh.length; j++) {
+        const b = sh[j];
+        if (a.treeId === b.treeId) continue;
+        assert.ok(Math.hypot(a.x - b.x, a.y - b.y) >= a.od / 2 + b.od / 2 + cfg.gap - 1e-6,
+          'застъпване ' + a.type + '/' + b.type);
+      }
+    }
+    const byTree = {};
+    sh.forEach(x => { (byTree[x.treeId] = byTree[x.treeId] || []).push(x); });
+    for (const t of Object.values(byTree))
+      for (const ch of t) {
+        if (!ch.depth) continue;
+        const host = t.find(x => x.depth === ch.depth - 1 && x.type === ch.host);
+        if (!host) continue;
+        assert.ok(Math.hypot(ch.x - host.x, ch.y - host.y) + ch.od / 2 <= host.idd / 2 - cfg.gap + 1e-6,
+          ch.type + ' излиза от отвора на ' + host.type);
+      }
+  }
+});
+
+test('дефектната зона се спазва и в новия разкрой', () => {
+  const w = boot();
+  const list = w.PARTS.map(p => ({ id: p.id, od: p.od, idd: p.idd, qty: p.qty }));
+  const zones = [{ x: 0, y: 1300, w: 200, h: 200 }];
+  const r = w.computeNesting(list, { W: 1485, H: 1500, margin: 5, gap: 2, kerf: 1, nest: 1, zones, maxSheets: 1 });
+  for (const ring of r.sheets[0]) assert.ok(!w.hitsZone(ring.x, ring.y, ring.od / 2, zones, 2), ring.type + ' в дефекта');
+  assert.ok(r.sheets[0].length >= 125);
 });

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>EMIN Nesting Lab v1.5</title>
+<title>EMIN Nesting Lab v1.6</title>
 <style>
 :root{
   --bg:#0f1115; --panel:#181b22; --panel2:#1f242d; --line:#2a313c;
@@ -90,7 +90,7 @@ svg{display:block;width:100%;height:auto}
 <body>
 <header>
   <h1>EMIN Nesting Lab</h1>
-  <span class="badge mono" id="ver">v1.5</span>
+  <span class="badge mono" id="ver">v1.6</span>
   <span class="sub mono" id="hdrOrder">—</span>
 </header>
 
@@ -558,32 +558,81 @@ function nf(v){return (Math.round(v*100)/100).toString().replace('.',',');}
 function buildInstances(list,kerf){
   var inst=[],n=0;
   for(var i=0;i<list.length;i++){var p=list[i];
-    for(var k=0;k<p.qty;k++) inst.push({uid:n++,type:p.id,od:p.od+kerf,odn:p.od,idd:p.idd,child:null,parent:null});}
+    for(var k=0;k<p.qty;k++) inst.push({uid:n++,type:p.id,od:p.od+kerf,odn:p.od,idd:p.idd,
+      kids:[],parent:null,ox:0,oy:0});}
   return inst;
 }
-function isAncestor(inst,cand,host){
+function isAncestor(byUid,cand,host){
   var cur=host;
-  while(cur.parent!==null){cur=inst[cur.parent]; if(cur.uid===cand.uid) return true;}
+  while(cur){ if(cur.uid===cand.uid) return true; cur=cur.parent!==null?byUid[cur.parent]:null; }
   return false;
 }
-function nestInside(inst,gap){
+/* най-далечната свободна точка в кръгъл отвор с радиус R — избутва детайла към стената,
+   така че остатъкът да е едно голямо парче, в което може да влезе още нещо */
+function spotInHole(r,placed,R,gap){
+  if(r>R+1e-9) return null;
+  var D=Math.max(0,R-r),cands=[{x:0,y:0}],k,a,i;
+  for(k=0;k<90;k++){a=2*Math.PI*k/90;cands.push({x:D*Math.cos(a),y:D*Math.sin(a)});}
+  for(i=0;i<placed.length;i++){
+    var need=r+placed[i].r+gap;
+    for(k=0;k<90;k++){a=2*Math.PI*k/90;
+      cands.push({x:placed[i].x+need*Math.cos(a),y:placed[i].y+need*Math.sin(a)});}
+  }
+  var best=null,bs=-Infinity;
+  for(i=0;i<cands.length;i++){
+    var c=cands[i],dc=Math.sqrt(c.x*c.x+c.y*c.y);
+    if(dc>D+1e-6) continue;
+    var ok=true;
+    for(var j=0;j<placed.length;j++){
+      var q=placed[j],ex=c.x-q.x,ey=c.y-q.y,need2=r+q.r+gap;
+      if(ex*ex+ey*ey<(need2-1e-6)*(need2-1e-6)){ok=false;break;}
+    }
+    if(!ok) continue;
+    if(dc>bs){bs=dc;best=c;}
+  }
+  return best;
+}
+/* multi=false — по един детайл в отвор, концентрично (поведението до v1.5)
+   multi=true  — колкото се поберат, избутани към стената на отвора */
+function nestInside(inst,gap,multi){
+  var byUid={},i;
+  for(i=0;i<inst.length;i++){inst[i].kids=[];inst[i].parent=null;inst[i].ox=0;inst[i].oy=0;byUid[inst[i].uid]=inst[i];}
   var holes=inst.slice().sort(function(a,b){return b.idd-a.idd;});
   for(var h=0;h<holes.length;h++){
-    var host=holes[h]; if(host.child!==null) continue;
-    var best=null;
-    for(var i=0;i<inst.length;i++){
-      var c=inst[i];
-      if(c.uid===host.uid||c.parent!==null) continue;
-      if(c.od+2*gap>host.idd) continue;
-      if(isAncestor(inst,c,host)) continue;
-      if(best===null||c.od>best.od) best=c;
+    var host=holes[h],R=host.idd/2-gap,placed=[],guard=0;
+    while(guard++<80){
+      if(!multi&&host.kids.length) break;
+      var best=null;
+      for(i=0;i<inst.length;i++){
+        var c=inst[i];
+        if(c.uid===host.uid||c.parent!==null) continue;
+        if(c.od/2>R) continue;
+        if(isAncestor(byUid,c,host)) continue;
+        if(best===null||c.od>best.od) best=c;
+      }
+      if(!best) break;
+      var pos=multi?spotInHole(best.od/2,placed,R,gap):{x:0,y:0};
+      if(!pos) break;
+      placed.push({x:pos.x,y:pos.y,r:best.od/2});
+      best.parent=host.uid; best.ox=pos.x; best.oy=pos.y; host.kids.push(best.uid);
     }
-    if(best){host.child=best.uid;best.parent=host.uid;}
   }
   return inst;
 }
 
 /* ================= Пакинг с дефектни зони ================= */
+/* Стратегии за избор на позиция. Никоя не печели при всички размери на листа:
+   при 1400–1440 „bl" е най-добра, при 1470 и нагоре „edge" вади 4–10 бр повече.
+   Затова се пробват всички и се взима най-добрият резултат за всеки лист. */
+var STRATEGY={
+  bl:          function(p,c,w,f,x0,y0){return -(p.y*1e3+p.x);},
+  contact:     function(p,c,w,f,x0,y0){return (c+w)*1e7-(p.y*1e3+p.x);},
+  tl:          function(p,c,w,f,x0,y0){return -(p.x*1e3+p.y);},
+  corner:      function(p,c,w,f,x0,y0){return -Math.sqrt(Math.pow(p.x-x0,2)+Math.pow(p.y-y0,2));},
+  edge:        function(p,c,w,f,x0,y0){return f;},
+  edgeContact: function(p,c,w,f,x0,y0){return (c+w)*1e7+f;}
+};
+var STRATEGIES=['bl','contact','tl','corner','edge','edgeContact'];
 function hitsZone(px,py,r,zones,gap){
   for(var i=0;i<zones.length;i++){
     var z=zones[i];
@@ -636,28 +685,51 @@ function findSpot(r,placed,W,H,margin,gap,mode,zones){
       if(d2<(need+1e-3)*(need+1e-3)) contacts++;
     }
     if(!ok) continue;
-    var score;
-    if(mode==='contact'){
-      var walls=(Math.abs(p.x-xmin)<1e-3?1:0)+(Math.abs(p.x-xmax)<1e-3?1:0)+
-                (Math.abs(p.y-ymin)<1e-3?1:0)+(Math.abs(p.y-ymax)<1e-3?1:0);
-      score=(contacts+walls)*1e7-(p.y*1e3+p.x);
-    } else score=-(p.y*1e3+p.x);
+    var walls=(Math.abs(p.x-xmin)<1e-3?1:0)+(Math.abs(p.x-xmax)<1e-3?1:0)+
+              (Math.abs(p.y-ymin)<1e-3?1:0)+(Math.abs(p.y-ymax)<1e-3?1:0);
+    var fromCenter=Math.sqrt(Math.pow(p.x-(xmin+xmax)/2,2)+Math.pow(p.y-(ymin+ymax)/2,2));
+    var score=STRATEGY[mode](p,contacts,walls,fromCenter,xmin,ymin);
     if(score>bestScore){bestScore=score;best=p;}
   }
   return best;
 }
-function packSheets(free,W,H,margin,gap,mode,zones,maxSheets){
+function packOneSheet(items,W,H,margin,gap,mode,zones){
+  var placed=[];
+  for(var i=0;i<items.length;i++){
+    var it=items[i],pos=findSpot(it.od/2,placed,W,H,margin,gap,mode,zones);
+    if(pos) placed.push({uid:it.uid,type:it.type,od:it.od,idd:it.idd,x:pos.x,y:pos.y,r:it.od/2});
+  }
+  return placed;
+}
+/* size[uid] = колко бройки носи дървото на този контур (той + вложените в него) */
+function treeSizes(inst){
+  var byUid={},size={},i;
+  for(i=0;i<inst.length;i++) byUid[inst[i].uid]=inst[i];
+  function walk(u){
+    if(size[u]!=null) return size[u];
+    var n=1,k=byUid[u].kids;
+    for(var j=0;j<k.length;j++) n+=walk(k[j]);
+    return size[u]=n;
+  }
+  for(i=0;i<inst.length;i++) walk(inst[i].uid);
+  return size;
+}
+function packSheets(free,W,H,margin,gap,mode,zones,maxSheets,size){
   var items=free.slice().sort(function(a,b){return b.od-a.od;}),sheets=[],rest=items,guard=0;
+  var modes=mode?[mode]:STRATEGIES;
+  var weigh=function(sh){var n=0;for(var i=0;i<sh.length;i++) n+=size?(size[sh[i].uid]||1):1; return n;};
   while(rest.length&&guard++<300){
     if(maxSheets&&sheets.length>=maxSheets) break;
-    var placed=[],left=[];
-    for(var i=0;i<rest.length;i++){
-      var it=rest[i],pos=findSpot(it.od/2,placed,W,H,margin,gap,mode,zones);
-      if(pos) placed.push({uid:it.uid,type:it.type,od:it.od,idd:it.idd,x:pos.x,y:pos.y,r:it.od/2});
-      else left.push(it);
+    var best=null,bw=-1;
+    for(var m=0;m<modes.length;m++){
+      var placed=packOneSheet(rest,W,H,margin,gap,modes[m],zones),w=weigh(placed);
+      if(w>bw){bw=w;best=placed;}
     }
-    if(!placed.length) break;
-    sheets.push(placed); rest=left;
+    if(!best||!best.length) break;
+    var used={};
+    for(var q=0;q<best.length;q++) used[best[q].uid]=1;
+    sheets.push(best);
+    rest=rest.filter(function(it){return !used[it.uid];});
   }
   return sheets;
 }
@@ -666,10 +738,15 @@ function expand(inst,sheets){
   return sheets.map(function(sh){
     var rings=[];
     for(var k=0;k<sh.length;k++){
-      var top=sh[k],cur=byUid[top.uid],depth=0;
-      while(cur){
-        rings.push({type:cur.type,od:cur.od,odn:cur.odn,idd:cur.idd,x:top.x,y:top.y,depth:depth,treeId:top.uid});
-        cur=(cur.child!==null)?byUid[cur.child]:null; depth++;
+      var top=sh[k],stack=[[byUid[top.uid],top.x,top.y,0,null]];
+      while(stack.length){
+        var f=stack.pop(),cur=f[0],x=f[1],y=f[2],depth=f[3],host=f[4];
+        rings.push({type:cur.type,od:cur.od,odn:cur.odn,idd:cur.idd,x:x,y:y,
+                    depth:depth,treeId:top.uid,host:host});
+        for(var q=0;q<cur.kids.length;q++){
+          var kid=byUid[cur.kids[q]];
+          stack.push([kid,x+kid.ox,y+kid.oy,depth+1,cur.type]);
+        }
       }
     }
     return rings;
@@ -677,18 +754,23 @@ function expand(inst,sheets){
 }
 function computeNesting(list,cfg){
   var kerf=cfg.kerf||0;
-  var inst=buildInstances(list,kerf);
-  if(cfg.nest) nestInside(inst,cfg.gap);
-  var free=inst.filter(function(i){return i.parent===null;});
-  var sheets=null,modes=['bl','contact'];
-  function count(ss){var n=0;ss.forEach(function(s){n+=s.length;});return n;}
-  for(var m=0;m<modes.length;m++){
-    var cand=packSheets(free,cfg.W,cfg.H,cfg.margin,cfg.gap,modes[m],cfg.zones||[],cfg.maxSheets);
-    var better=!sheets||cand.length<sheets.length||
-      (cand.length===sheets.length&&count(cand)>count(sheets));
-    if(better) sheets=cand;
+  /* пробват се двата начина на влагане; печели този, който вади повече бройки
+     (при равни бройки — по-малко листа). Така новото никога не е по-лошо от старото. */
+  var variants=cfg.nest?[false,true]:[null],bestInst=null,bestSheets=null,bestScore=null;
+  for(var v=0;v<variants.length;v++){
+    var inst=buildInstances(list,kerf);
+    if(variants[v]!==null) nestInside(inst,cfg.gap,variants[v]);
+    var size=treeSizes(inst);
+    var free=inst.filter(function(i){return i.parent===null;});
+    var cand=packSheets(free,cfg.W,cfg.H,cfg.margin,cfg.gap,null,cfg.zones||[],cfg.maxSheets,size);
+    var pcs=0;
+    cand.forEach(function(sh){sh.forEach(function(p){pcs+=size[p.uid]||1;});});
+    var sc={pieces:pcs,sheets:cand.length};
+    var better=!bestScore||sc.pieces>bestScore.pieces||
+      (sc.pieces===bestScore.pieces&&sc.sheets<bestScore.sheets);
+    if(better){bestScore=sc;bestInst=inst;bestSheets=cand;}
   }
-  var out=expand(inst,sheets);
+  var out=expand(bestInst,bestSheets);
   var counts={};
   out.forEach(function(sh){sh.forEach(function(r){counts[r.type]=(counts[r.type]||0)+1;});});
   /* нетна площ = площта на готовите уплътнения по НОМИНАЛ */
@@ -802,9 +884,8 @@ function sheetStats(sh){
     m[r.type].total++; if(r.depth===0)m[r.type].free++; else m[r.type].nested++;
   });
   sh.forEach(function(r){
-    if(r.depth===0) return;
-    for(var i=0;i<sh.length;i++) if(sh[i].treeId===r.treeId&&sh[i].depth===r.depth-1){
-      m[r.type].hosts[sh[i].type]=(m[r.type].hosts[sh[i].type]||0)+1; break;}
+    if(r.depth===0||!r.host) return;
+    m[r.type].hosts[r.host]=(m[r.type].hosts[r.host]||0)+1;
   });
   return m;
 }
@@ -1480,6 +1561,7 @@ window.hitsZone=hitsZone; window.buildDXF=buildDXF; window.buildCSV=buildCSV;
 window.applyImport=applyImport; window.freshRemaining=freshRemaining; window.renderZones=renderZones;
 window.renderJournal=renderJournal; window.validate=validate; window.state=state; window.PARTS=PARTS;
 window.computeNesting=computeNesting; window.makeZip=makeZip; window.nestInside=nestInside;
+window.spotInHole=spotInHole; window.treeSizes=treeSizes; window.packOneSheet=packOneSheet; window.STRATEGIES=STRATEGIES;
 window.buildInstances=buildInstances; window.findSpot=findSpot;
 window.sheetStats=sheetStats; window.renderRemaining=renderRemaining; window.sheetRows=sheetRows;
 window.netOf=netOf; window.barChart=barChart; window.progressBars=progressBars; window.commit=commit;
