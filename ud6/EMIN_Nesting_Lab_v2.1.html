@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>EMIN Nesting Lab v2.0</title>
+<title>EMIN Nesting Lab v2.1</title>
 <style>
 :root{
   --bg:#0f1115; --panel:#181b22; --panel2:#1f242d; --line:#2a313c;
@@ -102,7 +102,7 @@ svg{display:block;width:100%;height:auto}
 <body>
 <header>
   <h1>EMIN Nesting Lab</h1>
-  <span class="badge mono" id="ver">v2.0</span>
+  <span class="badge mono" id="ver">v2.1</span>
   <span class="sub mono" id="hdrOrder">—</span>
 </header>
 
@@ -1523,7 +1523,7 @@ function renderJournal(){
   types.forEach(function(t){cum[t]=0;});
   rows.push('<div class="scroll"><table><thead><tr><th>№</th><th>Размер</th><th>Деф.</th>'+
     PARTS.map(function(p){return '<th style="color:'+p.col+'">'+p.pos+'</th>';}).join('')+
-    '<th>Общо</th><th>Запълв.</th><th>Време</th></tr></thead><tbody>');
+    '<th>Общо</th><th>Запълв.</th><th>Време</th><th></th></tr></thead><tbody>');
   state.journal.forEach(function(e){
     var tds=types.map(function(t){
       var n=e.counts[t]||0; cum[t]+=n;
@@ -1534,7 +1534,10 @@ function renderJournal(){
       '<td class="mono">'+e.W+'×'+e.H+'</td>'+
       '<td class="mono" style="color:'+((e.zones&&e.zones.length)?'var(--red)':'var(--muted)')+'">'+((e.zones&&e.zones.length)||'·')+'</td>'+
       tds+'<td class="mono">'+e.total+'</td><td class="mono">'+(e.fill==null?'—':e.fill+'%')+'</td>'+
-      '<td class="mono">'+(e.sec?fmtTime(e.sec):'—')+'</td></tr>');
+      '<td class="mono">'+(e.sec?fmtTime(e.sec):'—')+'</td>'+
+      '<td><button data-del="'+e.n+'" title="Изтрий реда и върни бройките" '+
+      'style="background:rgba(248,113,113,.10);border:1px solid var(--red);color:var(--red);'+
+      'border-radius:6px;width:26px;height:24px;cursor:pointer;font-size:13px;line-height:1">×</button></td></tr>');
   });
   rows.push('<tr style="border-top:2px solid var(--line)"><td>Общо</td><td colspan="2" class="mono">'+
     state.journal.length+' листа</td>'+
@@ -1542,12 +1545,40 @@ function renderJournal(){
       var ok=cum[t]===partOf(t).qty;
       return '<td class="mono" style="color:'+(ok?'var(--teal)':'var(--amber)')+'"><b>'+cum[t]+'</b>'+
         '<div style="font-size:9px;color:var(--muted)">от '+partOf(t).qty+'</div></td>';}).join('')+
-    '<td colspan="3"></td></tr>');
+    '<td colspan="4"></td></tr>');
   rows.push('</tbody></table></div>');
   rows.push('<div class="hint">Колоните са номерата на позициите от поръчката. Σ е натрупано количество. '+
+    'Червеният × трие реда и връща бройките в „Остават“ — това е отмяната на „Нарязах го“. '+
     'Времето е от периметъра на резовете при зададената скорост, без празни ходове и смяна на лист.</div>');
   $('journal').innerHTML=rows.join('');
+  Array.prototype.forEach.call($('journal').querySelectorAll('button[data-del]'),function(b){
+    b.addEventListener('click',function(){
+      var n=+b.dataset.del,e=null,k;
+      for(k=0;k<state.journal.length;k++) if(state.journal[k].n===n) e=state.journal[k];
+      if(!e) return;
+      var back=PARTS.filter(function(p){return (e.counts&&e.counts[p.id]);})
+                    .map(function(p){return 'поз.'+p.pos+'×'+e.counts[p.id];}).join(', ');
+      if(!w_confirm('Лист '+n+' ('+e.W+'×'+e.H+') ще бъде изтрит от журнала.\n'+
+        (back?'Бройките се връщат в „Остават": '+back:'Няма бройки за връщане.'))) return;
+      removeSheet(n);
+      $('jMsg').innerHTML='<div class="msg ok">Лист '+n+' е изтрит, бройките са върнати.</div>';});});
   renderClaudeBlock();
+}
+/* Изтриване на сгрешен ред: бройките му се връщат в „Остават", останалите редове се преномерират.
+   Това е отмяната на „Нарязах го" — дотук единственият изход беше да се изчисти целият журнал. */
+function removeSheet(n){
+  var i=-1,k;
+  for(k=0;k<state.journal.length;k++) if(state.journal[k].n===n){i=k;break;}
+  if(i<0) return false;
+  var e=state.journal[i];
+  PARTS.forEach(function(p){
+    var back=(e.counts&&e.counts[p.id])||0;
+    if(back) state.remaining[p.id]=Math.min(p.qty,(state.remaining[p.id]||0)+back);
+  });
+  state.journal.splice(i,1);
+  state.journal.forEach(function(x,j){x.n=j+1;});
+  saveLS(); renderRemaining(); renderJournal(); renderAnalysis(); renderHistory(); validate();
+  return true;
 }
 function netOf(counts){
   var n=0; PARTS.forEach(function(p){ n+=(counts[p.id]||0)*Math.PI/4*(p.od*p.od-p.idd*p.idd); });
@@ -1884,11 +1915,14 @@ function importAll(o){
 /* смяна на номера на поръчката: превключва към нейния журнал (или започва празен) */
 function switchOrder(){
   readMeta(); state.res=null; state.zones=[];
-  if(!loadLS()){ state.journal=[]; state.remaining=freshRemaining(); }
+  var known=loadLS();
+  if(!known){ state.journal=[]; state.remaining=freshRemaining(); }
   renderParts(); renderRemaining(); renderZones(); renderJournal(); renderAnalysis(); renderManualQty();
   renderHistory(); applyMode();
-  $('oMsg').innerHTML='<div class="msg ok">Поръчка '+ORDER+': '+PARTS.length+' позиции, '+
-    state.journal.length+' вписани листа.</div>';
+  $('oMsg').innerHTML = known
+    ? '<div class="msg ok">Поръчка '+ORDER+': '+PARTS.length+' позиции, '+state.journal.length+' вписани листа.</div>'
+    : '<div class="msg warn">Нова поръчка '+ORDER+' — празен журнал. Позициите са пренесени от предишната '+
+      '('+PARTS.length+' бр) като начало; смени ги с тези от новото задание.</div>';
 }
 function applyImport(o){
   if(!o||!Array.isArray(o.journal)||!o.remaining) throw new Error('Файлът не е журнал на този инструмент.');
@@ -2084,7 +2118,8 @@ window.renderParts=renderParts; window.partId=partId; window.loadLS=loadLS; wind
 window.circlePoly=circlePoly; window.ptsOf=ptsOf; window.treeSeq=treeSeq; window.orderByPath=orderByPath;
 window.travelOf=travelOf; window.treeEnds=treeEnds; window.CORNERS=CORNERS;
 window.freeRect=freeRect; window.ud6View=ud6View; window.UD6=UD6;
-window.fillHole=fillHole; window.NEST_MODES=NEST_MODES; window.prepareNesting=prepareNesting; window.sheetContours=sheetContours; window.buildUD6Sheet=buildUD6Sheet; window.ud6Origin=ud6Origin;
+window.fillHole=fillHole; window.NEST_MODES=NEST_MODES; window.prepareNesting=prepareNesting;
+window.removeSheet=removeSheet; window.sheetContours=sheetContours; window.buildUD6Sheet=buildUD6Sheet; window.ud6Origin=ud6Origin;
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
 </script>
 </body>

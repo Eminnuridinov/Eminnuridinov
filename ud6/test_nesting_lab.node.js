@@ -1,4 +1,4 @@
-// Тест на EMIN_Nesting_Lab_v2.0.html през DOM mock:  node --test test_nesting_lab.node.js
+// Тест на EMIN_Nesting_Lab_v2.1.html през DOM mock:  node --test test_nesting_lab.node.js
 // 1) целият скрипт минава init без runtime грешки; 2) computeNesting -> buildUD6Sheet -> ud6_decode.py;
 // 3) ZIP с binary .ud6 през python zipfile; 4) вграденият модул == ud6_write.js.
 'use strict';
@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 const J = v => JSON.parse(JSON.stringify(v));   // масивите от vm контекста са друг realm
 const fs = require('fs'), path = require('path'), vm = require('vm'), cp = require('child_process');
 
-const HTML_PATH = path.join(__dirname, 'EMIN_Nesting_Lab_v2.0.html');
+const HTML_PATH = path.join(__dirname, 'EMIN_Nesting_Lab_v2.1.html');
 const html = fs.readFileSync(HTML_PATH, 'utf8');
 const script = html.slice(html.indexOf('<script>') + 8, html.lastIndexOf('</script>'));
 const TMP = fs.mkdtempSync(path.join(require('os').tmpdir(), 'nest-'));
@@ -69,8 +69,8 @@ test('целият скрипт минава init без грешки; верс�
   assert.equal(typeof w.computeNesting, 'function');
   assert.equal(typeof w.buildUD6Sheet, 'function');
   assert.equal(typeof w.UD6.buildUD6, 'function');
-  assert.match(html, /<span class="badge mono" id="ver">v2\.0<\/span>/);
-  assert.match(html, /<title>EMIN Nesting Lab v2\.0/);
+  assert.match(html, /<span class="badge mono" id="ver">v2\.1<\/span>/);
+  assert.match(html, /<title>EMIN Nesting Lab v2\.1/);
   assert.ok(w._els.ud61 && w._els.ud6All && w._els.ud6Hint, 'нови елементи');
   assert.ok(w._els.oNum && w._els.oQty && w._els.addPart && w._els.ptab, 'карта Поръчка + позиции');
   assert.equal(w._els.hdrOrder.textContent, 'поръчка R0006489');
@@ -696,4 +696,57 @@ test('кешът на влагането не мени резултата и у�
   const c = w.computeNesting(list, Object.assign({}, cfg, { kerf: 3 })).sheets[0].length;
   assert.equal(w.computeNesting(list, cfg).sheets[0].length, a, 'старият вход дава стария резултат');
   assert.ok(c > 0);
+});
+
+
+// ---------------------------------------------------------------- v2.1
+test('изтриване на ред от журнала връща бройките и преномерира', () => {
+  const w = boot();
+  const a = w.PARTS[0].id, b = w.PARTS[1].id;
+  const left0 = { a: w.state.remaining[a], b: w.state.remaining[b] };
+  w.state.journal.push({ n: 1, date: '2026-09-04', W: 1500, H: 1500, counts: { [a]: 5, [b]: 3 }, total: 8 });
+  w.state.journal.push({ n: 2, date: '2026-09-04', W: 1490, H: 1490, counts: { [a]: 4 }, total: 4 });
+  w.state.remaining[a] -= 9; w.state.remaining[b] -= 3;
+  assert.equal(w.removeSheet(1), true);
+  assert.equal(w.state.journal.length, 1);
+  assert.equal(w.state.journal[0].n, 1, 'преномериран');
+  assert.equal(w.state.journal[0].W, 1490, 'останал е вторият лист');
+  assert.equal(w.state.remaining[a], left0.a - 4, 'върнати са само бройките на изтрития');
+  assert.equal(w.state.remaining[b], left0.b);
+  assert.equal(w.removeSheet(9), false, 'несъществуващ ред');
+});
+
+test('изтриване не качва „Остават" над поръчаното', () => {
+  const w = boot();
+  const p = w.PARTS[0];
+  w.state.remaining[p.id] = p.qty;                       // нищо не е рязано
+  w.state.journal.push({ n: 1, date: 'x', W: 1500, H: 1500, counts: { [p.id]: 5 }, total: 5 });
+  w.removeSheet(1);
+  assert.equal(w.state.remaining[p.id], p.qty, 'таванът е количеството по поръчка');
+});
+
+test('пълен цикъл: изчисли → впиши → изтрий връща изходното състояние', async () => {
+  const w = boot();
+  const before = JSON.stringify(w.state.remaining);
+  w.state.mode = 'one';
+  w.run();
+  await new Promise(r => setTimeout(r, 2500));
+  w.commit();
+  assert.equal(w.state.journal.length, 1);
+  assert.notEqual(JSON.stringify(w.state.remaining), before, 'бройките са смъкнати');
+  w.removeSheet(1);
+  assert.equal(w.state.journal.length, 0);
+  assert.equal(JSON.stringify(w.state.remaining), before, 'върнато е изходното');
+});
+
+test('нова поръчка казва, че позициите са пренесени', () => {
+  const w = boot();
+  w.saveLS();
+  w._els.oNum.value = 'НОВА-1'; w.switchOrder();
+  assert.match(w._els.oMsg.innerHTML, /msg warn/);
+  assert.match(w._els.oMsg.innerHTML, /пренесени от предишната/);
+  // връщане към позната поръчка — зелено съобщение
+  w._els.oNum.value = 'R0006489'; w.switchOrder();
+  assert.match(w._els.oMsg.innerHTML, /msg ok/);
+  assert.doesNotMatch(w._els.oMsg.innerHTML, /пренесени/);
 });
