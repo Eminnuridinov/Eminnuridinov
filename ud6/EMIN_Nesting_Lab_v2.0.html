@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>EMIN Nesting Lab v1.9</title>
+<title>EMIN Nesting Lab v2.0</title>
 <style>
 :root{
   --bg:#0f1115; --panel:#181b22; --panel2:#1f242d; --line:#2a313c;
@@ -102,7 +102,7 @@ svg{display:block;width:100%;height:auto}
 <body>
 <header>
   <h1>EMIN Nesting Lab</h1>
-  <span class="badge mono" id="ver">v1.9</span>
+  <span class="badge mono" id="ver">v2.0</span>
   <span class="sub mono" id="hdrOrder">—</span>
 </header>
 
@@ -664,29 +664,69 @@ function spotInHole(r,placed,R,gap){
   }
   return best;
 }
-/* multi=false — по един детайл в отвор, концентрично (поведението до v1.5)
-   multi=true  — колкото се поберат, избутани към стената на отвора */
-function nestInside(inst,gap,multi){
+/* Начини на влагане. Отворът се пълни отгоре надолу по размер, но кой размер тръгва пръв има
+   значение: в Ø289 се побира ЕДНО Ø193 или ДВЕ Ø140 или ТРИ Ø119 или ОСЕМ Ø74. „Най-големият
+   пръв" (правилото до v1.9) губи бройки; „максимум площ" ги вади.
+     'single' — по един детайл, концентрично (поведението до v1.5; каквото е рязано досега)
+     'big'    — най-големият пръв, после каквото остане
+     'count'  — първият размер се избира така, че в отвора да влязат най-много бройки
+     'area'   — така, че вложената площ да е най-голяма
+   computeNesting пробва всичките и взима този с най-много бройки на лист. */
+var NEST_MODES=['single','big','count','area'];
+function fillHole(host,R,gap,byUid,inst,seed){
+  var placed=[],plan=[],pos=[],i,c;
+  var sizes=[];
+  for(i=0;i<inst.length;i++){
+    c=inst[i];
+    if(c.uid===host.uid||c.parent!==null||c.od/2>R||isAncestor(byUid,c,host)) continue;
+    if(sizes.indexOf(c.od)<0) sizes.push(c.od);
+  }
+  sizes.sort(function(a,b){return b-a;});
+  if(seed!=null){var k=sizes.indexOf(seed); if(k>0) sizes=[seed].concat(sizes.slice(0,k),sizes.slice(k+1));}
+  var taken={};
+  for(var s=0;s<sizes.length;s++){
+    for(i=0;i<inst.length;i++){
+      c=inst[i];
+      if(c.od!==sizes[s]||c.uid===host.uid||c.parent!==null||taken[c.uid]) continue;
+      if(c.od/2>R||isAncestor(byUid,c,host)) continue;
+      var p=spotInHole(c.od/2,placed,R,gap);
+      if(!p) break;
+      placed.push({x:p.x,y:p.y,r:c.od/2}); plan.push(c); pos.push(p); taken[c.uid]=1;
+    }
+  }
+  return {plan:plan,pos:pos,sizes:sizes};
+}
+function nestInside(inst,gap,mode){
+  if(mode===false||mode==null) mode='single';
+  if(mode===true) mode='big';
   var byUid={},i;
   for(i=0;i<inst.length;i++){inst[i].kids=[];inst[i].parent=null;inst[i].ox=0;inst[i].oy=0;byUid[inst[i].uid]=inst[i];}
   var holes=inst.slice().sort(function(a,b){return b.idd-a.idd;});
   for(var h=0;h<holes.length;h++){
-    var host=holes[h],R=host.idd/2-gap,placed=[],guard=0;
-    while(guard++<80){
-      if(!multi&&host.kids.length) break;
+    var host=holes[h],R=host.idd/2-gap;
+    if(mode==='single'){
       var best=null;
       for(i=0;i<inst.length;i++){
         var c=inst[i];
-        if(c.uid===host.uid||c.parent!==null) continue;
-        if(c.od/2>R) continue;
-        if(isAncestor(byUid,c,host)) continue;
+        if(c.uid===host.uid||c.parent!==null||c.od/2>R||isAncestor(byUid,c,host)) continue;
         if(best===null||c.od>best.od) best=c;
       }
-      if(!best) break;
-      var pos=multi?spotInHole(best.od/2,placed,R,gap):{x:0,y:0};
-      if(!pos) break;
-      placed.push({x:pos.x,y:pos.y,r:best.od/2});
-      best.parent=host.uid; best.ox=pos.x; best.oy=pos.y; host.kids.push(best.uid);
+      if(best){best.parent=host.uid;best.ox=0;best.oy=0;host.kids.push(best.uid);}
+      continue;
+    }
+    var first=fillHole(host,R,gap,byUid,inst,null),bestPlan=null;
+    var seeds = mode==='big' ? [null] : first.sizes;
+    for(var q=0;q<seeds.length;q++){
+      var f=q===0&&seeds[q]===null?first:fillHole(host,R,gap,byUid,inst,seeds[q]);
+      var sc=0;
+      if(mode==='area'){ for(i=0;i<f.plan.length;i++) sc+=f.plan[i].od*f.plan[i].od; }
+      else { sc=f.plan.length*1e6; for(i=0;i<f.plan.length;i++) sc+=f.plan[i].od; }
+      if(!bestPlan||sc>bestPlan.sc) bestPlan={f:f,sc:sc};
+    }
+    if(!bestPlan||!bestPlan.f.plan.length) continue;
+    for(i=0;i<bestPlan.f.plan.length;i++){
+      var kid=bestPlan.f.plan[i];
+      kid.parent=host.uid; kid.ox=bestPlan.f.pos[i].x; kid.oy=bestPlan.f.pos[i].y; host.kids.push(kid.uid);
     }
   }
   return inst;
@@ -824,23 +864,36 @@ function expand(inst,sheets){
     return rings;
   });
 }
+/* Влагането не зависи от размера на листа — само от списъка, kerf-а и мостчето. Затова се
+   смята веднъж и се пази: таблицата на праговете вика computeNesting за десетки размери. */
+var NEST_CACHE={key:null,variants:null};
+function prepareNesting(list,kerf,gap,nest){
+  var key=JSON.stringify([list,kerf,gap,!!nest]);
+  if(NEST_CACHE.key===key) return NEST_CACHE.variants;
+  var modes=nest?NEST_MODES:[null],out=[];
+  for(var v=0;v<modes.length;v++){
+    var inst=buildInstances(list,kerf);
+    if(modes[v]!==null) nestInside(inst,gap,modes[v]);
+    out.push({mode:modes[v],inst:inst,size:treeSizes(inst),
+              free:inst.filter(function(i){return i.parent===null;})});
+  }
+  NEST_CACHE={key:key,variants:out};
+  return out;
+}
 function computeNesting(list,cfg){
   var kerf=cfg.kerf||0;
-  /* пробват се двата начина на влагане; печели този, който вади повече бройки
+  /* пробват се всички начини на влагане; печели този, който вади повече бройки
      (при равни бройки — по-малко листа). Така новото никога не е по-лошо от старото. */
-  var variants=cfg.nest?[false,true]:[null],bestInst=null,bestSheets=null,bestScore=null;
+  var variants=prepareNesting(list,kerf,cfg.gap,cfg.nest),bestInst=null,bestSheets=null,bestScore=null;
   for(var v=0;v<variants.length;v++){
-    var inst=buildInstances(list,kerf);
-    if(variants[v]!==null) nestInside(inst,cfg.gap,variants[v]);
-    var size=treeSizes(inst);
-    var free=inst.filter(function(i){return i.parent===null;});
-    var cand=packSheets(free,cfg.W,cfg.H,cfg.margin,cfg.gap,null,cfg.zones||[],cfg.maxSheets,size);
+    var V=variants[v];
+    var cand=packSheets(V.free,cfg.W,cfg.H,cfg.margin,cfg.gap,null,cfg.zones||[],cfg.maxSheets,V.size);
     var pcs=0;
-    cand.forEach(function(sh){sh.forEach(function(p){pcs+=size[p.uid]||1;});});
+    cand.forEach(function(sh){sh.forEach(function(p){pcs+=V.size[p.uid]||1;});});
     var sc={pieces:pcs,sheets:cand.length};
     var better=!bestScore||sc.pieces>bestScore.pieces||
       (sc.pieces===bestScore.pieces&&sc.sheets<bestScore.sheets);
-    if(better){bestScore=sc;bestInst=inst;bestSheets=cand;}
+    if(better){bestScore=sc;bestInst=V.inst;bestSheets=cand;}
   }
   var out=expand(bestInst,bestSheets);
   var counts={};
@@ -2030,7 +2083,8 @@ window.addPart=addPart; window.rekey=rekey; window.renumber=renumber; window.swi
 window.renderParts=renderParts; window.partId=partId; window.loadLS=loadLS; window.saveLS=saveLS;
 window.circlePoly=circlePoly; window.ptsOf=ptsOf; window.treeSeq=treeSeq; window.orderByPath=orderByPath;
 window.travelOf=travelOf; window.treeEnds=treeEnds; window.CORNERS=CORNERS;
-window.freeRect=freeRect; window.ud6View=ud6View; window.UD6=UD6; window.sheetContours=sheetContours; window.buildUD6Sheet=buildUD6Sheet; window.ud6Origin=ud6Origin;
+window.freeRect=freeRect; window.ud6View=ud6View; window.UD6=UD6;
+window.fillHole=fillHole; window.NEST_MODES=NEST_MODES; window.prepareNesting=prepareNesting; window.sheetContours=sheetContours; window.buildUD6Sheet=buildUD6Sheet; window.ud6Origin=ud6Origin;
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
 </script>
 </body>

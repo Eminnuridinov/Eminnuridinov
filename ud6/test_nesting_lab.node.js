@@ -1,4 +1,4 @@
-// Тест на EMIN_Nesting_Lab_v1.9.html през DOM mock:  node --test test_nesting_lab.node.js
+// Тест на EMIN_Nesting_Lab_v2.0.html през DOM mock:  node --test test_nesting_lab.node.js
 // 1) целият скрипт минава init без runtime грешки; 2) computeNesting -> buildUD6Sheet -> ud6_decode.py;
 // 3) ZIP с binary .ud6 през python zipfile; 4) вграденият модул == ud6_write.js.
 'use strict';
@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 const J = v => JSON.parse(JSON.stringify(v));   // масивите от vm контекста са друг realm
 const fs = require('fs'), path = require('path'), vm = require('vm'), cp = require('child_process');
 
-const HTML_PATH = path.join(__dirname, 'EMIN_Nesting_Lab_v1.9.html');
+const HTML_PATH = path.join(__dirname, 'EMIN_Nesting_Lab_v2.0.html');
 const html = fs.readFileSync(HTML_PATH, 'utf8');
 const script = html.slice(html.indexOf('<script>') + 8, html.lastIndexOf('</script>'));
 const TMP = fs.mkdtempSync(path.join(require('os').tmpdir(), 'nest-'));
@@ -69,8 +69,8 @@ test('целият скрипт минава init без грешки; верс�
   assert.equal(typeof w.computeNesting, 'function');
   assert.equal(typeof w.buildUD6Sheet, 'function');
   assert.equal(typeof w.UD6.buildUD6, 'function');
-  assert.match(html, /<span class="badge mono" id="ver">v1\.9<\/span>/);
-  assert.match(html, /<title>EMIN Nesting Lab v1\.9/);
+  assert.match(html, /<span class="badge mono" id="ver">v2\.0<\/span>/);
+  assert.match(html, /<title>EMIN Nesting Lab v2\.0/);
   assert.ok(w._els.ud61 && w._els.ud6All && w._els.ud6Hint, 'нови елементи');
   assert.ok(w._els.oNum && w._els.oQty && w._els.addPart && w._els.ptab, 'карта Поръчка + позиции');
   assert.equal(w._els.hdrOrder.textContent, 'поръчка R0006489');
@@ -323,13 +323,14 @@ test('treeSizes: бройките в дървото', () => {
 test('новият разкрой не е по-лош от стария при никой размер', () => {
   const w = boot();
   const list = w.PARTS.map(p => ({ id: p.id, od: p.od, idd: p.idd, qty: p.qty }));
-  const было = { 1400: 120, 1430: 126, 1440: 128, 1470: 130, 1490: 130, 1500: 130 };
+  // долни граници: v1.5 вадеше 120/126/128/130/130/130, v1.9 — 120/126/128/135/134/138
+  const было = { 1400: 140, 1430: 145, 1440: 150, 1470: 160, 1490: 160, 1500: 165 };
   for (const W of [1400, 1430, 1440, 1470, 1490, 1500]) {
     const r = w.computeNesting(list, { W, H: W, margin: 5, gap: 2, kerf: 1, nest: 1, zones: [], maxSheets: 1 });
     assert.ok(r.sheets[0].length >= было[W], W + ': ' + r.sheets[0].length + ' < ' + было[W]);
   }
   const r = w.computeNesting(list, { W: 1485, H: 1500, margin: 5, gap: 2, kerf: 1, nest: 1, zones: [], maxSheets: 1 });
-  assert.ok(r.sheets[0].length >= 140, 'реалният лист 1485×1500: ' + r.sheets[0].length);
+  assert.ok(r.sheets[0].length >= 165, 'реалният лист 1485×1500: ' + r.sheets[0].length);
 });
 
 test('геометрията е валидна: без застъпване, в листа, децата в отвора си', () => {
@@ -369,7 +370,7 @@ test('дефектната зона се спазва и в новия разк�
   const zones = [{ x: 0, y: 1300, w: 200, h: 200 }];
   const r = w.computeNesting(list, { W: 1485, H: 1500, margin: 5, gap: 2, kerf: 1, nest: 1, zones, maxSheets: 1 });
   for (const ring of r.sheets[0]) assert.ok(!w.hitsZone(ring.x, ring.y, ring.od / 2, zones, 2), ring.type + ' в дефекта');
-  assert.ok(r.sheets[0].length >= 125);
+  assert.ok(r.sheets[0].length >= 140);
 });
 
 
@@ -622,4 +623,77 @@ test('печатното заглавие носи поръчка, лист и �
   w.drawSheet();
   const h = w._els.printHead.textContent;
   assert.match(h, /R0006489/); assert.match(h, /1490×1490/); assert.match(h, /ръб 5/);
+});
+
+
+// ---------------------------------------------------------------- v2.0
+test('четирите начина на влагане; „най-големият пръв" не е най-добрият', () => {
+  const w = boot();
+  assert.deepEqual(J(w.NEST_MODES), ['single', 'big', 'count', 'area']);
+  const list = w.PARTS.map(p => ({ id: p.id, od: p.od, idd: p.idd, qty: p.qty }));
+  const V = w.prepareNesting(list, 1, 2, true);
+  assert.equal(V.length, 4);
+  const per = {};
+  for (const v of V) {
+    const s = w.packSheets(v.free, 1485, 1500, 5, 2, null, [], 1, v.size);
+    per[v.mode] = s[0].reduce((a, p) => a + v.size[p.uid], 0);
+  }
+  // всеки многодетен вариант бие концентричния; кой точно печели зависи от поръчката
+  for (const m of ['big', 'count', 'area'])
+    assert.ok(per[m] >= per.single, m + ' ' + per[m] + ' < single ' + per.single);
+  const best = Math.max(...Object.values(per));
+  assert.ok(best > per.single, 'най-добрият ' + best + ' vs single ' + per.single);
+  // computeNesting взима най-добрия
+  const r = w.computeNesting(list, { W: 1485, H: 1500, margin: 5, gap: 2, kerf: 1, nest: 1, zones: [], maxSheets: 1 });
+  assert.equal(r.sheets[0].length, best, JSON.stringify(per));
+});
+
+test('в отвор Ø289 влизат две Ø140, а не само едно Ø193', () => {
+  const w = boot();
+  const R = 289 / 2 - 2, r = 140 / 2;
+  const a = w.spotInHole(r, [], R, 2);
+  const b = w.spotInHole(r, [{ x: a.x, y: a.y, r }], R, 2);
+  assert.ok(b, 'второто Ø140 се побира');
+  assert.ok(Math.hypot(b.x - a.x, b.y - a.y) >= 140 + 2 - 1e-6);
+  assert.ok(Math.hypot(b.x, b.y) + r <= R + 1e-6);
+  // Ø193 се побира само едно
+  const c = w.spotInHole(193 / 2, [], R, 2);
+  assert.ok(c && !w.spotInHole(193 / 2, [{ x: c.x, y: c.y, r: 193 / 2 }], R, 2));
+});
+
+test('многодетното влагане пази геометрията: децата в отвора, без застъпване', () => {
+  const w = boot();
+  const list = w.PARTS.map(p => ({ id: p.id, od: p.od, idd: p.idd, qty: p.qty }));
+  for (const V of w.prepareNesting(list, 1, 2, true)) {
+    const byUid = {}; V.inst.forEach(i => byUid[i.uid] = i);
+    for (const h of V.inst) {
+      for (const k of h.kids) {
+        const c = byUid[k];
+        assert.ok(Math.hypot(c.ox, c.oy) + c.od / 2 <= h.idd / 2 - 2 + 1e-6,
+          V.mode + ': ' + c.type + ' извън отвора на ' + h.type);
+      }
+      for (let i = 0; i < h.kids.length; i++) for (let j = i + 1; j < h.kids.length; j++) {
+        const a = byUid[h.kids[i]], b = byUid[h.kids[j]];
+        assert.ok(Math.hypot(a.ox - b.ox, a.oy - b.oy) >= a.od / 2 + b.od / 2 + 2 - 1e-6,
+          V.mode + ': застъпване в ' + h.type);
+      }
+    }
+    // всеки детайл е точно на едно място и няма цикли
+    let nested = 0;
+    for (const i of V.inst) { if (i.parent !== null) nested++; let c = i, n = 0; while (c.parent !== null) { c = byUid[c.parent]; assert.ok(++n < 60, 'цикъл'); } }
+    assert.equal(nested + V.free.length, V.inst.length);
+  }
+});
+
+test('кешът на влагането не мени резултата и ускорява праговете', () => {
+  const w = boot();
+  const list = w.PARTS.map(p => ({ id: p.id, od: p.od, idd: p.idd, qty: p.qty }));
+  const cfg = { W: 1485, H: 1500, margin: 5, gap: 2, kerf: 1, nest: 1, zones: [], maxSheets: 1 };
+  const a = w.computeNesting(list, cfg).sheets[0].length;
+  const b = w.computeNesting(list, cfg).sheets[0].length;
+  assert.equal(a, b);
+  // смяна на kerf-а вдига нов кеш
+  const c = w.computeNesting(list, Object.assign({}, cfg, { kerf: 3 })).sheets[0].length;
+  assert.equal(w.computeNesting(list, cfg).sheets[0].length, a, 'старият вход дава стария резултат');
+  assert.ok(c > 0);
 });
