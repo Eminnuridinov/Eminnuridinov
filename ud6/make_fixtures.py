@@ -6,11 +6,11 @@ make_fixtures.py — еталони за огледалните Node тесто�
 """
 import json, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from ud6_write import write_ud6
+from ud6_write import write_ud6, DEFAULT_TEMPLATE
 from ud6_decode import decode
 from dxf_read import read_dxf
 
-HERE = os.path.dirname(os.path.abspath(__file__)); F = os.path.join(HERE, 'fixtures'); T4 = os.path.join(HERE, 'samples', 'T4_order_ABC.UD6')
+HERE = os.path.dirname(os.path.abspath(__file__)); F = os.path.join(HERE, 'fixtures'); T4 = DEFAULT_TEMPLATE
 os.makedirs(os.path.join(F, 'expected'), exist_ok=True)
 
 d = decode(open(os.path.join(HERE, 'samples', 'T1_ring_circles.UD6'), 'rb').read())

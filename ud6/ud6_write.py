@@ -8,9 +8,9 @@ ud6_write.py — референтен писач за Trocen .ud6 (TroCutCAD / T
 координатна система (DXF: Y нагоре). Редът на рязане = редът на списъка; стартовата
 точка на всеки контур = първата му точка (и при обръщане CW -> CCW).
 
-Всичко служебно (header, layer block, per-contour блокове, trailer) се взима от
-шаблон — файл, генериран от TroCutCAD (samples/T4_order_ABC.UD6). Преизчисляват се
-само полетата, които зависят от геометрията (UD6_FORMAT_SPEC.md §5).
+Всичко служебно (header, layer block, trailer) се взима от шаблон — samples/template_red.ud6
+(T4_order_ABC от TroCutCAD с червения слой от T1, вж. make_template_red.py). Преизчисляват се
+само полетата, които зависят от геометрията (UD6_FORMAT_SPEC.md §5) и preview bitmap-ите.
 
 CLI:
     python3 ud6_write.py IN.dxf OUT.ud6 [--template T.ud6] [--no-corner-marks]
@@ -18,6 +18,8 @@ CLI:
 import math, sys
 
 XOR = 0x7C
+# шаблон по подразбиране: червен слой (ножът); синият (T4) е за друг модул — вж. make_template_red.py
+DEFAULT_TEMPLATE = __import__('os').path.join(__import__('os').path.dirname(__import__('os').path.abspath(__file__)), 'samples', 'template_red.ud6')
 ABS_THRESHOLD_UM = 8000          # ръб > 8.000 mm -> 0xDC абсолютно, иначе относително
 REL14_MAX = 8191                 # обхват на rel14 (±8.191 mm) — 8000 оставя резерв
 
@@ -259,7 +261,8 @@ def header_records(tpl, W, H, xmax, ymin, nseg, rec9_mode='center'):
 
 
 # ---------------------------------------------------------------- писач
-def write_ud6(contours, template_path, corner_marks=True, rec9_mode='center', start='keep', preview='render'):
+def write_ud6(contours, template_path=None, corner_marks=True, rec9_mode='center', start='keep', preview='render'):
+    if template_path is None: template_path = DEFAULT_TEMPLATE
     tpl = template_path if isinstance(template_path, Template) else Template.load(template_path)
     polys = normalize(contours, start)
 
@@ -303,7 +306,7 @@ if __name__ == '__main__':
     import argparse, os
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('dxf'); ap.add_argument('out')
-    ap.add_argument('--template', default=os.path.join(os.path.dirname(__file__), 'samples', 'T4_order_ABC.UD6'))
+    ap.add_argument('--template', default=DEFAULT_TEMPLATE)
     ap.add_argument('--no-corner-marks', action='store_true', help='без 0xB5 [0x30] след 0xDC (стил T4)')
     ap.add_argument('--rec9', choices=('center', 'copy'), default='center')
     ap.add_argument('--start', choices=('keep', 'topleft'), default='keep', help='стартова точка на контура')

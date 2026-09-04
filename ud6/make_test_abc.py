@@ -9,7 +9,7 @@ make_test_abc.py — генерира test_ABC.ud6: три квадрата 40×
 """
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from ud6_write import write_ud6
+from ud6_write import write_ud6, DEFAULT_TEMPLATE
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 dxf = os.path.join(HERE, 'tests', 'T4_order_ABC.dxf')
@@ -24,6 +24,6 @@ else:
     src = 'координати на образеца T4 (DXF липсва)'
 order = [byx[0], byx[300], byx[150]]                        # A → B → C, без сортиране
 for name, marks in (('test_ABC.ud6', True), ('test_ABC_nomarks.ud6', False)):
-    data = write_ud6(order, os.path.join(HERE, 'samples', 'T4_order_ABC.UD6'), corner_marks=marks, start='topleft')
+    data = write_ud6(order, DEFAULT_TEMPLATE, corner_marks=marks, start='topleft')
     with open(os.path.join(HERE, name), 'wb') as f: f.write(data)
     print(f'{name}: {len(data)} байта  <- {src}')

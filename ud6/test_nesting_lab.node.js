@@ -1,4 +1,4 @@
-// Тест на EMIN_Nesting_R0006489_v1.1.html през DOM mock:  node --test test_nesting_lab.node.js
+// Тест на EMIN_Nesting_R0006489_v1.2.html през DOM mock:  node --test test_nesting_lab.node.js
 // 1) целият скрипт минава init без runtime грешки; 2) computeNesting -> buildUD6Sheet -> ud6_decode.py;
 // 3) ZIP с binary .ud6 през python zipfile; 4) вграденият модул == ud6_write.js.
 'use strict';
@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 const J = v => JSON.parse(JSON.stringify(v));   // масивите от vm контекста са друг realm
 const fs = require('fs'), path = require('path'), vm = require('vm'), cp = require('child_process');
 
-const HTML_PATH = path.join(__dirname, 'EMIN_Nesting_R0006489_v1.1.html');
+const HTML_PATH = path.join(__dirname, 'EMIN_Nesting_R0006489_v1.2.html');
 const html = fs.readFileSync(HTML_PATH, 'utf8');
 const script = html.slice(html.indexOf('<script>') + 8, html.lastIndexOf('</script>'));
 const TMP = fs.mkdtempSync(path.join(require('os').tmpdir(), 'nest-'));
@@ -61,8 +61,8 @@ test('целият скрипт минава init без грешки; верс�
   assert.equal(typeof w.computeNesting, 'function');
   assert.equal(typeof w.buildUD6Sheet, 'function');
   assert.equal(typeof w.UD6.buildUD6, 'function');
-  assert.match(html, /<span class="badge mono" id="ver">v1\.1<\/span>/);
-  assert.match(html, /<title>EMIN Nesting Lab v1\.1/);
+  assert.match(html, /<span class="badge mono" id="ver">v1\.2<\/span>/);
+  assert.match(html, /<title>EMIN Nesting Lab v1\.2/);
   assert.ok(w._els.ud61 && w._els.ud6All && w._els.ud6Hint, 'нови елементи');
   assert.ok(w._els.ud61._listeners.click && w._els.ud6All._listeners.click, 'click handlers');
   assert.equal(w._els.ud61.disabled, true);

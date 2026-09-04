@@ -5,7 +5,7 @@ import os, math, io, sys, subprocess
 import pytest
 sys.path.insert(0, os.path.dirname(__file__))
 from ud6_write import (Template, write_ud6, tokenize, untokenize, enc35, enc14, dec35,
-                       normalize, header_records, render_preview, XOR)
+                       normalize, header_records, render_preview, XOR, DEFAULT_TEMPLATE)
 from ud6_decode import decode, s35, s14
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -100,7 +100,7 @@ def test_normalize_rejects_degenerate():
 # ---------------------------------------------------------------- писач
 def test_abc_order_and_segments():
     sq = lambda x0: [(x0, 0), (x0 + 40, 0), (x0 + 40, 40), (x0, 40)]
-    out = write_ud6([sq(0), sq(300), sq(150)], T4)
+    out = write_ud6([sq(0), sq(300), sq(150)])
     d = decode(out)
     assert [c['idx'] for c in d['contours']] == [1, 2, 3]
     assert [c['bbox']['xmin'] for c in d['contours']] == [0, 300000, 150000]   # A, B, C — без сортиране
@@ -171,12 +171,40 @@ def test_preview_tall_job_centered_x():
     cols = sorted({i % 208 for i, v in enumerate(bm) if v != 127})
     assert cols[0] == 83 and cols[-1] == 125 and 207 in {i // 208 for i, v in enumerate(bm) if v != 127}
 
+# ---------------------------------------------------------------- червен слой (default шаблон)
+def _u7(p): return [b ^ XOR for b in p]
+
+def test_default_template_is_red_layer():
+    d = decode(write_ud6([[(0, 0), (40, 0), (40, 40)]]))
+    assert len(d['layers']) == 1
+    L = d['layers'][0]
+    assert (0xB7, [4, 1]) in L and (0xB7, [2, 0, 1]) in L
+    assert [x for x in L if x[0] == 0xB4 and x[1][0] == 2][0][1] == [2, 0, 0, 6, 13, 32]      # 100000 µm/s
+    T = tokenize(write_ud6([[(0, 0), (40, 0), (40, 40)]]))
+    assert _u7([p for op, p in T if op == 0xAD][0]) == [31, 0, 0]
+    A = [_u7(p) for op, p in T if op == 0xA1]
+    assert A[0] == [0, 0, 1] and A[2] == [1, 31, 0, 0] and A[3] == [2, 7, 104] and A[-1] == [127] and len(A) == 13
+
+def test_red_template_matches_T1_red_layer_bytes():
+    """Layer block и 0xA1 групата са байт-идентични с червения слой на T1 (и T2/T3)."""
+    T1 = tokenize(rd(T1_ := S('T1_ring_circles.UD6')))
+    red_start = next(i for i, (op, p) in enumerate(T1) if op == 0xB7 and _u7(p) == [4, 1]) - 1
+    red_block = T1[red_start:red_start + 11]
+    tpl = Template.load(DEFAULT_TEMPLATE)
+    assert tpl.layer == red_block
+    a1 = [(op, p) for op, p in T1 if op == 0xA1][:13]
+    assert [(op, p) for op, p in tpl.trailer if op == 0xA1] == a1
+
+def test_blue_template_still_selectable():
+    d = decode(write_ud6([[(0, 0), (40, 0), (40, 40)]], T4))
+    assert (0xB7, [4, 2]) in d['layers'][0]
+
 # ---------------------------------------------------------------- roundtrip T1
 def test_roundtrip_T1():
     orig = decode(rd(T1))
     contours_mm = [[(x / 1000.0, y / 1000.0) for x, y in c['pts'][:-1]] for c in orig['contours']]
     # (последната точка на декодирания контур е стартът след затваряне — махаме я)
-    out = write_ud6(contours_mm, T4)
+    out = write_ud6(contours_mm)
     d = decode(out)
     assert len(d['contours']) == len(orig['contours']) == 2
     # геометрия: точно спрямо подадения вход след нормализация (µm)
