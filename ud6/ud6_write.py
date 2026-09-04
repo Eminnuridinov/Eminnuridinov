@@ -128,8 +128,10 @@ def signed_area2(pts):
         a += x0 * y1 - x1 * y0
     return a
 
-def normalize(contours_mm):
-    """mm -> µm (int); премества min X = 0, max Y = 0; CCW; без дублирани/нулеви точки."""
+def normalize(contours_mm, start='keep'):
+    """mm -> µm (int); премества min X = 0, max Y = 0; CCW; без дублирани/нулеви точки.
+    start='keep'    — стартова точка = първата подадена (и след обръщане CW -> CCW)
+    start='topleft' — стартова точка = върхът с max Y, при равни — min X (както TroCutCAD в T4)"""
     if not contours_mm:
         raise ValueError("няма контури")
     raw = [[(um(x), um(y)) for x, y in c] for c in contours_mm]
@@ -148,6 +150,9 @@ def normalize(contours_mm):
             raise ValueError(f"контур #{k + 1}: по-малко от 3 различни точки")
         if signed_area2(clean) < 0:                      # CW -> CCW, стартовата точка се запазва
             clean = [clean[0]] + clean[:0:-1]
+        if start == 'topleft':
+            s0 = min(range(len(clean)), key=lambda i: (-clean[i][1], clean[i][0]))
+            clean = clean[s0:] + clean[:s0]
         out.append(clean)
     return out
 
@@ -215,9 +220,9 @@ def header_records(tpl, W, H, xmax, ymin, nseg, rec9_mode='center'):
 
 
 # ---------------------------------------------------------------- писач
-def write_ud6(contours, template_path, corner_marks=True, rec9_mode='center'):
+def write_ud6(contours, template_path, corner_marks=True, rec9_mode='center', start='keep'):
     tpl = template_path if isinstance(template_path, Template) else Template.load(template_path)
-    polys = normalize(contours)
+    polys = normalize(contours, start)
 
     body = list(tpl.layer_prefix)
     nseg_total = 0
@@ -254,9 +259,10 @@ if __name__ == '__main__':
     ap.add_argument('--template', default=os.path.join(os.path.dirname(__file__), 'samples', 'T4_order_ABC.UD6'))
     ap.add_argument('--no-corner-marks', action='store_true', help='без 0xB5 [0x30] след 0xDC (стил T4)')
     ap.add_argument('--rec9', choices=('center', 'copy'), default='center')
+    ap.add_argument('--start', choices=('keep', 'topleft'), default='keep', help='стартова точка на контура')
     a = ap.parse_args()
     from dxf_read import read_dxf
     contours = read_dxf(a.dxf)
-    data = write_ud6(contours, a.template, corner_marks=not a.no_corner_marks, rec9_mode=a.rec9)
+    data = write_ud6(contours, a.template, corner_marks=not a.no_corner_marks, rec9_mode=a.rec9, start=a.start)
     with open(a.out, 'wb') as f: f.write(data)
     print(f"{a.out}: {len(contours)} контура, {len(data)} байта")

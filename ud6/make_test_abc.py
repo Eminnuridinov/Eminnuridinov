@@ -4,6 +4,7 @@ make_test_abc.py — генерира test_ABC.ud6: три квадрата 40×
 
 Ако има tests/T4_order_ABC.dxf — квадратите се четат от него и се подреждат по X
 (A, B, C = 0, 300, 150); иначе — от координатите на образеца T4 (същата геометрия).
+Стартова точка горе-вляво (start='topleft') — както TroCutCAD в T4.
 Пише и test_ABC_nomarks.ud6 (без 0xB5 [0x30] по ъглите — стилът на T4) за избор на машината.
 """
 import os, sys
@@ -23,6 +24,6 @@ else:
     src = 'координати на образеца T4 (DXF липсва)'
 order = [byx[0], byx[300], byx[150]]                        # A → B → C, без сортиране
 for name, marks in (('test_ABC.ud6', True), ('test_ABC_nomarks.ud6', False)):
-    data = write_ud6(order, os.path.join(HERE, 'samples', 'T4_order_ABC.UD6'), corner_marks=marks)
+    data = write_ud6(order, os.path.join(HERE, 'samples', 'T4_order_ABC.UD6'), corner_marks=marks, start='topleft')
     with open(os.path.join(HERE, name), 'wb') as f: f.write(data)
     print(f'{name}: {len(data)} байта  <- {src}')

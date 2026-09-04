@@ -82,6 +82,18 @@ def test_normalize_shift_ccw_start():
     assert min(x for x, y in P) == 0 and max(y for x, y in P) == 0
     assert len(P) == 4 and P == [(0, -40000), (40000, -40000), (40000, 0), (0, 0)]
 
+def test_normalize_topleft_start():
+    P = normalize([[(0, 0), (40, 0), (40, 40), (0, 40)]], start='topleft')[0]
+    assert P == [(0, 0), (0, -40000), (40000, -40000), (40000, 0)]        # старт горе-вляво, надолу (T4)
+
+def test_dxf_T4_order_ABC():
+    from dxf_read import read_dxf
+    C = read_dxf(os.path.join(HERE, 'tests', 'T4_order_ABC.dxf'))
+    assert [round(min(x for x, y in c)) for c in C] == [0, 300, 150] and all(len(c) == 4 for c in C)
+    d = decode(write_ud6(C, T4, start='topleft'))
+    assert [c['bbox']['xmin'] for c in d['contours']] == [0, 300000, 150000]
+    assert [c['pts'][0] for c in d['contours']] == [(0, 0), (300000, 0), (150000, 0)]
+
 def test_normalize_rejects_degenerate():
     with pytest.raises(ValueError): normalize([[(0, 0), (1, 1), (0, 0)]])
 
