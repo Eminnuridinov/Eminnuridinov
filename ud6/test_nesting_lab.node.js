@@ -1,4 +1,4 @@
-// Тест на EMIN_Nesting_Lab_v1.7.html през DOM mock:  node --test test_nesting_lab.node.js
+// Тест на EMIN_Nesting_Lab_v1.8.html през DOM mock:  node --test test_nesting_lab.node.js
 // 1) целият скрипт минава init без runtime грешки; 2) computeNesting -> buildUD6Sheet -> ud6_decode.py;
 // 3) ZIP с binary .ud6 през python zipfile; 4) вграденият модул == ud6_write.js.
 'use strict';
@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 const J = v => JSON.parse(JSON.stringify(v));   // масивите от vm контекста са друг realm
 const fs = require('fs'), path = require('path'), vm = require('vm'), cp = require('child_process');
 
-const HTML_PATH = path.join(__dirname, 'EMIN_Nesting_Lab_v1.7.html');
+const HTML_PATH = path.join(__dirname, 'EMIN_Nesting_Lab_v1.8.html');
 const html = fs.readFileSync(HTML_PATH, 'utf8');
 const script = html.slice(html.indexOf('<script>') + 8, html.lastIndexOf('</script>'));
 const TMP = fs.mkdtempSync(path.join(require('os').tmpdir(), 'nest-'));
@@ -69,8 +69,8 @@ test('целият скрипт минава init без грешки; верс�
   assert.equal(typeof w.computeNesting, 'function');
   assert.equal(typeof w.buildUD6Sheet, 'function');
   assert.equal(typeof w.UD6.buildUD6, 'function');
-  assert.match(html, /<span class="badge mono" id="ver">v1\.7<\/span>/);
-  assert.match(html, /<title>EMIN Nesting Lab v1\.7/);
+  assert.match(html, /<span class="badge mono" id="ver">v1\.8<\/span>/);
+  assert.match(html, /<title>EMIN Nesting Lab v1\.8/);
   assert.ok(w._els.ud61 && w._els.ud6All && w._els.ud6Hint, 'нови елементи');
   assert.ok(w._els.oNum && w._els.oQty && w._els.addPart && w._els.ptab, 'карта Поръчка + позиции');
   assert.equal(w._els.hdrOrder.textContent, 'поръчка R0006489');
@@ -479,4 +479,70 @@ test('праговете са монотонни: по-голям лист не 
   for (let i = 1; i < rows.length; i++)
     assert.ok(rows[i] >= rows[i - 1], 'спад при ред ' + i + ': ' + rows[i - 1] + ' → ' + rows[i]);
   assert.match(w._els.thBox.innerHTML, /Прагове: \d+ скока/);
+});
+
+
+// ---------------------------------------------------------------- v1.8
+test('дефектна зона на произволно място, не само в ъгъл', () => {
+  const w = boot();
+  assert.deepEqual(J(Object.keys(w.CORNERS)), ['dl', 'dd', 'gl', 'gd', 'free']);
+  w.state.zones.push({ corner: 'free', w: 120, h: 80, x: 600, y: 700 });
+  const z = w.zonesAbs();
+  assert.deepEqual(J(z[0]), { x: 600, y: 700, w: 120, h: 80, corner: 'free' });
+  // ъглите продължават да работят
+  w.state.zones.push({ corner: 'gd', w: 100, h: 100, x: 0, y: 0 });
+  const z2 = w.zonesAbs()[1];
+  assert.deepEqual(J([z2.x, z2.y]), [1400, 1400]);
+  // разкроят я спазва
+  const list = w.PARTS.map(p => ({ id: p.id, od: p.od, idd: p.idd, qty: p.qty }));
+  const zones = [{ x: 600, y: 700, w: 300, h: 300 }];
+  const r = w.computeNesting(list, { W: 1500, H: 1500, margin: 5, gap: 2, kerf: 1, nest: 1, zones, maxSheets: 1 });
+  for (const ring of r.sheets[0]) assert.ok(!w.hitsZone(ring.x, ring.y, ring.od / 2, zones, 2), ring.type + ' в дефекта');
+});
+
+test('зона извън листа е грешка', () => {
+  const w = boot();
+  w.state.zones.push({ corner: 'free', w: 200, h: 200, x: 1400, y: 100 });
+  assert.equal(w.validate(), false);
+  assert.match(w._els.warn.innerHTML, /извън листа/);
+});
+
+test('ред на рязане: дървото е неделимо, отвор преди контур, вложеният преди хоста', () => {
+  const w = boot();
+  const rings = [
+    { type: 'A', od: 305, odn: 304, idd: 289, x: 200, y: 200, depth: 0, treeId: 7 },
+    { type: 'B', od: 193, odn: 192, idd: 181, x: 200, y: 200, depth: 1, treeId: 7 },
+    { type: 'D', od: 55, odn: 54, idd: 37, x: 1200, y: 1200, depth: 0, treeId: 9 },
+  ];
+  const C = w.sheetContours(rings, 1, 3);
+  const tags = C.map(c => c.type + ':' + c.layer);
+  // за всяко дърво: B преди A, и ID преди OD
+  assert.ok(tags.indexOf('B:CUT_ID') < tags.indexOf('B:CUT_OD'));
+  assert.ok(tags.indexOf('A:CUT_ID') < tags.indexOf('A:CUT_OD'));
+  assert.ok(tags.indexOf('B:CUT_OD') < tags.indexOf('A:CUT_ID'), 'вложеният излиза преди хоста');
+  assert.ok(tags.indexOf('D:CUT_ID') < tags.indexOf('D:CUT_OD'));
+  assert.equal(C.length, 6);
+});
+
+test('подреждането по път скъсява празния ход', () => {
+  const w = boot();
+  const list = w.PARTS.map(p => ({ id: p.id, od: p.od, idd: p.idd, qty: p.qty }));
+  const cfg = { W: 1485, H: 1500, margin: 5, gap: 2, kerf: 1, kerfId: 1, overlap: 3, nest: 1, zones: [], maxSheets: 1 };
+  const sh = w.computeNesting(list, cfg).sheets[0];
+  const was = w.travelOf(w.sheetContours(sh, 1, 3, true));
+  const now = w.travelOf(w.sheetContours(sh, 1, 3));
+  assert.ok(now < was * 0.6, (now / 1000).toFixed(2) + ' m срещу ' + (was / 1000).toFixed(2) + ' m');
+  // същите контури, само пренаредени
+  const a = w.sheetContours(sh, 1, 3, true).map(c => c.type + c.layer + c.d).sort();
+  const b = w.sheetContours(sh, 1, 3).map(c => c.type + c.layer + c.d).sort();
+  assert.deepEqual(J(a), J(b));
+});
+
+test('празен ход при един контур и при празен лист не гърми', () => {
+  const w = boot();
+  assert.equal(w.sheetContours([], 1, 3).length, 0);
+  assert.equal(w.travelOf([]), 0);
+  const one = [{ type: 'A', od: 55, odn: 54, idd: 37, x: 100, y: 100, depth: 0, treeId: 1 }];
+  assert.equal(w.sheetContours(one, 1, 3).length, 2);
+  assert.ok(w.travelOf(w.sheetContours(one, 1, 3)) >= 0);
 });

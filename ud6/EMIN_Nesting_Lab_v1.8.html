@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>EMIN Nesting Lab v1.7</title>
+<title>EMIN Nesting Lab v1.8</title>
 <style>
 :root{
   --bg:#0f1115; --panel:#181b22; --panel2:#1f242d; --line:#2a313c;
@@ -67,9 +67,13 @@ svg{display:block;width:100%;height:auto}
 .legend span{font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px}
 .legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
 .hint{font-size:11px;color:var(--muted);line-height:1.5;margin-top:6px}
+#mtime{white-space:pre-line}
 .zone{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:end;margin-bottom:6px}
 .zone button{background:rgba(248,113,113,.10);border:1px solid var(--red);color:var(--red);
   border-radius:6px;width:38px;height:36px;cursor:pointer;font-size:15px}
+.zone2{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:-2px 0 8px}
+.zone select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:6px;
+  color:var(--text);padding:8px 6px;font-size:12px}
 .scroll{overflow-x:auto}
 @media print{
   body{background:#fff;color:#000}
@@ -90,7 +94,7 @@ svg{display:block;width:100%;height:auto}
 <body>
 <header>
   <h1>EMIN Nesting Lab</h1>
-  <span class="badge mono" id="ver">v1.7</span>
+  <span class="badge mono" id="ver">v1.8</span>
   <span class="sub mono" id="hdrOrder">—</span>
 </header>
 
@@ -150,7 +154,8 @@ svg{display:block;width:100%;height:auto}
 
   <div class="card" id="cardZones">
     <h2>Дефектни зони</h2>
-    <div class="hint" style="margin:0 0 8px">Откъснат ъгъл, петно, скъсано. Правоъгълник, който детайлите заобикалят.</div>
+    <div class="hint" style="margin:0 0 8px">Откъснат ъгъл, петно, скъсано. Правоъгълник, който детайлите заобикалят.
+    „Свободно“ приема X и Y от долния ляв ъгъл на листа — за петно или скъсано по средата.</div>
     <div id="zoneList"></div>
     <button class="btn sec" id="addZone">+ Зона</button>
   </div>
@@ -209,8 +214,8 @@ svg{display:block;width:100%;height:auto}
     <button class="btn sec" id="csv" disabled>Справочник CSV</button>
     <div class="hint">R12 ASCII, mm. Слоеве: SHEET, CUT_OD, CUT_ID, DEFECT, ORDER. Без Z — дълбочините се задават в TDP&nbsp;Pilot.
     В CUT_OD влиза диаметърът с kerf, в CUT_ID — номиналният отвор.</div>
-    <div class="hint">.ud6 — директно за Trocen ножа (червен слой), без TroCutCAD. Отворите се режат Ø(ID + kerf по ID); всяка окръжност продължава със застъпването след старта. Ред на рязане: по реда на разкроя, вложеният детайл преди
-    хоста си, за всеки пръстен отвор → външен контур. Началото е горният ляв ъгъл на bbox-а на пръстените (както при TroCutCAD).</div>
+    <div class="hint">.ud6 — директно за Trocen ножа (червен слой), без TroCutCAD. Отворите се режат Ø(ID + kerf по ID); всяка окръжност продължава със застъпването след старта. Ред на рязане: вложеният детайл преди хоста си,
+    за всеки пръстен отвор → външен контур; дърветата се подреждат по най-къс път. Началото е горният ляв ъгъл на bbox-а на пръстените (както при TroCutCAD).</div>
     <div class="hint mono" id="ud6Hint"></div>
   </div>
 
@@ -845,20 +850,76 @@ function circlePoly(cx,cy,r,chord,overlap){
   return extra?{pts:pts,closed:false}:pts;
 }
 function ptsOf(c){return Array.isArray(c)?c:c.pts;}
-/* ред на рязане: дърветата на влагане в реда на разкроя; в дърво — най-дълбокият първи;
-   за всеки пръстен CUT_ID -> CUT_OD. Ножът реже всяка окръжност с kerf по-малка, затова
-   и отворът се реже Ø(номинал + kerfId) — иначе излиза с kerf по-малък (потвърдено на машината). */
-function sheetContours(rings,kerfId,overlap){
-  kerfId=kerfId||0; overlap=overlap||0;
+/* Ред на рязане. Дървото на влагане е неделимо: най-дълбоко вложеният детайл първи, и за всеки
+   пръстен отвор преди външен контур — иначе се реже в откъснат диск. Свободен е само редът НА
+   дърветата, и той се подрежда по най-къс път: празният ход пада от ~36 на ~12 m на лист.
+   Ножът реже всяка окръжност с kerf по-малка, затова отворът се реже Ø(номинал + kerfId). */
+function treeSeq(rings){
   var trees={},order=[],out=[];
   rings.forEach(function(r){ if(!trees[r.treeId]){trees[r.treeId]=[];order.push(r.treeId);} trees[r.treeId].push(r); });
   order.forEach(function(t){
-    trees[t].slice().sort(function(a,b){return b.depth-a.depth;}).forEach(function(r){
+    out.push(trees[t].slice().sort(function(a,b){return b.depth-a.depth;}));
+  });
+  return out;
+}
+/* точката, от която тръгва и в която свършва рязането на едно дърво (стартът на контура е най-горе) */
+function treeEnds(tr,kerfId){
+  var f=tr[0],l=tr[tr.length-1];
+  return {sx:f.x, sy:f.y+(f.idd+kerfId)/2, ex:l.x, ey:l.y+l.od/2};
+}
+function orderByPath(seq,kerfId,x0,y0){
+  var left=seq.slice(),out=[],cx=x0,cy=y0,i;
+  while(left.length){
+    var bi=0,bd=Infinity;
+    for(i=0;i<left.length;i++){
+      var e=treeEnds(left[i],kerfId),d=Math.pow(e.sx-cx,2)+Math.pow(e.sy-cy,2);
+      if(d<bd){bd=d;bi=i;}
+    }
+    var t=left.splice(bi,1)[0],en=treeEnds(t,kerfId);
+    out.push(t); cx=en.ex; cy=en.ey;
+  }
+  function total(o){
+    var d=0,px=x0,py=y0;
+    for(var k=0;k<o.length;k++){var e=treeEnds(o[k],kerfId);
+      d+=Math.sqrt(Math.pow(e.sx-px,2)+Math.pow(e.sy-py,2)); px=e.ex; py=e.ey;}
+    return d;
+  }
+  var best=out,bd2=total(out),pass=0;
+  while(pass++<3){
+    var improved=false;
+    for(var a=0;a<best.length-1;a++) for(var b=a+2;b<best.length;b++){
+      var cand=best.slice(0,a+1).concat(best.slice(a+1,b+1).reverse(),best.slice(b+1));
+      var d2=total(cand);
+      if(d2<bd2-1e-6){best=cand;bd2=d2;improved=true;}
+    }
+    if(!improved) break;
+  }
+  return {trees:best,travel:bd2};
+}
+function sheetContours(rings,kerfId,overlap,noPath){
+  kerfId=kerfId||0; overlap=overlap||0;
+  var seq=treeSeq(rings),out=[];
+  if(!noPath&&rings.length){
+    var xs=rings.map(function(r){return r.x-r.od/2;}),ys=rings.map(function(r){return r.y+r.od/2;});
+    seq=orderByPath(seq,kerfId,Math.min.apply(null,xs),Math.max.apply(null,ys)).trees;
+  }
+  seq.forEach(function(tr){
+    tr.forEach(function(r){
       out.push({layer:'CUT_ID',type:r.type,d:r.idd+kerfId,pts:circlePoly(r.x,r.y,(r.idd+kerfId)/2,UD6_CHORD,overlap)});
       out.push({layer:'CUT_OD',type:r.type,d:r.od,pts:circlePoly(r.x,r.y,r.od/2,UD6_CHORD,overlap)});
     });
   });
   return out;
+}
+/* празен ход при подадения ред на контурите */
+function travelOf(cs){
+  var d=0,px=null,py=null;
+  for(var i=0;i<cs.length;i++){
+    var p=ptsOf(cs[i].pts)[0];
+    if(px!==null) d+=Math.sqrt(Math.pow(p[0]-px,2)+Math.pow(p[1]-py,2));
+    px=p[0]; py=p[1];
+  }
+  return d;
 }
 function buildUD6Sheet(rings,kerfId,overlap){
   return UD6.buildUD6(sheetContours(rings,kerfId,overlap).map(function(c){return c.pts;}),{start:'topleft'});
@@ -981,23 +1042,30 @@ function band(w,h){var s=Math.min(w,h);
   if(s<1430) return '<1430'; if(s<1440) return '1430-1439'; if(s<1490) return '1440-1489'; return '>=1490';}
 
 /* ================= Зони ================= */
+var CORNERS={dl:'долу ляво',dd:'долу дясно',gl:'горе ляво',gd:'горе дясно',free:'свободно (X, Y)'};
 function renderZones(){
   var L=$('zoneList');L.innerHTML='';
   state.zones.forEach(function(z,i){
     var div=document.createElement('div');div.className='zone';
-    div.innerHTML='<div><label>Ъгъл</label><select data-i="'+i+'" data-f="corner" '+
-      'style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--text);padding:8px 6px;font-size:12px">'+
-      ['dl','dd','gl','gd'].map(function(c){return '<option value="'+c+'"'+(z.corner===c?' selected':'')+'>'+
-        ({dl:'долу ляво',dd:'долу дясно',gl:'горе ляво',gd:'горе дясно'})[c]+'</option>';}).join('')+'</select></div>'+
+    div.innerHTML='<div><label>Място</label><select data-i="'+i+'" data-f="corner">'+
+      Object.keys(CORNERS).map(function(c){return '<option value="'+c+'"'+(z.corner===c?' selected':'')+'>'+
+        CORNERS[c]+'</option>';}).join('')+'</select></div>'+
       '<div><label>Ширина</label><input type="number" class="mono" data-i="'+i+'" data-f="w" value="'+z.w+'"></div>'+
       '<div><label>Височина</label><input type="number" class="mono" data-i="'+i+'" data-f="h" value="'+z.h+'"></div>'+
       '<button data-del="'+i+'">×</button>';
     L.appendChild(div);
+    if(z.corner==='free'){
+      var d2=document.createElement('div');d2.className='zone2';
+      d2.innerHTML='<div><label>X от ляво, mm</label><input type="number" class="mono" data-i="'+i+'" data-f="x" value="'+(z.x||0)+'"></div>'+
+        '<div><label>Y от долу, mm</label><input type="number" class="mono" data-i="'+i+'" data-f="y" value="'+(z.y||0)+'"></div>';
+      L.appendChild(d2);
+    }
   });
   Array.prototype.forEach.call(L.querySelectorAll('input,select'),function(el){
     el.addEventListener('change',function(){
-      var z=state.zones[+el.dataset.i];
-      z[el.dataset.f]= el.dataset.f==='corner'?el.value:(+el.value||0);
+      var z=state.zones[+el.dataset.i],f=el.dataset.f;
+      z[f]= f==='corner'?el.value:(+el.value||0);
+      if(f==='corner') renderZones();
       validate();
     });
   });
@@ -1008,6 +1076,7 @@ function renderZones(){
 function zonesAbs(){
   var W=+$('sw').value,H=+$('sh').value;
   return state.zones.filter(function(z){return z.w>0&&z.h>0;}).map(function(z){
+    if(z.corner==='free') return {x:+z.x||0,y:+z.y||0,w:z.w,h:z.h,corner:'free'};
     var x = (z.corner==='dd'||z.corner==='gd') ? W-z.w : 0;
     var y = (z.corner==='gl'||z.corner==='gd') ? H-z.h : 0;
     return {x:x,y:y,w:z.w,h:z.h,corner:z.corner};
@@ -1102,6 +1171,8 @@ function validate(){
   });
   c.zones.forEach(function(z){
     if(z.w>=c.W||z.h>=c.H) errs.push('Дефектна зона е по-голяма от листа.');
+    if(z.x<0||z.y<0||z.x+z.w>c.W||z.y+z.h>c.H)
+      errs.push('Дефектна зона излиза извън листа (X '+nf(z.x)+'..'+nf(z.x+z.w)+', Y '+nf(z.y)+'..'+nf(z.y+z.h)+').');
   });
   if(!PARTS.length) errs.push('Няма нито една позиция — добави поне една.');
   var seen={};
@@ -1239,8 +1310,10 @@ function renderMTime(){
   var box=$('mtime'),res=state.res,c=state.cfg;
   if(!box) return;
   if(!res||!res.sheets.length||!c){box.textContent='';return;}
-  var t=machineTime(res.sheets[state.cur],c);
-  box.textContent='машинно време ≈ '+fmtTime(t.sec)+' · рязане '+nf(t.len/1000)+' m · '+t.pierces+' пробива при '+nf(c.speed)+' mm/s';
+  var sh=res.sheets[state.cur],t=machineTime(sh,c);
+  var was=travelOf(sheetContours(sh,c.kerfId,c.overlap,true)),now=travelOf(sheetContours(sh,c.kerfId,c.overlap));
+  box.textContent='машинно време ≈ '+fmtTime(t.sec)+' · рязане '+nf(t.len/1000)+' m · '+t.pierces+
+    ' пробива при '+nf(c.speed)+' mm/s\nпразен ход '+nf(now/1000)+' m (без подреждане '+nf(was/1000)+' m) — не влиза във времето';
 }
 
 /* ================= Журнал / анализ ================= */
@@ -1393,7 +1466,7 @@ function renderClaudeBlock(){
     L.push('№|W×H|ръб|мостче|kerf|дефекти|'+PARTS.map(function(p){return p.pos;}).join('|')+'|общо|запълв%');
     J.forEach(function(e){
       L.push([e.n,e.W+'×'+e.H,e.margin,e.gap,(e.kerf==null?'-':e.kerf),
-        (e.zones||[]).map(function(z){return z.corner+' '+z.w+'×'+z.h;}).join(',')||'-']
+        (e.zones||[]).map(function(z){return (z.corner==='free'?('@'+nf(z.x)+','+nf(z.y)):z.corner)+' '+z.w+'×'+z.h;}).join(',')||'-']
         .concat(PARTS.map(function(p){return e.counts[p.id]||0;}))
         .concat([e.total,(e.fill==null?'-':e.fill)]).join('|'));
     });
@@ -1682,7 +1755,7 @@ function init(){
   $('remReset').addEventListener('click',function(){
     state.remaining=freshRemaining(); saveLS(); renderRemaining(); renderAnalysis(); validate();});
   $('addZone').addEventListener('click',function(){
-    state.zones.push({corner:'gl',w:150,h:150}); renderZones(); validate();});
+    state.zones.push({corner:'gl',w:150,h:150,x:0,y:0}); renderZones(); validate();});
   $('run').addEventListener('click',run);
   $('commit').addEventListener('click',commit);
   $('prev').addEventListener('click',function(){
@@ -1796,7 +1869,8 @@ window.netOf=netOf; window.barChart=barChart; window.progressBars=progressBars; 
 window.run=run; window.drawSheet=drawSheet; window.renderAnalysis=renderAnalysis;
 window.addPart=addPart; window.rekey=rekey; window.renumber=renumber; window.switchOrder=switchOrder; window.readMeta=readMeta; window.metaObj=metaObj;
 window.renderParts=renderParts; window.partId=partId; window.loadLS=loadLS; window.saveLS=saveLS;
-window.circlePoly=circlePoly; window.ptsOf=ptsOf; window.sheetContours=sheetContours; window.buildUD6Sheet=buildUD6Sheet; window.ud6Origin=ud6Origin;
+window.circlePoly=circlePoly; window.ptsOf=ptsOf; window.treeSeq=treeSeq; window.orderByPath=orderByPath;
+window.travelOf=travelOf; window.treeEnds=treeEnds; window.CORNERS=CORNERS; window.sheetContours=sheetContours; window.buildUD6Sheet=buildUD6Sheet; window.ud6Origin=ud6Origin;
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
 </script>
 </body>
