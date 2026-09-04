@@ -3,8 +3,9 @@
  *
  *   buildUD6(contours, opts) -> Uint8Array
  *
- * contours: масив от затворени полигони в mm, всеки [[x, y], ...] или [{x, y}, ...],
- *           в произволна координатна система (DXF: Y нагоре). Редът = ред на рязане.
+ * contours: масив от полигони в mm, всеки [[x, y], ...] / [{x, y}, ...] (затворен) или
+ *           {pts: [...], closed: false} за отворен път (окръжност със застъпване след старта).
+ *           Произволна координатна система (DXF: Y нагоре). Редът = ред на рязане.
  * opts:     cornerMarks (true)   — 0xB5 [0x30] след всяка 0xDC (false = само в края, стил T4)
  *           start ('keep')      — 'keep' = първата точка; 'topleft' = max Y / min X (както TroCutCAD)
  *           rec9 ('center')     — 'center' = (1520000 − W)/2 (хипотеза, вж. Python); 'copy' = от шаблона
@@ -98,30 +99,33 @@
   // ------------------------------------------------------------ геометрия
   function area2(P) { let a = 0; for (let i = 0; i < P.length; i++) { const p = P[i], q = P[(i + 1) % P.length]; a += p[0] * q[1] - q[0] * p[1]; } return a; }
 
+  function split(c) { return Array.isArray(c) ? { pts: c, closed: true } : { pts: c.pts, closed: c.closed !== false }; }
+
+  /* -> [{pts, closed}]: µm, min X = 0, max Y = 0, CCW; отворен път — без затварящ сегмент, стартът не се мести */
   function normalize(contours, start) {
     if (!contours || !contours.length) throw new Error('няма контури');
-    const raw = contours.map(c => c.map(p => Array.isArray(p) ? [um(p[0]), um(p[1])] : [um(p.x), um(p.y)]));
+    const raw = contours.map(c => { const s = split(c); return { pts: s.pts.map(p => Array.isArray(p) ? [um(p[0]), um(p[1])] : [um(p.x), um(p.y)]), closed: s.closed }; });
     let minx = Infinity, maxy = -Infinity;
-    for (const c of raw) for (const [x, y] of c) { if (x < minx) minx = x; if (y > maxy) maxy = y; }
+    for (const c of raw) for (const [x, y] of c.pts) { if (x < minx) minx = x; if (y > maxy) maxy = y; }
     return raw.map((c, k) => {
       let P = [];
-      for (const [x, y] of c) { const q = [x - minx, y - maxy]; if (!P.length || P[P.length - 1][0] !== q[0] || P[P.length - 1][1] !== q[1]) P.push(q); }
-      if (P.length > 1 && P[0][0] === P[P.length - 1][0] && P[0][1] === P[P.length - 1][1]) P.pop();
+      for (const [x, y] of c.pts) { const q = [x - minx, y - maxy]; if (!P.length || P[P.length - 1][0] !== q[0] || P[P.length - 1][1] !== q[1]) P.push(q); }
+      if (c.closed && P.length > 1 && P[0][0] === P[P.length - 1][0] && P[0][1] === P[P.length - 1][1]) P.pop();
       if (P.length < 3) throw new Error('контур #' + (k + 1) + ': по-малко от 3 различни точки');
-      if (area2(P) < 0) P = [P[0]].concat(P.slice(1).reverse());      // CW -> CCW, стартът се запазва
-      if (start === 'topleft') {
+      if (area2(P) < 0) P = c.closed ? [P[0]].concat(P.slice(1).reverse()) : P.slice().reverse();   // CW -> CCW
+      if (start === 'topleft' && c.closed) {
         let s0 = 0;
         for (let i = 1; i < P.length; i++) if (P[i][1] > P[s0][1] || (P[i][1] === P[s0][1] && P[i][0] < P[s0][0])) s0 = i;
         P = P.slice(s0).concat(P.slice(0, s0));
       }
-      return P;
+      return { pts: P, closed: c.closed };
     });
   }
 
   // ------------------------------------------------------------ контур -> байтове
   const B5_30 = tok(0xB5, enc7([0x30]));
 
-  function encodeContour(P, cornerMarks) {
+  function encodeContour(P, cornerMarks, closed) {
     let ymin = Infinity, ymax = -Infinity, xmin = Infinity, xmax = -Infinity;
     for (const [x, y] of P) { if (x < xmin) xmin = x; if (x > xmax) xmax = x; if (y < ymin) ymin = y; if (y > ymax) ymax = y; }
     const out = [
@@ -129,13 +133,13 @@
       tok(0xB0, cat([enc7([0x15]), enc35(xmin), enc35(xmax)])),
       tok(0xFC, cat([enc35(P[0][0]), enc35(P[0][1])])),
     ];
-    const n = P.length; let nseg = 0;
-    for (let i = 0; i < n; i++) {
+    const n = P.length, nsegTotal = closed ? n : n - 1; let nseg = 0;
+    for (let i = 0; i < nsegTotal; i++) {
       const [x0, y0] = P[i], [x1, y1] = P[(i + 1) % n];
       const dx = x1 - x0, dy = y1 - y0;
       if (Math.hypot(dx, dy) > ABS_THRESHOLD_UM) {
         out.push(tok(0xDC, cat([enc35(x1), enc35(y1)])));
-        if (cornerMarks && i !== n - 1) out.push(B5_30);
+        if (cornerMarks && i !== nsegTotal - 1) out.push(B5_30);
       } else if (dy === 0) out.push(tok(0xDE, enc14(dx)));
       else if (dx === 0) out.push(tok(0xDF, enc14(dy)));
       else out.push(tok(0xDD, cat([enc14(dx), enc14(dy)])));
@@ -147,8 +151,9 @@
 
   // ------------------------------------------------------------ preview bitmap (0xAE 208², 0xAF 136²)
   function renderPreview(polys, N) {
+    const items = polys.map(split);
     let W = 0, H = 0;
-    for (const c of polys) for (const [x, y] of c) { if (x > W) W = x; if (-y > H) H = -y; }
+    for (const c of items) for (const [x, y] of c.pts) { if (x > W) W = x; if (-y > H) H = -y; }
     const L = Math.max(W, H, 1), s = N / L;
     const rnd = v => Math.floor(v + 0.5);
     const offx = W < L ? rnd((N - W * s) / 2) : 0, offy = H < L ? rnd((N - H * s) / 2) : 0;
@@ -166,9 +171,9 @@
         if (e2 <= dx) { err += dx; y0 += sy; }
       }
     }
-    for (const c of polys) {
-      const P = c.map(([x, y]) => [offx + rnd((W - x) * s), offy + rnd(-y * s)]);   // X огледално
-      for (let i = 0; i < P.length; i++) { const a = P[i], b = P[(i + 1) % P.length]; line(a[0], a[1], b[0], b[1]); }
+    for (const c of items) {
+      const P = c.pts.map(([x, y]) => [offx + rnd((W - x) * s), offy + rnd(-y * s)]);   // X огледално
+      for (let i = 0; i < (c.closed ? P.length : P.length - 1); i++) { const a = P[i], b = P[(i + 1) % P.length]; line(a[0], a[1], b[0], b[1]); }
     }
     return bm;
   }
@@ -198,8 +203,8 @@
     const parts = [];
     for (const [op, p] of tpl.layerPrefix) parts.push(tok(op, p));
     let nsegTotal = 0;
-    polys.forEach((P, k) => {
-      const e = encodeContour(P, cornerMarks);
+    polys.forEach((c, k) => {
+      const e = encodeContour(c.pts, cornerMarks, c.closed);
       parts.push(e.bytes);
       for (const [op, p] of tpl.contourSuffix) parts.push(tok(op, p));
       parts.push(tok(0xB0, cat([enc7([0x23]), enc35(k + 1)])));
@@ -207,7 +212,7 @@
     });
 
     let xmax = -Infinity, ymin = Infinity, xmin = Infinity, ymax = -Infinity;
-    for (const c of polys) for (const [x, y] of c) { if (x > xmax) xmax = x; if (x < xmin) xmin = x; if (y < ymin) ymin = y; if (y > ymax) ymax = y; }
+    for (const c of polys) for (const [x, y] of c.pts) { if (x > xmax) xmax = x; if (x < xmin) xmin = x; if (y < ymin) ymin = y; if (y > ymax) ymax = y; }
     const W = xmax - xmin, H = ymax - ymin;
     const recs = headerRecords(tpl, W, H, xmax, ymin, nsegTotal, opts.rec9 || 'center');
 

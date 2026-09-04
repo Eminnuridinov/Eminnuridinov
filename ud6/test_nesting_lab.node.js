@@ -1,4 +1,4 @@
-// Тест на EMIN_Nesting_R0006489_v1.3.html през DOM mock:  node --test test_nesting_lab.node.js
+// Тест на EMIN_Nesting_R0006489_v1.4.html през DOM mock:  node --test test_nesting_lab.node.js
 // 1) целият скрипт минава init без runtime грешки; 2) computeNesting -> buildUD6Sheet -> ud6_decode.py;
 // 3) ZIP с binary .ud6 през python zipfile; 4) вграденият модул == ud6_write.js.
 'use strict';
@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 const J = v => JSON.parse(JSON.stringify(v));   // масивите от vm контекста са друг realm
 const fs = require('fs'), path = require('path'), vm = require('vm'), cp = require('child_process');
 
-const HTML_PATH = path.join(__dirname, 'EMIN_Nesting_R0006489_v1.3.html');
+const HTML_PATH = path.join(__dirname, 'EMIN_Nesting_R0006489_v1.4.html');
 const html = fs.readFileSync(HTML_PATH, 'utf8');
 const script = html.slice(html.indexOf('<script>') + 8, html.lastIndexOf('</script>'));
 const TMP = fs.mkdtempSync(path.join(require('os').tmpdir(), 'nest-'));
@@ -48,7 +48,7 @@ function makeWindow() {
 }
 function boot() {
   const w = makeWindow();
-  for (const [id, v] of Object.entries({ sw: '1500', sh: '1500', mg: '5', gp: '2', kf: '1', ki: '1', mW: '1500', mH: '1500' }))
+  for (const [id, v] of Object.entries({ sw: '1500', sh: '1500', mg: '5', gp: '2', kf: '1', ki: '1', ov: '3', mW: '1500', mH: '1500' }))
     w.document.getElementById(id).value = v;
   vm.createContext(w);
   vm.runInContext(script, w, { filename: 'nesting_lab.js' });
@@ -61,8 +61,8 @@ test('целият скрипт минава init без грешки; верс�
   assert.equal(typeof w.computeNesting, 'function');
   assert.equal(typeof w.buildUD6Sheet, 'function');
   assert.equal(typeof w.UD6.buildUD6, 'function');
-  assert.match(html, /<span class="badge mono" id="ver">v1\.3<\/span>/);
-  assert.match(html, /<title>EMIN Nesting Lab v1\.3/);
+  assert.match(html, /<span class="badge mono" id="ver">v1\.4<\/span>/);
+  assert.match(html, /<title>EMIN Nesting Lab v1\.4/);
   assert.ok(w._els.ud61 && w._els.ud6All && w._els.ud6Hint, 'нови елементи');
   assert.ok(w._els.ud61._listeners.click && w._els.ud6All._listeners.click, 'click handlers');
   assert.equal(w._els.ud61.disabled, true);
@@ -84,6 +84,13 @@ test('circlePoly: CCW, старт отгоре, хорда <= 0.5 mm, >= 64 се
   let a = 0; for (let i = 0; i < P.length; i++) { const p = P[i], q = P[(i + 1) % P.length]; a += p[0] * q[1] - q[0] * p[1]; }
   assert.ok(a > 0);
   assert.equal(w.circlePoly(0, 0, 1).length, 64);
+  // застъпване: отворен път, минава през старта и продължава >= overlap
+  const O = w.circlePoly(100, 200, 50, 0.5, 3);
+  assert.equal(O.closed, false);
+  const n = w.circlePoly(100, 200, 50, 0.5).length, step = 2 * Math.PI * 50 / n;
+  assert.equal(O.pts.length, n + Math.ceil(3 / step));
+  assert.deepEqual(J(O.pts[n].map(v => +v.toFixed(6))), J(O.pts[0].map(v => +v.toFixed(6))));
+  assert.deepEqual(J(w.circlePoly(100, 200, 50, 0.5, 0)).length, n);
 });
 
 test('sheetContours: ред = дърво по дърво, вложеният преди хоста, ID преди OD', () => {
@@ -98,19 +105,20 @@ test('sheetContours: ред = дърво по дърво, вложеният п�
   assert.deepEqual(J(C.map(c => c.type + ':' + c.layer)), ['C:CUT_ID', 'C:CUT_OD', 'B:CUT_ID', 'B:CUT_OD', 'A:CUT_ID', 'A:CUT_OD', 'D:CUT_ID', 'D:CUT_OD']);
   assert.deepEqual(J(C.map(c => c.d)), [35, 47, 182, 193, 290, 305, 38, 55]);          // ID + kerfId
   assert.deepEqual(J(w.sheetContours(rings).map(c => c.d)), [34, 47, 181, 193, 289, 305, 37, 55]);
-  const P = w.sheetContours(rings, 1)[0].pts; const xs = P.map(p => p[0]);
+  const P = w.ptsOf(w.sheetContours(rings, 1)[0].pts); const xs = P.map(p => p[0]);
+  assert.equal(w.sheetContours(rings, 1, 3)[0].pts.closed, false);
   assert.ok(Math.abs((Math.max(...xs) - Math.min(...xs)) - 35) < 0.01);
 });
 
 test('пълен лист: computeNesting -> buildUD6Sheet -> ud6_decode.py', () => {
   const w = boot();
   const list = w.PARTS.map(p => ({ id: p.id, od: p.od, idd: p.idd, qty: p.qty }));
-  const cfg = { W: 1500, H: 1500, margin: 5, gap: 2, kerf: 1, kerfId: 1, nest: 1, zones: [], maxSheets: 1 };
+  const cfg = { W: 1500, H: 1500, margin: 5, gap: 2, kerf: 1, kerfId: 1, overlap: 3, nest: 1, zones: [], maxSheets: 1 };
   const res = w.computeNesting(list, cfg);
   const sh = res.sheets[0];
   assert.ok(sh.length > 10, 'лист с ' + sh.length + ' пръстена');
-  const C = w.sheetContours(sh, cfg.kerfId);
-  const data = w.buildUD6Sheet(sh, cfg.kerfId);
+  const C = w.sheetContours(sh, cfg.kerfId, cfg.overlap);
+  const data = w.buildUD6Sheet(sh, cfg.kerfId, cfg.overlap);
   const f = path.join(TMP, 'sheet1.ud6'); fs.writeFileSync(f, data);
   const out = cp.execFileSync('python3', [path.join(__dirname, 'ud6_decode.py'), f], { encoding: 'utf8' });
   assert.match(out, new RegExp(`: ${2 * sh.length} contours, 1 layer block`));
@@ -121,8 +129,9 @@ test('пълен лист: computeNesting -> buildUD6Sheet -> ud6_decode.py', ()
   // диаметрите по bbox-а на всеки контур съвпадат с реда ID/OD (полигонът е вписан: до ~4 µm по-тесен)
   const widths = lines.map(l => { const m = l.match(/X ([\d.-]+)\.\.([\d.-]+)/); return +m[2] - +m[1]; });
   widths.forEach((wd, i) => assert.ok(Math.abs(wd - C[i].d) < 0.01, `контур ${i + 1}: ${wd} vs ${C[i].d}`));
-  // rec5 = брой сегменти = сума на точките
-  const nseg = C.reduce((s, c) => s + c.pts.length, 0);
+  // rec5 = брой сегменти: отворени пътища -> точки − 1 (застъпване), без затварящ сегмент
+  const nseg = C.reduce((s, c) => s + w.ptsOf(c.pts).length - 1, 0);
+  assert.ok(C.every(c => c.pts.closed === false));
   assert.match(out, new RegExp(`rec5 \\(segment count\\) = ${nseg} `));
   // origin hint
   const o = w.ud6Origin(sh, cfg);
@@ -134,7 +143,7 @@ test('пълен лист: computeNesting -> buildUD6Sheet -> ud6_decode.py', ()
 test('ZIP с binary .ud6 през python zipfile', () => {
   const w = boot();
   const sh = [{ type: '46/34', od: 47, odn: 46, idd: 34, x: 100, y: 100, depth: 0, treeId: 1 }];
-  const files = [{ name: 'a_list1.ud6', data: w.buildUD6Sheet(sh, 1) }, { name: 'a.csv', data: 'x;y\r\n1;2\r\n' }];
+  const files = [{ name: 'a_list1.ud6', data: w.buildUD6Sheet(sh, 1, 3) }, { name: 'a.csv', data: 'x;y\r\n1;2\r\n' }];
   const z = path.join(TMP, 'x.zip'); fs.writeFileSync(z, w.makeZip(files));
   const py = `import zipfile,sys
 z=zipfile.ZipFile(sys.argv[1]); assert z.testzip() is None, z.testzip()

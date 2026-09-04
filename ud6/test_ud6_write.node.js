@@ -82,7 +82,7 @@ test('roundtrip T1: geometry exact vs normalized input, ≤2 µm vs raw sample',
   const d = decode(out);
   const ref = U.normalize(T1, 'keep');
   assert.equal(d.contours.length, 2);
-  d.contours.forEach((c, i) => { assert.deepEqual(c.pts.slice(0, -1), ref[i]); assert.deepEqual(c.pts[c.pts.length - 1], ref[i][0]); });
+  d.contours.forEach((c, i) => { assert.deepEqual(c.pts.slice(0, -1), ref[i].pts); assert.deepEqual(c.pts[c.pts.length - 1], ref[i].pts[0]); });
   let worst = 0;
   d.contours.forEach((c, i) => c.pts.slice(0, -1).forEach((p, j) => { worst = Math.max(worst, Math.abs(p[0] - Math.floor(T1[i][j][0] * 1000 + 0.5)), Math.abs(p[1] - Math.floor(T1[i][j][1] * 1000 + 0.5))); }));
   assert.ok(worst <= 2, 'worst=' + worst);
@@ -96,6 +96,18 @@ test('preview 0xAE/0xAF byte-identical to T4 for its own geometry', () => {
   const ref = op => U.tokenize(T4).find(t => t[0] === op)[1].map(b => b ^ U.XOR);
   assert.deepEqual(Array.from(U.renderPreview(polys, 208)), Array.from(ref(0xAE)));
   assert.deepEqual(Array.from(U.renderPreview(polys, 136)), Array.from(ref(0xAF)));
+});
+
+test('open path (overlap): no closing segment, rec5 = n-1', () => {
+  const n = 72, r = 20;
+  const circ = Array.from({ length: n }, (_, i) => [r * Math.cos(Math.PI / 2 + 2 * Math.PI * i / n), r * Math.sin(Math.PI / 2 + 2 * Math.PI * i / n)]);
+  const over = circ.concat(circ.slice(0, 6));
+  const d = decode(U.buildUD6([{ pts: over, closed: false }]));
+  const c = d.contours[0];
+  assert.equal(c.pts.length, over.length); assert.equal(rec1(d, 5), over.length - 1);
+  assert.deepEqual(c.pts[0], c.pts[n]); assert.notDeepEqual(c.pts[c.pts.length - 1], c.pts[0]);
+  const d2 = decode(U.buildUD6([circ]));
+  assert.equal(rec1(d2, 5), n);
 });
 
 test('accepts {x,y} points and rejects degenerate contours', () => {

@@ -5,7 +5,7 @@ import os, math, io, sys, subprocess
 import pytest
 sys.path.insert(0, os.path.dirname(__file__))
 from ud6_write import (Template, write_ud6, tokenize, untokenize, enc35, enc14, dec35,
-                       normalize, header_records, render_preview, XOR, DEFAULT_TEMPLATE)
+                       normalize, header_records, render_preview, signed_area2, XOR, DEFAULT_TEMPLATE)
 from ud6_decode import decode, s35, s14
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -77,13 +77,13 @@ def test_header_formulas_match_samples(name):
 # ---------------------------------------------------------------- normalize
 def test_normalize_shift_ccw_start():
     sq_cw = [(10, 10), (10, 50), (50, 50), (50, 10), (10, 10)]     # CW, затворен, с отместване
-    P = normalize([sq_cw])[0]
+    P = normalize([sq_cw])[0][0]
     assert P[0] == (0, -40000)                                       # стартовата точка се запазва
     assert min(x for x, y in P) == 0 and max(y for x, y in P) == 0
     assert len(P) == 4 and P == [(0, -40000), (40000, -40000), (40000, 0), (0, 0)]
 
 def test_normalize_topleft_start():
-    P = normalize([[(0, 0), (40, 0), (40, 40), (0, 40)]], start='topleft')[0]
+    P = normalize([[(0, 0), (40, 0), (40, 40), (0, 40)]], start='topleft')[0][0]
     assert P == [(0, 0), (0, -40000), (40000, -40000), (40000, 0)]        # старт горе-вляво, надолу (T4)
 
 def test_dxf_T4_order_ABC():
@@ -146,7 +146,7 @@ def _bitmap(name, op):
 @pytest.mark.parametrize('op,N', [(0xAE, 208), (0xAF, 136)])
 def test_preview_T4_exact(op, N):
     sq = lambda x0: [(x0, 0), (x0, -40), (x0 + 40, -40), (x0 + 40, 0)]
-    bm = render_preview(normalize([sq(0), sq(150), sq(300)]), N)
+    bm = render_preview([p for p, _ in normalize([sq(0), sq(150), sq(300)])], N)
     assert list(bm) == _bitmap('T4_order_ABC.UD6', op)
 
 @pytest.mark.parametrize('name,op,N,tol', [('T3_two_layers.UD6', 0xAE, 208, 20), ('T3_two_layers.UD6', 0xAF, 136, 10),
@@ -156,7 +156,7 @@ def test_preview_samples_ink_close(name, op, N, tol):
     всеки ink пиксел на оригинала трябва да е на <= 1 px от наш."""
     d = decode(rd(S(name)))
     polys = normalize([[(x / 1000, y / 1000) for x, y in c['pts'][:-1]] for c in d['contours']])
-    bm = render_preview(polys, N); ref = _bitmap(name, op)
+    bm = render_preview([p for p, _ in polys], N); ref = _bitmap(name, op)
     ink = lambda b, x, y: 0 <= x < N and 0 <= y < N and b[y * N + x] != 127
     assert sum(1 for a, b in zip(bm, ref) if (a != 127) != (b != 127)) <= tol
     assert all(any(ink(bm, x + a, y + b) for a in (-1, 0, 1) for b in (-1, 0, 1))
@@ -167,7 +167,7 @@ def test_preview_copy_mode_keeps_template_bitmaps():
     assert [q for o, q in tokenize(out) if o == 0xAE][0] == [q for o, q in tokenize(rd(T4)) if o == 0xAE][0]
 
 def test_preview_tall_job_centered_x():
-    bm = render_preview(normalize([[(0, 0), (0, -100), (20, -100), (20, 0)]]), 208)
+    bm = render_preview([p for p, _ in normalize([[(0, 0), (0, -100), (20, -100), (20, 0)]])], 208)
     cols = sorted({i % 208 for i, v in enumerate(bm) if v != 127})
     assert cols[0] == 83 and cols[-1] == 125 and 207 in {i // 208 for i, v in enumerate(bm) if v != 127}
 
@@ -199,6 +199,27 @@ def test_blue_template_still_selectable():
     d = decode(write_ud6([[(0, 0), (40, 0), (40, 40)]], T4))
     assert (0xB7, [4, 2]) in d['layers'][0]
 
+# ---------------------------------------------------------------- отворен път (застъпване)
+def test_open_path_no_closing_segment():
+    """Окръжност със застъпване: последната точка не се свързва с първата."""
+    import math as m
+    n = 72; r = 20
+    circ = [(r * m.cos(m.pi / 2 + 2 * m.pi * i / n), r * m.sin(m.pi / 2 + 2 * m.pi * i / n)) for i in range(n)]
+    over = circ + circ[:6]                                                 # 5 хорди застъпване след старта
+    d = decode(write_ud6([{'pts': over, 'closed': False}]))
+    c = d['contours'][0]
+    assert len(c['pts']) == len(over) and rec1(d, 5) == len(over) - 1 == d['counts']['dd'] + d['counts']['de'] + d['counts']['df']
+    assert c['pts'][0] == c['pts'][n]                                      # минава през старта
+    assert c['pts'][-1] != c['pts'][0]                                     # и продължава
+    ref = normalize([{'pts': over, 'closed': False}])[0][0]
+    assert c['pts'] == ref
+    d2 = decode(write_ud6([circ]))
+    assert rec1(d2, 5) == n and d2['contours'][0]['pts'][-1] == d2['contours'][0]['pts'][0]
+
+def test_open_path_cw_reversed_keeps_open():
+    P, closed = normalize([{'pts': [(0, 0), (0, 10), (10, 10), (10, 0), (0, 0), (0, 3)], 'closed': False}])[0]
+    assert not closed and signed_area2(P) > 0 and len(P) == 6
+
 # ---------------------------------------------------------------- roundtrip T1
 def test_roundtrip_T1():
     orig = decode(rd(T1))
@@ -208,7 +229,7 @@ def test_roundtrip_T1():
     d = decode(out)
     assert len(d['contours']) == len(orig['contours']) == 2
     # геометрия: точно спрямо подадения вход след нормализация (µm)
-    ref = normalize(contours_mm)
+    ref = [p for p, _ in normalize(contours_mm)]
     for c, r in zip(d['contours'], ref):
         assert c['pts'][:-1] == r
         assert c['pts'][-1] == r[0]

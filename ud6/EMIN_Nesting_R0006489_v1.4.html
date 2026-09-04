@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>EMIN Nesting Lab v1.3 — R0006489</title>
+<title>EMIN Nesting Lab v1.4 — R0006489</title>
 <style>
 :root{
   --bg:#0f1115; --panel:#181b22; --panel2:#1f242d; --line:#2a313c;
@@ -90,7 +90,7 @@ svg{display:block;width:100%;height:auto}
 <body>
 <header>
   <h1>EMIN Nesting Lab</h1>
-  <span class="badge mono" id="ver">v1.3</span>
+  <span class="badge mono" id="ver">v1.4</span>
   <span class="sub mono">поръчка R0006489</span>
 </header>
 
@@ -115,6 +115,7 @@ svg{display:block;width:100%;height:auto}
       <div><label><i class="dot y"></i>Мостче, mm</label><input type="number" id="gp" value="2" step="0.5"></div>
       <div><label><i class="dot y"></i>Kerf по OD, mm</label><input type="number" id="kf" value="1" step="0.1"></div>
       <div><label><i class="dot y"></i>Kerf по ID, mm (само .ud6)</label><input type="number" id="ki" value="1" step="0.1"></div>
+      <div><label><i class="dot y"></i>Застъпване, mm (само .ud6)</label><input type="number" id="ov" value="3" step="0.5"></div>
     </div>
     <div class="hint" id="kerfHint"></div>
   </div>
@@ -176,7 +177,7 @@ svg{display:block;width:100%;height:auto}
     <button class="btn sec" id="csv" disabled>Справочник CSV</button>
     <div class="hint">R12 ASCII, mm. Слоеве: SHEET, CUT_OD, CUT_ID, DEFECT, ORDER. Без Z — дълбочините се задават в TDP&nbsp;Pilot.
     В CUT_OD влиза диаметърът с kerf, в CUT_ID — номиналният отвор.</div>
-    <div class="hint">.ud6 — директно за Trocen ножа (червен слой), без TroCutCAD. Отворите се режат Ø(ID + kerf по ID). Ред на рязане: по реда на разкроя, вложеният детайл преди
+    <div class="hint">.ud6 — директно за Trocen ножа (червен слой), без TroCutCAD. Отворите се режат Ø(ID + kerf по ID); всяка окръжност продължава със застъпването след старта. Ред на рязане: по реда на разкроя, вложеният детайл преди
     хоста си, за всеки пръстен отвор → външен контур. Началото е горният ляв ъгъл на bbox-а на пръстените (както при TroCutCAD).</div>
     <div class="hint mono" id="ud6Hint"></div>
   </div>
@@ -337,30 +338,33 @@ svg{display:block;width:100%;height:auto}
   // ------------------------------------------------------------ геометрия
   function area2(P) { let a = 0; for (let i = 0; i < P.length; i++) { const p = P[i], q = P[(i + 1) % P.length]; a += p[0] * q[1] - q[0] * p[1]; } return a; }
 
+  function split(c) { return Array.isArray(c) ? { pts: c, closed: true } : { pts: c.pts, closed: c.closed !== false }; }
+
+  /* -> [{pts, closed}]: µm, min X = 0, max Y = 0, CCW; отворен път — без затварящ сегмент, стартът не се мести */
   function normalize(contours, start) {
     if (!contours || !contours.length) throw new Error('няма контури');
-    const raw = contours.map(c => c.map(p => Array.isArray(p) ? [um(p[0]), um(p[1])] : [um(p.x), um(p.y)]));
+    const raw = contours.map(c => { const s = split(c); return { pts: s.pts.map(p => Array.isArray(p) ? [um(p[0]), um(p[1])] : [um(p.x), um(p.y)]), closed: s.closed }; });
     let minx = Infinity, maxy = -Infinity;
-    for (const c of raw) for (const [x, y] of c) { if (x < minx) minx = x; if (y > maxy) maxy = y; }
+    for (const c of raw) for (const [x, y] of c.pts) { if (x < minx) minx = x; if (y > maxy) maxy = y; }
     return raw.map((c, k) => {
       let P = [];
-      for (const [x, y] of c) { const q = [x - minx, y - maxy]; if (!P.length || P[P.length - 1][0] !== q[0] || P[P.length - 1][1] !== q[1]) P.push(q); }
-      if (P.length > 1 && P[0][0] === P[P.length - 1][0] && P[0][1] === P[P.length - 1][1]) P.pop();
+      for (const [x, y] of c.pts) { const q = [x - minx, y - maxy]; if (!P.length || P[P.length - 1][0] !== q[0] || P[P.length - 1][1] !== q[1]) P.push(q); }
+      if (c.closed && P.length > 1 && P[0][0] === P[P.length - 1][0] && P[0][1] === P[P.length - 1][1]) P.pop();
       if (P.length < 3) throw new Error('контур #' + (k + 1) + ': по-малко от 3 различни точки');
-      if (area2(P) < 0) P = [P[0]].concat(P.slice(1).reverse());      // CW -> CCW, стартът се запазва
-      if (start === 'topleft') {
+      if (area2(P) < 0) P = c.closed ? [P[0]].concat(P.slice(1).reverse()) : P.slice().reverse();   // CW -> CCW
+      if (start === 'topleft' && c.closed) {
         let s0 = 0;
         for (let i = 1; i < P.length; i++) if (P[i][1] > P[s0][1] || (P[i][1] === P[s0][1] && P[i][0] < P[s0][0])) s0 = i;
         P = P.slice(s0).concat(P.slice(0, s0));
       }
-      return P;
+      return { pts: P, closed: c.closed };
     });
   }
 
   // ------------------------------------------------------------ контур -> байтове
   const B5_30 = tok(0xB5, enc7([0x30]));
 
-  function encodeContour(P, cornerMarks) {
+  function encodeContour(P, cornerMarks, closed) {
     let ymin = Infinity, ymax = -Infinity, xmin = Infinity, xmax = -Infinity;
     for (const [x, y] of P) { if (x < xmin) xmin = x; if (x > xmax) xmax = x; if (y < ymin) ymin = y; if (y > ymax) ymax = y; }
     const out = [
@@ -368,13 +372,13 @@ svg{display:block;width:100%;height:auto}
       tok(0xB0, cat([enc7([0x15]), enc35(xmin), enc35(xmax)])),
       tok(0xFC, cat([enc35(P[0][0]), enc35(P[0][1])])),
     ];
-    const n = P.length; let nseg = 0;
-    for (let i = 0; i < n; i++) {
+    const n = P.length, nsegTotal = closed ? n : n - 1; let nseg = 0;
+    for (let i = 0; i < nsegTotal; i++) {
       const [x0, y0] = P[i], [x1, y1] = P[(i + 1) % n];
       const dx = x1 - x0, dy = y1 - y0;
       if (Math.hypot(dx, dy) > ABS_THRESHOLD_UM) {
         out.push(tok(0xDC, cat([enc35(x1), enc35(y1)])));
-        if (cornerMarks && i !== n - 1) out.push(B5_30);
+        if (cornerMarks && i !== nsegTotal - 1) out.push(B5_30);
       } else if (dy === 0) out.push(tok(0xDE, enc14(dx)));
       else if (dx === 0) out.push(tok(0xDF, enc14(dy)));
       else out.push(tok(0xDD, cat([enc14(dx), enc14(dy)])));
@@ -386,8 +390,9 @@ svg{display:block;width:100%;height:auto}
 
   // ------------------------------------------------------------ preview bitmap (0xAE 208², 0xAF 136²)
   function renderPreview(polys, N) {
+    const items = polys.map(split);
     let W = 0, H = 0;
-    for (const c of polys) for (const [x, y] of c) { if (x > W) W = x; if (-y > H) H = -y; }
+    for (const c of items) for (const [x, y] of c.pts) { if (x > W) W = x; if (-y > H) H = -y; }
     const L = Math.max(W, H, 1), s = N / L;
     const rnd = v => Math.floor(v + 0.5);
     const offx = W < L ? rnd((N - W * s) / 2) : 0, offy = H < L ? rnd((N - H * s) / 2) : 0;
@@ -405,9 +410,9 @@ svg{display:block;width:100%;height:auto}
         if (e2 <= dx) { err += dx; y0 += sy; }
       }
     }
-    for (const c of polys) {
-      const P = c.map(([x, y]) => [offx + rnd((W - x) * s), offy + rnd(-y * s)]);   // X огледално
-      for (let i = 0; i < P.length; i++) { const a = P[i], b = P[(i + 1) % P.length]; line(a[0], a[1], b[0], b[1]); }
+    for (const c of items) {
+      const P = c.pts.map(([x, y]) => [offx + rnd((W - x) * s), offy + rnd(-y * s)]);   // X огледално
+      for (let i = 0; i < (c.closed ? P.length : P.length - 1); i++) { const a = P[i], b = P[(i + 1) % P.length]; line(a[0], a[1], b[0], b[1]); }
     }
     return bm;
   }
@@ -437,8 +442,8 @@ svg{display:block;width:100%;height:auto}
     const parts = [];
     for (const [op, p] of tpl.layerPrefix) parts.push(tok(op, p));
     let nsegTotal = 0;
-    polys.forEach((P, k) => {
-      const e = encodeContour(P, cornerMarks);
+    polys.forEach((c, k) => {
+      const e = encodeContour(c.pts, cornerMarks, c.closed);
       parts.push(e.bytes);
       for (const [op, p] of tpl.contourSuffix) parts.push(tok(op, p));
       parts.push(tok(0xB0, cat([enc7([0x23]), enc35(k + 1)])));
@@ -446,7 +451,7 @@ svg{display:block;width:100%;height:auto}
     });
 
     let xmax = -Infinity, ymin = Infinity, xmin = Infinity, ymax = -Infinity;
-    for (const c of polys) for (const [x, y] of c) { if (x > xmax) xmax = x; if (x < xmin) xmin = x; if (y < ymin) ymin = y; if (y > ymax) ymax = y; }
+    for (const c of polys) for (const [x, y] of c.pts) { if (x > xmax) xmax = x; if (x < xmin) xmin = x; if (y < ymin) ymin = y; if (y > ymax) ymax = y; }
     const W = xmax - xmin, H = ymax - ymin;
     const recs = headerRecords(tpl, W, H, xmax, ymin, nsegTotal, opts.rec9 || 'center');
 
@@ -665,30 +670,34 @@ function buildDXF(rings,idx,total,cfg){
 
 /* ================= UD6 (Trocen нож) ================= */
 var UD6_CHORD=0.5, UD6_MIN_SEGS=64;
-/* кръг -> полигон, CCW (Y нагоре), старт в най-горната точка */
-function circlePoly(cx,cy,r,chord){
-  chord=chord||UD6_CHORD;
-  var n=Math.max(UD6_MIN_SEGS,Math.ceil(2*Math.PI*r/chord)),pts=[];
-  for(var i=0;i<n;i++){var a=Math.PI/2+2*Math.PI*i/n;pts.push([cx+r*Math.cos(a),cy+r*Math.sin(a)]);}
-  return pts;
+/* кръг -> полигон, CCW (Y нагоре), старт в най-горната точка.
+   overlap > 0: отворен път {pts, closed:false}, който минава през старта и продължава overlap mm
+   по окръжността (застъпване — ножът не спира точно на старта). */
+function circlePoly(cx,cy,r,chord,overlap){
+  chord=chord||UD6_CHORD; overlap=overlap||0;
+  var n=Math.max(UD6_MIN_SEGS,Math.ceil(2*Math.PI*r/chord)),pts=[],step=2*Math.PI*r/n;
+  var extra=overlap>0?Math.min(n,Math.ceil(overlap/step)):0;
+  for(var i=0;i<n+extra;i++){var a=Math.PI/2+2*Math.PI*i/n;pts.push([cx+r*Math.cos(a),cy+r*Math.sin(a)]);}
+  return extra?{pts:pts,closed:false}:pts;
 }
+function ptsOf(c){return Array.isArray(c)?c:c.pts;}
 /* ред на рязане: дърветата на влагане в реда на разкроя; в дърво — най-дълбокият първи;
    за всеки пръстен CUT_ID -> CUT_OD. Ножът реже всяка окръжност с kerf по-малка, затова
    и отворът се реже Ø(номинал + kerfId) — иначе излиза с kerf по-малък (потвърдено на машината). */
-function sheetContours(rings,kerfId){
-  kerfId=kerfId||0;
+function sheetContours(rings,kerfId,overlap){
+  kerfId=kerfId||0; overlap=overlap||0;
   var trees={},order=[],out=[];
   rings.forEach(function(r){ if(!trees[r.treeId]){trees[r.treeId]=[];order.push(r.treeId);} trees[r.treeId].push(r); });
   order.forEach(function(t){
     trees[t].slice().sort(function(a,b){return b.depth-a.depth;}).forEach(function(r){
-      out.push({layer:'CUT_ID',type:r.type,d:r.idd+kerfId,pts:circlePoly(r.x,r.y,(r.idd+kerfId)/2)});
-      out.push({layer:'CUT_OD',type:r.type,d:r.od,pts:circlePoly(r.x,r.y,r.od/2)});
+      out.push({layer:'CUT_ID',type:r.type,d:r.idd+kerfId,pts:circlePoly(r.x,r.y,(r.idd+kerfId)/2,UD6_CHORD,overlap)});
+      out.push({layer:'CUT_OD',type:r.type,d:r.od,pts:circlePoly(r.x,r.y,r.od/2,UD6_CHORD,overlap)});
     });
   });
   return out;
 }
-function buildUD6Sheet(rings,kerfId){
-  return UD6.buildUD6(sheetContours(rings,kerfId).map(function(c){return c.pts;}),{start:'topleft'});
+function buildUD6Sheet(rings,kerfId,overlap){
+  return UD6.buildUD6(sheetContours(rings,kerfId,overlap).map(function(c){return c.pts;}),{start:'topleft'});
 }
 /* отместване на .ud6 началото от горния ляв ъгъл на листа (0,H): надясно / надолу, mm */
 function ud6Origin(rings,c){
@@ -699,7 +708,7 @@ function ud6Origin(rings,c){
 function renderUD6Hint(){
   var res=state.res,c=state.cfg;
   if(!res||!res.sheets.length||!c){$('ud6Hint').textContent='';return;}
-  var o=ud6Origin(res.sheets[state.cur],c),n=sheetContours(res.sheets[state.cur],c.kerfId).length;
+  var o=ud6Origin(res.sheets[state.cur],c),n=sheetContours(res.sheets[state.cur],c.kerfId,c.overlap).length;
   $('ud6Hint').textContent='.ud6 origin = горен ляв ъгъл на листа + '+nf(o.dx)+' mm надясно, '+nf(o.dy)+' mm надолу · '+n+' контура';
 }
 
@@ -833,13 +842,14 @@ function renderRemaining(){
 /* ================= Валидация ================= */
 function cfg(){
   return {W:+$('sw').value,H:+$('sh').value,margin:+$('mg').value,gap:+$('gp').value,
-          kerf:+$('kf').value||0,kerfId:+$('ki').value||0,nest:state.nest,zones:zonesAbs()};
+          kerf:+$('kf').value||0,kerfId:+$('ki').value||0,overlap:+$('ov').value||0,nest:state.nest,zones:zonesAbs()};
 }
 function validate(){
   var c=cfg(),errs=[],warns=[];
   if(!(c.W>0&&c.H>0)) errs.push('Размерът на листа трябва да е положителен.');
   if(c.margin<0||c.gap<0) errs.push('Ръб и мостче не може да са отрицателни.');
   if(c.kerf<0||c.kerfId<0) errs.push('Kerf не може да е отрицателен.');
+  if(c.overlap<0) errs.push('Застъпването не може да е отрицателно.');
   PARTS.forEach(function(p){
     if(p.idd>=p.od) errs.push('Поз. '+p.pos+': ID трябва да е по-малко от OD.');
     if(p.qty<0) errs.push('Поз. '+p.pos+': отрицателно количество.');
@@ -863,7 +873,7 @@ function validate(){
   }
   $('kerfHint').textContent = 'Ножът реже окръжността с толкова по-малък диаметър от програмирания. '+
     'OD се реже Ø(номинал + '+nf(c.kerf)+'), отворът в .ud6 — Ø(номинал + '+nf(c.kerfId)+'); в DXF отворът е номинален. '+
-    'Габаритът в разкроя се смята по режещия OD.';
+    'Габаритът в разкроя се смята по режещия OD.'+(c.overlap>0?' Всяка окръжност в .ud6 продължава '+nf(c.overlap)+' mm след старта (застъпване).':'');
   var box=$('warn');box.innerHTML='';
   if(errs.length) box.innerHTML='<div class="msg err">'+errs.join('<br>')+'</div>';
   else if(warns.length) box.innerHTML='<div class="msg warn">'+warns.join('<br>')+'</div>';
@@ -929,7 +939,7 @@ function commit(){
   PARTS.forEach(function(p){ state.remaining[p.id]=Math.max(0,(state.remaining[p.id]||0)-(counts[p.id]||0)); });
   state.journal.push({
     n:state.journal.length+1, date:new Date().toISOString().slice(0,10),
-    W:c.W,H:c.H,margin:c.margin,gap:c.gap,kerf:c.kerf,kerfId:c.kerfId,zones:c.zones,counts:counts,
+    W:c.W,H:c.H,margin:c.margin,gap:c.gap,kerf:c.kerf,kerfId:c.kerfId,overlap:c.overlap,zones:c.zones,counts:counts,
     contours:sh.filter(function(r){return r.depth===0;}).length,
     total:sh.length, fill:+fillPct(sh,c).toFixed(1), band:band(c.W,c.H)
   });
@@ -1114,7 +1124,7 @@ function renderClaudeBlock(){
   var J=state.journal,L=[];
   L.push('Разкрой — поръчка '+ORDER+' ('+CLIENT+', модиф. ПТФЕ t'+THICK+')');
   L.push('Позиции: '+PARTS.map(function(p){return p.pos+') Ø'+nf(p.od)+'/Ø'+nf(p.idd)+' ×'+p.qty;}).join('; '));
-  L.push('Kerf по OD: '+nf(+$('kf').value||0)+' mm; по ID (.ud6): '+nf(+$('ki').value||0)+' mm');
+  L.push('Kerf по OD: '+nf(+$('kf').value||0)+' mm; по ID (.ud6): '+nf(+$('ki').value||0)+' mm; застъпване (.ud6): '+nf(+$('ov').value||0)+' mm');
   L.push('Нарязани листове: '+J.length);
   if(J.length){
     L.push('№|W×H|ръб|мостче|kerf|дефекти|'+PARTS.map(function(p){return p.pos;}).join('|')+'|общо|запълв%');
@@ -1243,7 +1253,7 @@ function init(){
   if(!loadLS()) state.remaining=freshRemaining();
   renderParts(); renderRemaining(); renderZones(); renderJournal(); renderAnalysis(); applyMode();
 
-  Array.prototype.forEach.call(document.querySelectorAll('#sw,#sh,#mg,#gp,#kf,#ki'),function(el){
+  Array.prototype.forEach.call(document.querySelectorAll('#sw,#sh,#mg,#gp,#kf,#ki,#ov'),function(el){
     el.addEventListener('change',function(){renderRemaining();validate();});});
   Array.prototype.forEach.call($('segMode').querySelectorAll('button'),function(b){
     b.addEventListener('click',function(){
@@ -1285,10 +1295,10 @@ function init(){
   $('ud61').addEventListener('click',function(){
     if(!state.res)return;
     var n=state.mode==='one'?(state.journal.length+1):(state.cur+1);
-    download(ORDER+'_list'+n+'.ud6',buildUD6Sheet(state.res.sheets[state.cur],state.cfg.kerfId),'application/octet-stream');});
+    download(ORDER+'_list'+n+'.ud6',buildUD6Sheet(state.res.sheets[state.cur],state.cfg.kerfId,state.cfg.overlap),'application/octet-stream');});
   $('ud6All').addEventListener('click',function(){
     if(!state.res)return;
-    var files=state.res.sheets.map(function(sh,i){return {name:ORDER+'_list'+(i+1)+'.ud6',data:buildUD6Sheet(sh,state.cfg.kerfId)};});
+    var files=state.res.sheets.map(function(sh,i){return {name:ORDER+'_list'+(i+1)+'.ud6',data:buildUD6Sheet(sh,state.cfg.kerfId,state.cfg.overlap)};});
     download(ORDER+'_razkroy_'+state.res.sheets.length+'lista_ud6.zip',makeZip(files),'application/zip');});
 
   $('jExp').addEventListener('click',function(){
@@ -1355,7 +1365,7 @@ window.buildInstances=buildInstances; window.findSpot=findSpot;
 window.sheetStats=sheetStats; window.renderRemaining=renderRemaining; window.sheetRows=sheetRows;
 window.netOf=netOf; window.barChart=barChart; window.progressBars=progressBars; window.commit=commit;
 window.run=run; window.drawSheet=drawSheet; window.renderAnalysis=renderAnalysis;
-window.circlePoly=circlePoly; window.sheetContours=sheetContours; window.buildUD6Sheet=buildUD6Sheet; window.ud6Origin=ud6Origin;
+window.circlePoly=circlePoly; window.ptsOf=ptsOf; window.sheetContours=sheetContours; window.buildUD6Sheet=buildUD6Sheet; window.ud6Origin=ud6Origin;
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
 </script>
 </body>

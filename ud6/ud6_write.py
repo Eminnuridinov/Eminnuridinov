@@ -4,9 +4,10 @@ ud6_write.py — референтен писач за Trocen .ud6 (TroCutCAD / T
 
     write_ud6(contours, template_path, **opts) -> bytes
 
-`contours` е списък от затворени полигони в mm: [[(x, y), ...], ...], в произволна
-координатна система (DXF: Y нагоре). Редът на рязане = редът на списъка; стартовата
-точка на всеки контур = първата му точка (и при обръщане CW -> CCW).
+`contours` е списък от полигони в mm: [[(x, y), ...], ...] (затворени — писачът добавя
+затварящия сегмент) или {'pts': [...], 'closed': False} за отворен път (напр. окръжност
+със застъпване след старта). Произволна координатна система (DXF: Y нагоре). Редът на
+рязане = редът на списъка; стартовата точка = първата точка (и при обръщане CW -> CCW).
 
 Всичко служебно (header, layer block, trailer) се взима от шаблон — samples/template_red.ud6
 (T4_order_ABC от TroCutCAD с червения слой от T1, вж. make_template_red.py). Преизчисляват се
@@ -130,40 +131,47 @@ def signed_area2(pts):
         a += x0 * y1 - x1 * y0
     return a
 
+def _split(c):
+    """Контур -> (точки, closed)."""
+    if isinstance(c, dict):
+        return list(c['pts']), bool(c.get('closed', True))
+    return list(c), True
+
 def normalize(contours_mm, start='keep'):
     """mm -> µm (int); премества min X = 0, max Y = 0; CCW; без дублирани/нулеви точки.
+    Връща списък от (pts, closed). Отворен път: без затварящ сегмент, стартът не се мести.
     start='keep'    — стартова точка = първата подадена (и след обръщане CW -> CCW)
     start='topleft' — стартова точка = върхът с max Y, при равни — min X (както TroCutCAD в T4)"""
     if not contours_mm:
         raise ValueError("няма контури")
-    raw = [[(um(x), um(y)) for x, y in c] for c in contours_mm]
-    minx = min(x for c in raw for x, y in c)
-    maxy = max(y for c in raw for x, y in c)
+    raw = [([(um(x), um(y)) for x, y in _split(c)[0]], _split(c)[1]) for c in contours_mm]
+    minx = min(x for c, _ in raw for x, y in c)
+    maxy = max(y for c, _ in raw for x, y in c)
     out = []
-    for k, c in enumerate(raw):
+    for k, (c, closed) in enumerate(raw):
         pts = [(x - minx, y - maxy) for x, y in c]
         clean = []
         for p in pts:
             if not clean or p != clean[-1]:
                 clean.append(p)
-        if len(clean) > 1 and clean[0] == clean[-1]:
+        if closed and len(clean) > 1 and clean[0] == clean[-1]:
             clean.pop()
         if len(clean) < 3:
             raise ValueError(f"контур #{k + 1}: по-малко от 3 различни точки")
         if signed_area2(clean) < 0:                      # CW -> CCW, стартовата точка се запазва
-            clean = [clean[0]] + clean[:0:-1]
-        if start == 'topleft':
+            clean = [clean[0]] + clean[:0:-1] if closed else clean[::-1]
+        if start == 'topleft' and closed:
             s0 = min(range(len(clean)), key=lambda i: (-clean[i][1], clean[i][0]))
             clean = clean[s0:] + clean[:s0]
-        out.append(clean)
+        out.append((clean, closed))
     return out
 
 
 # ---------------------------------------------------------------- контур -> токени
 B5_30 = tok(0xB5, enc7([0x30]))
 
-def encode_contour(pts, idx, corner_marks=True):
-    """Връща (tokens, брой_сегменти). pts: затворен CCW полигон в µm без повторена крайна точка."""
+def encode_contour(pts, idx, corner_marks=True, closed=True):
+    """Връща (tokens, брой_сегменти). pts: CCW път в µm; closed=True добавя сегмент към първата точка."""
     xs = [p[0] for p in pts]; ys = [p[1] for p in pts]
     T = [
         tok(0xB0, enc7([0x14]) + enc35(min(ys)) + enc35(max(ys))),
@@ -172,12 +180,13 @@ def encode_contour(pts, idx, corner_marks=True):
     ]
     nseg = 0
     n = len(pts)
-    for i in range(n):
+    nseg_total = n if closed else n - 1
+    for i in range(nseg_total):
         x0, y0 = pts[i]; x1, y1 = pts[(i + 1) % n]
         dx, dy = x1 - x0, y1 - y0
         if math.hypot(dx, dy) > ABS_THRESHOLD_UM:
             T.append(tok(0xDC, enc35(x1) + enc35(y1)))
-            if corner_marks and i != n - 1:
+            if corner_marks and i != nseg_total - 1:
                 T.append(B5_30)            # 0xB5 [0x30] след всяка 0xDC (правило от промпта)
         elif dy == 0:
             T.append(tok(0xDE, enc14(dx)))
@@ -201,7 +210,8 @@ def render_preview(polys, N):
       s = N / max(W, H);  X е ОГЛЕДАЛНО: px = round((W − x)·s), ограничено до N−1;
       късата ос е центрирана: off = round((N − L·s)/2), py = off + round(−y·s).
     Линиите са 1 px (Bresenham). Стойности: 127 фон, 0 контур."""
-    allx = [x for c in polys for x, y in c]; ally = [y for c in polys for x, y in c]
+    items = [_split(c) if isinstance(c, dict) else (c, True) for c in polys]
+    allx = [x for c, _ in items for x, y in c]; ally = [y for c, _ in items for x, y in c]
     W = max(allx) - min(allx); H = max(ally) - min(ally)
     L = max(W, H, 1)
     s = N / L
@@ -221,9 +231,9 @@ def render_preview(polys, N):
             e2 = 2 * err
             if e2 >= dy: err += dy; x0 += sx
             if e2 <= dx: err += dx; y0 += sy
-    for c in polys:
-        P = [(offx + rnd((W - x) * s), offy + rnd(-y * s)) for x, y in c]
-        for i in range(len(P)):
+    for pts, closed in items:
+        P = [(offx + rnd((W - x) * s), offy + rnd(-y * s)) for x, y in pts]
+        for i in range(len(P) if closed else len(P) - 1):
             (x0, y0), (x1, y1) = P[i], P[(i + 1) % len(P)]
             line(x0, y0, x1, y1)
     return bytes(bm)
@@ -268,14 +278,14 @@ def write_ud6(contours, template_path=None, corner_marks=True, rec9_mode='center
 
     body = list(tpl.layer_prefix)
     nseg_total = 0
-    for k, pts in enumerate(polys):
-        segs, nseg = encode_contour(pts, k + 1, corner_marks)
+    for k, (pts, closed) in enumerate(polys):
+        segs, nseg = encode_contour(pts, k + 1, corner_marks, closed)
         body += segs
         body += tpl.contour_suffix
         body.append(tok(0xB0, enc7([0x23]) + enc35(k + 1)))   # пореден номер в реда на записване
         nseg_total += nseg
 
-    allx = [x for c in polys for x, y in c]; ally = [y for c in polys for x, y in c]
+    allx = [x for c, _ in polys for x, y in c]; ally = [y for c, _ in polys for x, y in c]
     xmax, ymin = max(allx), min(ally)
     W, H = xmax - min(allx), max(ally) - ymin           # min X = 0, max Y = 0 след normalize
 
@@ -296,7 +306,7 @@ def write_ud6(contours, template_path=None, corner_marks=True, rec9_mode='center
     for op, p in tpl.trailer:
         if preview == 'render' and op in (0xAE, 0xAF):
             N = 208 if op == 0xAE else 136
-            p = enc7(render_preview(polys, N))
+            p = enc7(render_preview([{'pts': c, 'closed': cl} for c, cl in polys], N))
         trailer.append((op, p))
     return untokenize(header + tpl.layer + body + trailer)
 

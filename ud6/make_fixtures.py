@@ -29,6 +29,7 @@ cases = {
     'tall_offset':  dict(contours=[[[10, 10], [10, 110], [30, 110], [30, 10]]], opts={}),
     'cw_input':     dict(contours=[[[0, 0], [0, 40], [40, 40], [40, 0]]], opts={}),
     'rec9_copy':    dict(contours=[[[0, 0], [100, 0], [100, 30]]], opts=dict(rec9='copy')),
+    'open_overlap': dict(contours=[dict(pts=[[20 * __import__('math').cos(__import__('math').pi / 2 + 2 * __import__('math').pi * i / 72), 20 * __import__('math').sin(__import__('math').pi / 2 + 2 * __import__('math').pi * i / 72)] for i in list(range(72)) + list(range(6))], closed=False), [[50, 0], [90, 0], [90, 40], [50, 40]]], opts=dict(start='topleft')),
 }
 py_opts = lambda o: dict(corner_marks=o.get('cornerMarks', True), start=o.get('start', 'keep'), rec9_mode=o.get('rec9', 'center'))
 for name, c in cases.items():
