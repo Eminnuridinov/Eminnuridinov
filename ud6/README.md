@@ -12,6 +12,8 @@
 | `make_fixtures.py` | еталони за Node тестовете (`fixtures/`) |
 | `test_ud6_write.py` | `python3 -m pytest -q` |
 | `test_ud6_write.node.js` | `node --test test_ud6_write.node.js` (байтова идентичност с Python) |
+| `EMIN_Nesting_R0006489_v1.1.html` | Nesting Lab v1.1 с вграден писач: бутони „UD6 — текущия лист“ / „ZIP UD6 — всички листове“ |
+| `test_nesting_lab.node.js` | `node --test test_nesting_lab.node.js` — целият скрипт през DOM mock, изходът през `ud6_decode.py` и `zipfile` |
 
 ## Корекции спрямо спецификацията (проверени в T1–T4)
 
@@ -31,3 +33,10 @@
 ## Опции на писача
 
 `corner_marks`/`cornerMarks` (true), `start` (`keep`|`topleft`), `rec9` (`center`|`copy`), Python: `preview` (`render`|`copy`).
+
+## Nesting Lab v1.1 — UD6 експорт
+
+- Ред на рязане: дърветата на влагане в реда на разкроя; в дърво най-дълбоко вложеният първи; за пръстен CUT_ID → CUT_OD.
+- Кръг → полигон с хорда 0.5 mm (≥ 64 сегмента), старт в най-горната точка, CCW; всичко относителни сегменти.
+- Начало: горен ляв ъгъл на bbox-а на пръстените (както TroCutCAD); отместването от ъгъла на листа се показва под бутоните.
+- Вграденият модул трябва да е идентичен с `ud6_write.js` (тестът го проверява).
