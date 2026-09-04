@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>EMIN Nesting Lab v1.6</title>
+<title>EMIN Nesting Lab v1.7</title>
 <style>
 :root{
   --bg:#0f1115; --panel:#181b22; --panel2:#1f242d; --line:#2a313c;
@@ -90,7 +90,7 @@ svg{display:block;width:100%;height:auto}
 <body>
 <header>
   <h1>EMIN Nesting Lab</h1>
-  <span class="badge mono" id="ver">v1.6</span>
+  <span class="badge mono" id="ver">v1.7</span>
   <span class="sub mono" id="hdrOrder">—</span>
 </header>
 
@@ -112,6 +112,19 @@ svg{display:block;width:100%;height:auto}
   </div>
 
   <div class="card">
+    <h2>Запазени поръчки</h2>
+    <div id="histBox" class="hint">—</div>
+    <div class="grid2" style="margin-top:8px">
+      <button class="btn sec" id="hExp">Запази всичко</button>
+      <button class="btn sec" id="hImp">Зареди архив</button>
+    </div>
+    <input type="file" id="hFile" accept=".json,application/json" style="display:none">
+    <div class="hint">Инструментът пази всяка поръчка сам, в паметта на браузъра, по номер — нищо не се сваля ръчно.
+    Тази памет обаче е само на това устройство и изчезва, ако изчистиш данните на браузъра. „Запази всичко“ прави архив на всички поръчки в един файл.</div>
+    <div id="hMsg"></div>
+  </div>
+
+  <div class="card">
     <h2>Режим</h2>
     <div class="seg" id="segMode">
       <button data-v="one" class="on">Лист по лист</button>
@@ -130,6 +143,7 @@ svg{display:block;width:100%;height:auto}
       <div><label><i class="dot y"></i>Kerf по OD, mm</label><input type="number" id="kf" value="1" step="0.1"></div>
       <div><label><i class="dot y"></i>Kerf по ID, mm (само .ud6)</label><input type="number" id="ki" value="1" step="0.1"></div>
       <div><label><i class="dot y"></i>Застъпване, mm (само .ud6)</label><input type="number" id="ov" value="3" step="0.5"></div>
+      <div><label><i class="dot y"></i>Скорост на ножа, mm/s</label><input type="number" id="sp" value="20" step="1"></div>
     </div>
     <div class="hint" id="kerfHint"></div>
   </div>
@@ -182,6 +196,8 @@ svg{display:block;width:100%;height:auto}
       <div><b class="mono" id="kFill">—</b><span>запълване</span></div>
     </div>
     <div id="res"></div>
+    <div id="mtime" class="hint mono"></div>
+    <div id="extra"></div>
   </div>
 
   <div class="card">
@@ -238,6 +254,18 @@ svg{display:block;width:100%;height:auto}
   <div class="card" style="margin-top:12px">
     <h2>Журнал на нарязаните листове</h2>
     <div id="journal" class="hint">Още няма вписани листове.</div>
+  </div>
+
+  <div class="card noprint">
+    <h2>Прагове по размер на листа</h2>
+    <div class="grid3">
+      <div><label>От, mm</label><input type="number" id="thA" class="mono" value="1400" step="10"></div>
+      <div><label>До, mm</label><input type="number" id="thB" class="mono" value="1500" step="10"></div>
+      <div><label>Стъпка</label><input type="number" id="thS" class="mono" value="10" step="5"></div>
+    </div>
+    <button class="btn sec" id="thRun" style="margin-top:8px">Изчисли праговете</button>
+    <div id="thBox" class="hint" style="margin-top:8px">Показва при кой размер на квадратен лист броят се променя.
+    Между два прага един и същ разкрой важи за целия диапазон.</div>
   </div>
 
   <div class="card">
@@ -876,6 +904,65 @@ function download(name,data,mime){
   setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(u);},400);
 }
 
+/* ================= Машинно време ================= */
+/* Дължина на рез на пръстен = π×(режещ OD) + π×(режещ ID). Режещият ID е номиналният + kerf по ID
+   (както в .ud6); застъпването добавя по толкова на всеки от двата контура. Два пробива на пръстен. */
+function cutLength(sh,c){
+  var L=0;
+  for(var i=0;i<sh.length;i++){
+    var r=sh[i];
+    L+=Math.PI*r.od + Math.PI*(r.idd+(c.kerfId||0)) + 2*(c.overlap||0);
+  }
+  return L;                                        // mm
+}
+function fmtTime(sec){
+  sec=Math.round(sec);
+  var m=Math.floor(sec/60),s=sec%60;
+  return m?(m+' мин '+(s<10?'0':'')+s+' с'):(s+' с');
+}
+function machineTime(sh,c){
+  var L=cutLength(sh,c);
+  return {len:L, sec:L/(c.speed||20), pierces:2*sh.length};
+}
+
+/* ================= Какво още се побира в листа ================= */
+/* За всяка позиция поотделно: колко още броя от нея биха се събрали в свободното място,
+   ако се добавят само те. Резерв срещу брак, без да се пипа следващият лист. */
+function extraFit(sh,c,limit){
+  limit=limit||60;
+  var busy=[];
+  for(var i=0;i<sh.length;i++) if(sh[i].depth===0) busy.push({x:sh[i].x,y:sh[i].y,r:sh[i].od/2});
+  var out=[];
+  for(var k=0;k<PARTS.length;k++){
+    var p=PARTS[k],od=p.od+(c.kerf||0),pl=busy.slice(),n=0,guard=0;
+    while(guard++<limit){
+      var pos=findSpot(od/2,pl,c.W,c.H,c.margin,c.gap,'contact',c.zones||[]);
+      if(!pos) break;
+      pl.push({x:pos.x,y:pos.y,r:od/2}); n++;
+    }
+    if(n) out.push({pos:p.pos,id:p.id,col:p.col,n:n,capped:n>=limit});
+  }
+  return out;
+}
+function renderExtra(){
+  var box=$('extra'),res=state.res,c=state.cfg;
+  if(!box) return;
+  if(!res||!res.sheets.length||!c){box.innerHTML='';return;}
+  var e=extraFit(res.sheets[state.cur],c);
+  if(!e.length){box.innerHTML='<div class="hint">В остатъка не се побира нито един детайл от поръчката.</div>';return;}
+  box.innerHTML='<div class="hint">В свободното място на този лист се събират още (ако режеш само тази позиция):<br>'+
+    e.map(function(x){return '<span style="color:'+x.col+'">поз.'+x.pos+' ('+x.id+') × '+x.n+(x.capped?'+':'')+'</span>';}).join(' · ')+
+    '<br>Резерв срещу брак — вадиш ги от този лист, без да започваш нов.</div>';
+}
+
+/* ================= Прагове по размер на листа ================= */
+function thresholdRow(size,c,list){
+  var cfg={W:size,H:size,margin:c.margin,gap:c.gap,kerf:c.kerf,nest:c.nest,zones:[],maxSheets:1};
+  var one=computeNesting(list,cfg);
+  return {size:size, pieces:one.sheets.length?one.sheets[0].length:0,
+          cuts:one.sheets.length?one.sheets[0].filter(function(r){return r.depth===0;}).length:0};
+}
+
 /* ================= Статистики ================= */
 function sheetStats(sh){
   var m={};
@@ -999,7 +1086,8 @@ function renderRemaining(){
 /* ================= Валидация ================= */
 function cfg(){
   return {W:+$('sw').value,H:+$('sh').value,margin:+$('mg').value,gap:+$('gp').value,
-          kerf:+$('kf').value||0,kerfId:+$('ki').value||0,overlap:+$('ov').value||0,nest:state.nest,zones:zonesAbs()};
+          kerf:+$('kf').value||0,kerfId:+$('ki').value||0,overlap:+$('ov').value||0,
+          speed:+$('sp').value||20,nest:state.nest,zones:zonesAbs()};
 }
 function validate(){
   var c=cfg(),errs=[],warns=[];
@@ -1007,6 +1095,7 @@ function validate(){
   if(c.margin<0||c.gap<0) errs.push('Ръб и мостче не може да са отрицателни.');
   if(c.kerf<0||c.kerfId<0) errs.push('Kerf не може да е отрицателен.');
   if(c.overlap<0) errs.push('Застъпването не може да е отрицателно.');
+  if(c.speed<=0) errs.push('Скоростта на ножа трябва да е положителна.');
   PARTS.forEach(function(p){
     if(p.idd>=p.od) errs.push('Поз. '+p.pos+': ID трябва да е по-малко от OD.');
     if(p.qty<0) errs.push('Поз. '+p.pos+': отрицателно количество.');
@@ -1105,9 +1194,10 @@ function commit(){
     n:state.journal.length+1, date:new Date().toISOString().slice(0,10),
     W:c.W,H:c.H,margin:c.margin,gap:c.gap,kerf:c.kerf,kerfId:c.kerfId,overlap:c.overlap,zones:c.zones,counts:counts,
     contours:sh.filter(function(r){return r.depth===0;}).length,
-    total:sh.length, fill:+fillPct(sh,c).toFixed(1), band:band(c.W,c.H)
+    total:sh.length, fill:+fillPct(sh,c).toFixed(1), band:band(c.W,c.H),
+    sec:Math.round(machineTime(sh,c).sec), speed:c.speed
   });
-  saveLS(); renderRemaining(); renderJournal(); renderAnalysis();
+  saveLS(); renderRemaining(); renderJournal(); renderAnalysis(); renderHistory();
   $('commit').disabled=true; $('res').innerHTML='<div class="msg ok">Лист '+state.journal.length+
     ' е вписан. Остатъчните количества са обновени.</div>';
   validate();
@@ -1143,7 +1233,14 @@ function drawSheet(){
   $('legend').innerHTML=Object.keys(cnt).map(function(k){
     return '<span><i style="background:'+colOf(k)+'"></i>'+k+' × '+cnt[k]+'</span>';}).join('')+
     ((c.zones&&c.zones.length)?'<span><i style="background:#f87171"></i>дефект × '+c.zones.length+'</span>':'');
-  renderDetail(); renderUD6Hint();
+  renderDetail(); renderUD6Hint(); renderMTime(); renderExtra();
+}
+function renderMTime(){
+  var box=$('mtime'),res=state.res,c=state.cfg;
+  if(!box) return;
+  if(!res||!res.sheets.length||!c){box.textContent='';return;}
+  var t=machineTime(res.sheets[state.cur],c);
+  box.textContent='машинно време ≈ '+fmtTime(t.sec)+' · рязане '+nf(t.len/1000)+' m · '+t.pierces+' пробива при '+nf(c.speed)+' mm/s';
 }
 
 /* ================= Журнал / анализ ================= */
@@ -1153,7 +1250,7 @@ function renderJournal(){
   types.forEach(function(t){cum[t]=0;});
   rows.push('<div class="scroll"><table><thead><tr><th>№</th><th>Размер</th><th>Деф.</th>'+
     PARTS.map(function(p){return '<th style="color:'+p.col+'">'+p.pos+'</th>';}).join('')+
-    '<th>Общо</th><th>Запълв.</th></tr></thead><tbody>');
+    '<th>Общо</th><th>Запълв.</th><th>Време</th></tr></thead><tbody>');
   state.journal.forEach(function(e){
     var tds=types.map(function(t){
       var n=e.counts[t]||0; cum[t]+=n;
@@ -1163,7 +1260,8 @@ function renderJournal(){
     rows.push('<tr><td><b>'+e.n+'</b><div style="font-size:9px;color:var(--muted)">'+e.date+'</div></td>'+
       '<td class="mono">'+e.W+'×'+e.H+'</td>'+
       '<td class="mono" style="color:'+((e.zones&&e.zones.length)?'var(--red)':'var(--muted)')+'">'+((e.zones&&e.zones.length)||'·')+'</td>'+
-      tds+'<td class="mono">'+e.total+'</td><td class="mono">'+(e.fill==null?'—':e.fill+'%')+'</td></tr>');
+      tds+'<td class="mono">'+e.total+'</td><td class="mono">'+(e.fill==null?'—':e.fill+'%')+'</td>'+
+      '<td class="mono">'+(e.sec?fmtTime(e.sec):'—')+'</td></tr>');
   });
   rows.push('<tr style="border-top:2px solid var(--line)"><td>Общо</td><td colspan="2" class="mono">'+
     state.journal.length+' листа</td>'+
@@ -1171,9 +1269,10 @@ function renderJournal(){
       var ok=cum[t]===partOf(t).qty;
       return '<td class="mono" style="color:'+(ok?'var(--teal)':'var(--amber)')+'"><b>'+cum[t]+'</b>'+
         '<div style="font-size:9px;color:var(--muted)">от '+partOf(t).qty+'</div></td>';}).join('')+
-    '<td colspan="2"></td></tr>');
+    '<td colspan="3"></td></tr>');
   rows.push('</tbody></table></div>');
-  rows.push('<div class="hint">Колоните са номерата на позициите от поръчката. Σ е натрупано количество.</div>');
+  rows.push('<div class="hint">Колоните са номерата на позициите от поръчката. Σ е натрупано количество. '+
+    'Времето е от периметъра на резовете при зададената скорост, без празни ходове и смяна на лист.</div>');
   $('journal').innerHTML=rows.join('');
   renderClaudeBlock();
 }
@@ -1299,6 +1398,9 @@ function renderClaudeBlock(){
         .concat([e.total,(e.fill==null?'-':e.fill)]).join('|'));
     });
   }
+  var tot=0; J.forEach(function(e){tot+=e.sec||0;});
+  if(tot) L.push('Машинно време: '+J.map(function(e){return e.n+')'+(e.sec?fmtTime(e.sec):'-');}).join(', ')+
+    ' | общо '+fmtTime(tot)+' при '+nf(J[J.length-1].speed||20)+' mm/s');
   L.push('Остават: '+PARTS.map(function(p){return p.pos+'='+(state.remaining[p.id]||0);}).join(', '));
   $('claudeBlock').value=L.join('\n');
 }
@@ -1369,9 +1471,59 @@ function buildCSV(){
   return '\uFEFF'+L.join('\r\n')+'\r\n';
 }
 
+/* ================= Прагове — изпълнение ================= */
+function runThresholds(){
+  if(!validate()) return;
+  var c=cfg(),A=+$('thA').value||1400,B=+$('thB').value||1500,S=Math.max(5,+$('thS').value||10);
+  if(B<A){var t=A;A=B;B=t;}
+  var sizes=[]; for(var s=A;s<=B+1e-9;s+=S) sizes.push(Math.round(s));
+  if(sizes.length>40){$('thBox').innerHTML='<div class="msg warn">Твърде много размери ('+sizes.length+'). Увеличи стъпката.</div>';return;}
+  var list=state.mode==='one'
+    ? PARTS.filter(function(p){return (state.remaining[p.id]||0)>0;})
+           .map(function(p){return {id:p.id,od:p.od,idd:p.idd,qty:state.remaining[p.id]};})
+    : PARTS.map(function(p){return {id:p.id,od:p.od,idd:p.idd,qty:p.qty};});
+  if(!list.length){$('thBox').innerHTML='<div class="msg warn">Няма останали детайли за рязане.</div>';return;}
+  var rows=[],i=0;
+  $('thRun').disabled=true;
+  (function step(){
+    if(i>=sizes.length){ $('thRun').disabled=false; drawThresholds(rows,c); return; }
+    $('thBox').innerHTML='<div class="hint">Смятам… '+(i+1)+' от '+sizes.length+' ('+sizes[i]+' mm)</div>';
+    var row=thresholdRow(sizes[i],c,list);
+    /* разкроят е евристичен и понякога вади с 1–2 по-малко на по-голям лист; физически това е
+       невъзможно (подредбата от по-малкия лист се побира и в по-големия), затова се изравнява нагоре */
+    if(rows.length&&row.pieces<rows[rows.length-1].pieces){
+      row.pieces=rows[rows.length-1].pieces; row.cuts=rows[rows.length-1].cuts; row.carried=true;
+    }
+    rows.push(row); i++;
+    setTimeout(step,0);
+  })();
+}
+function drawThresholds(rows,c){
+  var out=['<div class="scroll"><table><thead><tr><th>Лист</th><th>Резове</th><th>Бройки</th><th>Спрямо предишния</th></tr></thead><tbody>'];
+  var jumps=0;
+  rows.forEach(function(r,i){
+    var d=i?r.pieces-rows[i-1].pieces:0, jump=i&&d!==0;
+    if(jump) jumps++;
+    out.push('<tr'+(jump?' style="background:rgba(45,212,191,.07)"':'')+'>'+
+      '<td class="mono">'+r.size+'×'+r.size+'</td><td class="mono">'+r.cuts+'</td>'+
+      '<td class="mono"><b>'+r.pieces+'</b>'+(r.carried?'<span style="color:var(--muted)"> ≥</span>':'')+'</td>'+
+      '<td class="mono" style="color:'+(d>0?'var(--teal)':(d<0?'var(--red)':'var(--muted)'))+'">'+
+      (i?(d>0?'+'+d:(d||'·')):'—')+'</td></tr>');
+  });
+  out.push('</tbody></table></div>');
+  out.push('<div class="hint">'+(jumps?('Прагове: '+jumps+' скока в този диапазон. Между два прага един и същ разкрой важи за целия интервал — '+
+    'мери листа и гледай в кой интервал попада, вместо да смяташ наново.'):
+    'В този диапазон броят не се променя — разкроят е един и същ за целия интервал.')+
+    ' Знакът ≥ значи, че разкроят за този размер не намери повече от предишния, но подредбата от '+
+    'по-малкия лист се побира и тук, тоест толкова са гарантирани.'+
+    ' Смятано при ръб '+nf(c.margin)+' mm, мостче '+nf(c.gap)+' mm, kerf '+nf(c.kerf)+' mm'+
+    (c.nest?', с влагане':', без влагане')+'.</div>');
+  $('thBox').innerHTML=out.join('');
+}
+
 /* ================= Съхранение ================= */
 function saveLS(){
-  try{ localStorage.setItem(LSKEY,JSON.stringify({meta:metaObj(),
+  try{ localStorage.setItem(LSKEY,JSON.stringify({updated:new Date().toISOString(),meta:metaObj(),
          parts:PARTS.map(function(p){return {id:p.id,od:p.od,idd:p.idd,qty:p.qty,col:p.col};}),
          journal:state.journal,remaining:state.remaining}));
        $('jMsg').innerHTML=''; }
@@ -1398,12 +1550,70 @@ function loadLS(){
   }catch(e){}
   return false;
 }
+/* всички поръчки, запазени в паметта на браузъра */
+function listSaved(){
+  var out=[];
+  try{
+    for(var i=0;i<localStorage.length;i++){
+      var k=localStorage.key(i);
+      if(k.indexOf('EMIN_NEST_')!==0) continue;
+      var o=JSON.parse(localStorage.getItem(k))||{};
+      out.push({key:k,order:k.slice(10),meta:o.meta||{},sheets:(o.journal||[]).length,
+                parts:(o.parts||[]).length,updated:o.updated||'',
+                left:Object.keys(o.remaining||{}).reduce(function(s,t){return s+(o.remaining[t]||0);},0)});
+    }
+  }catch(e){ return null; }
+  out.sort(function(a,b){return (b.updated||'').localeCompare(a.updated||'');});
+  return out;
+}
+function renderHistory(){
+  var box=$('histBox'),L=listSaved();
+  if(L===null){box.innerHTML='<div class="msg warn">Браузърът не пази данни тук. Ползвай „Запази всичко“ след всеки лист.</div>';return;}
+  if(!L.length){box.innerHTML='Още няма запазена поръчка.';return;}
+  var rows=['<div class="scroll"><table><thead><tr><th>Поръчка</th><th>Позиции</th><th>Листа</th><th>Остават</th><th>Променена</th><th></th></tr></thead><tbody>'];
+  L.forEach(function(e){
+    var cur=e.order===ORDER;
+    rows.push('<tr'+(cur?' style="background:rgba(45,212,191,.07)"':'')+'>'+
+      '<td><b style="color:'+(cur?'var(--teal)':'var(--text)')+'">'+e.order+'</b>'+
+      (e.meta.client?'<div style="font-size:9px;color:var(--muted)">'+e.meta.client+'</div>':'')+'</td>'+
+      '<td class="mono">'+e.parts+'</td><td class="mono">'+e.sheets+'</td><td class="mono">'+e.left+'</td>'+
+      '<td class="mono" style="font-size:10px">'+(e.updated?e.updated.slice(0,10):'—')+'</td>'+
+      '<td>'+(cur?'<span style="color:var(--muted);font-size:10px">текуща</span>':
+        '<button data-go="'+e.order+'" style="background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer">отвори</button>')+
+      ' <button data-rm="'+e.order+'" style="background:rgba(248,113,113,.10);border:1px solid var(--red);color:var(--red);border-radius:6px;width:28px;height:26px;cursor:pointer">×</button></td></tr>');
+  });
+  rows.push('</tbody></table></div>');
+  box.innerHTML=rows.join('');
+  Array.prototype.forEach.call(box.querySelectorAll('button[data-go]'),function(b){
+    b.addEventListener('click',function(){$('oNum').value=b.dataset.go;switchOrder();});});
+  Array.prototype.forEach.call(box.querySelectorAll('button[data-rm]'),function(b){
+    b.addEventListener('click',function(){
+      if(!w_confirm('Поръчка '+b.dataset.rm+' ще бъде изтрита от паметта на браузъра. Сигурен ли си?')) return;
+      try{localStorage.removeItem('EMIN_NEST_'+b.dataset.rm);}catch(e){}
+      if(b.dataset.rm===ORDER){state.journal=[];state.remaining=freshRemaining();}
+      renderHistory(); renderJournal(); renderAnalysis(); validate();
+      $('hMsg').innerHTML='<div class="msg ok">Поръчка '+b.dataset.rm+' е изтрита.</div>';});});
+}
+function exportAll(){
+  var L=listSaved()||[],all={tool:'EMIN Nesting Lab',saved:new Date().toISOString(),orders:{}};
+  L.forEach(function(e){ try{all.orders[e.order]=JSON.parse(localStorage.getItem(e.key));}catch(x){} });
+  return all;
+}
+function importAll(o){
+  if(!o||!o.orders) throw new Error('Файлът не е архив на този инструмент.');
+  var n=0;
+  Object.keys(o.orders).forEach(function(k){
+    try{ localStorage.setItem('EMIN_NEST_'+k,JSON.stringify(o.orders[k])); n++; }catch(e){}
+  });
+  return n;
+}
+
 /* смяна на номера на поръчката: превключва към нейния журнал (или започва празен) */
 function switchOrder(){
   readMeta(); state.res=null; state.zones=[];
   if(!loadLS()){ state.journal=[]; state.remaining=freshRemaining(); }
   renderParts(); renderRemaining(); renderZones(); renderJournal(); renderAnalysis(); renderManualQty();
-  applyMode();
+  renderHistory(); applyMode();
   $('oMsg').innerHTML='<div class="msg ok">Поръчка '+ORDER+': '+PARTS.length+' позиции, '+
     state.journal.length+' вписани листа.</div>';
 }
@@ -1447,9 +1657,10 @@ function init(){
   readMeta();
   if(!loadLS()) state.remaining=freshRemaining();
   PARTS.forEach(function(p){ if(state.remaining[p.id]==null) state.remaining[p.id]=p.qty; });
-  renderParts(); renderRemaining(); renderZones(); renderJournal(); renderAnalysis(); applyMode();
+  saveLS();                                   /* текущата поръчка да се вижда в историята веднага */
+  renderParts(); renderRemaining(); renderZones(); renderJournal(); renderAnalysis(); renderHistory(); applyMode();
 
-  Array.prototype.forEach.call(document.querySelectorAll('#sw,#sh,#mg,#gp,#kf,#ki,#ov'),function(el){
+  Array.prototype.forEach.call(document.querySelectorAll('#sw,#sh,#mg,#gp,#kf,#ki,#ov,#sp'),function(el){
     el.addEventListener('change',function(){renderRemaining();validate();});});
   $('oNum').addEventListener('change',switchOrder);
   Array.prototype.forEach.call(document.querySelectorAll('#oCli,#oMat,#oThk,#oQty'),function(el){
@@ -1501,6 +1712,21 @@ function init(){
     var files=state.res.sheets.map(function(sh,i){return {name:ORDER+'_list'+(i+1)+'.ud6',data:buildUD6Sheet(sh,state.cfg.kerfId,state.cfg.overlap)};});
     download(ORDER+'_razkroy_'+state.res.sheets.length+'lista_ud6.zip',makeZip(files),'application/zip');});
 
+  $('hExp').addEventListener('click',function(){
+    download(ORDER+'_arhiv_vsichki.json',JSON.stringify(exportAll(),null,1),'application/json');});
+  $('hImp').addEventListener('click',function(){$('hFile').click();});
+  $('hFile').addEventListener('change',function(ev){
+    var f=ev.target.files[0]; if(!f)return;
+    var rd=new FileReader();
+    rd.onload=function(){
+      try{ var n=importAll(JSON.parse(rd.result));
+           if(!loadLS()){state.journal=[];state.remaining=freshRemaining();}
+           renderHistory(); renderParts(); renderRemaining(); renderJournal(); renderAnalysis(); validate();
+           $('hMsg').innerHTML='<div class="msg ok">Заредени '+n+' поръчки от архива.</div>'; }
+      catch(e){ $('hMsg').innerHTML='<div class="msg err">'+e.message+'</div>'; }
+    };
+    rd.readAsText(f); ev.target.value='';});
+  $('thRun').addEventListener('click',runThresholds);
   $('jExp').addEventListener('click',function(){
     download(ORDER+'_jurnal.json',JSON.stringify({order:ORDER,meta:metaObj(),saved:new Date().toISOString(),
       parts:PARTS.map(function(p){return {id:p.id,od:p.od,idd:p.idd,qty:p.qty,col:p.col};}),
@@ -1519,7 +1745,7 @@ function init(){
     if(!state.journal.length){$('jMsg').innerHTML='<div class="msg warn">Журналът вече е празен.</div>';return;}
     if(!w_confirm('Журналът с '+state.journal.length+' листа ще бъде изтрит. Сигурен ли си?')) return;
     state.journal=[]; state.remaining=freshRemaining(); state.res=null;
-    saveLS(); renderRemaining(); renderJournal(); renderAnalysis(); validate();
+    saveLS(); renderRemaining(); renderJournal(); renderAnalysis(); renderHistory(); validate();
     $('jMsg').innerHTML='<div class="msg ok">Журналът е изчистен.</div>';});
 
   $('copyBlock').addEventListener('click',function(){
@@ -1551,7 +1777,7 @@ function manualCommit(){
   state.journal.forEach(function(x,i){x.n=i+1;});
   if($('mSub').checked) PARTS.forEach(function(p){
     state.remaining[p.id]=Math.max(0,(state.remaining[p.id]||0)-(counts[p.id]||0));});
-  saveLS(); renderRemaining(); renderJournal(); renderAnalysis(); validate();
+  saveLS(); renderRemaining(); renderJournal(); renderAnalysis(); renderHistory(); validate();
   Array.prototype.forEach.call($('mQty').querySelectorAll('input'),function(i){i.value='0';});
   $('jMsg').innerHTML='<div class="msg ok">Лист '+e.n+' ('+W+'×'+H+', '+total+' бр) е вписан ръчно.</div>';
 }
@@ -1561,7 +1787,9 @@ window.hitsZone=hitsZone; window.buildDXF=buildDXF; window.buildCSV=buildCSV;
 window.applyImport=applyImport; window.freshRemaining=freshRemaining; window.renderZones=renderZones;
 window.renderJournal=renderJournal; window.validate=validate; window.state=state; window.PARTS=PARTS;
 window.computeNesting=computeNesting; window.makeZip=makeZip; window.nestInside=nestInside;
-window.spotInHole=spotInHole; window.treeSizes=treeSizes; window.packOneSheet=packOneSheet; window.STRATEGIES=STRATEGIES;
+window.spotInHole=spotInHole; window.treeSizes=treeSizes; window.cutLength=cutLength; window.fmtTime=fmtTime;
+window.machineTime=machineTime; window.extraFit=extraFit; window.thresholdRow=thresholdRow; window.runThresholds=runThresholds;
+window.listSaved=listSaved; window.exportAll=exportAll; window.importAll=importAll; window.renderHistory=renderHistory; window.packOneSheet=packOneSheet; window.STRATEGIES=STRATEGIES;
 window.buildInstances=buildInstances; window.findSpot=findSpot;
 window.sheetStats=sheetStats; window.renderRemaining=renderRemaining; window.sheetRows=sheetRows;
 window.netOf=netOf; window.barChart=barChart; window.progressBars=progressBars; window.commit=commit;

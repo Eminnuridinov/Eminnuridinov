@@ -1,4 +1,4 @@
-// Тест на EMIN_Nesting_Lab_v1.6.html през DOM mock:  node --test test_nesting_lab.node.js
+// Тест на EMIN_Nesting_Lab_v1.7.html през DOM mock:  node --test test_nesting_lab.node.js
 // 1) целият скрипт минава init без runtime грешки; 2) computeNesting -> buildUD6Sheet -> ud6_decode.py;
 // 3) ZIP с binary .ud6 през python zipfile; 4) вграденият модул == ud6_write.js.
 'use strict';
@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 const J = v => JSON.parse(JSON.stringify(v));   // масивите от vm контекста са друг realm
 const fs = require('fs'), path = require('path'), vm = require('vm'), cp = require('child_process');
 
-const HTML_PATH = path.join(__dirname, 'EMIN_Nesting_Lab_v1.6.html');
+const HTML_PATH = path.join(__dirname, 'EMIN_Nesting_Lab_v1.7.html');
 const html = fs.readFileSync(HTML_PATH, 'utf8');
 const script = html.slice(html.indexOf('<script>') + 8, html.lastIndexOf('</script>'));
 const TMP = fs.mkdtempSync(path.join(require('os').tmpdir(), 'nest-'));
@@ -38,7 +38,13 @@ function makeWindow() {
     document, console, setTimeout, clearTimeout, Math, Date, JSON, Number, String, Array, Object, Uint8Array, Blob: function () {},
     BigInt, Infinity, NaN, isNaN, parseFloat, parseInt, Error, Proxy, Reflect, Buffer,
     URL: { createObjectURL() { return 'blob:x'; }, revokeObjectURL() {} },
-    localStorage: { getItem(k) { return k in store ? store[k] : null; }, setItem(k, v) { store[k] = String(v); }, removeItem(k) { delete store[k]; } },
+    localStorage: {
+      getItem(k) { return k in store ? store[k] : null; },
+      setItem(k, v) { store[k] = String(v); },
+      removeItem(k) { delete store[k]; },
+      key(i) { return Object.keys(store)[i]; },
+      get length() { return Object.keys(store).length; },
+    },
     navigator: {}, confirm() { return true; }, FileReader: function () {},
     atob: s => Buffer.from(s, 'base64').toString('binary'),
     _els: els,
@@ -48,7 +54,7 @@ function makeWindow() {
 }
 function boot() {
   const w = makeWindow();
-  for (const [id, v] of Object.entries({ sw: '1500', sh: '1500', mg: '5', gp: '2', kf: '1', ki: '1', ov: '3', mW: '1500', mH: '1500',
+  for (const [id, v] of Object.entries({ sw: '1500', sh: '1500', mg: '5', gp: '2', kf: '1', ki: '1', ov: '3', sp: '20', thA: '1400', thB: '1500', thS: '10', mW: '1500', mH: '1500',
        oNum: 'R0006489', oQty: '270', oCli: 'ОЙ Бринолф Гронмарк', oMat: 'модиф. ПТФЕ с барий', oThk: '1.5' }))
     w.document.getElementById(id).value = v;
   vm.createContext(w);
@@ -63,8 +69,8 @@ test('целият скрипт минава init без грешки; верс�
   assert.equal(typeof w.computeNesting, 'function');
   assert.equal(typeof w.buildUD6Sheet, 'function');
   assert.equal(typeof w.UD6.buildUD6, 'function');
-  assert.match(html, /<span class="badge mono" id="ver">v1\.6<\/span>/);
-  assert.match(html, /<title>EMIN Nesting Lab v1\.6/);
+  assert.match(html, /<span class="badge mono" id="ver">v1\.7<\/span>/);
+  assert.match(html, /<title>EMIN Nesting Lab v1\.7/);
   assert.ok(w._els.ud61 && w._els.ud6All && w._els.ud6Hint, 'нови елементи');
   assert.ok(w._els.oNum && w._els.oQty && w._els.addPart && w._els.ptab, 'карта Поръчка + позиции');
   assert.equal(w._els.hdrOrder.textContent, 'поръчка R0006489');
@@ -364,4 +370,113 @@ test('дефектната зона се спазва и в новия разк�
   const r = w.computeNesting(list, { W: 1485, H: 1500, margin: 5, gap: 2, kerf: 1, nest: 1, zones, maxSheets: 1 });
   for (const ring of r.sheets[0]) assert.ok(!w.hitsZone(ring.x, ring.y, ring.od / 2, zones, 2), ring.type + ' в дефекта');
   assert.ok(r.sheets[0].length >= 125);
+});
+
+
+// ---------------------------------------------------------------- v1.7
+test('машинно време: π×(режещ OD + режещ ID) + застъпване, при зададена скорост', () => {
+  const w = boot();
+  const sh = [{ type: 'a', od: 219, odn: 218, idd: 169, x: 0, y: 0, depth: 0, treeId: 1 }];
+  // без kerf по ID и без застъпване → закованата формула π×(OD+ID)
+  let c = { kerfId: 0, overlap: 0, speed: 20 };
+  const L = w.cutLength(sh, c);
+  assert.ok(Math.abs(L - Math.PI * (219 + 169)) < 1e-6);
+  const t = w.machineTime(sh, c);
+  assert.ok(Math.abs(t.sec - L / 20) < 1e-6);
+  assert.equal(t.pierces, 2);
+  // Ø218/169 ≈ 1,216 m ≈ 61 s (числото от документа, при номинални размери)
+  const nom = w.cutLength([{ od: 218, idd: 169 }], { kerfId: 0, overlap: 0 });
+  assert.ok(Math.abs(nom / 1000 - 1.216) < 0.001, nom);
+  assert.ok(Math.abs(nom / 20 - 60.8) < 0.1);
+  // застъпването добавя по толкова на всеки от двата контура
+  c = { kerfId: 1, overlap: 3, speed: 20 };
+  assert.ok(Math.abs(w.cutLength(sh, c) - (Math.PI * (219 + 170) + 6)) < 1e-6);
+  assert.equal(w.fmtTime(61), '1 мин 01 с');
+  assert.equal(w.fmtTime(45), '45 с');
+});
+
+test('какво още се побира: брои само в свободното място и спазва зоните', () => {
+  const w = boot();
+  const c = { W: 1000, H: 1000, margin: 5, gap: 2, kerf: 1, zones: [] };
+  // празен лист: колко Ø304 се събират
+  const empty = w.extraFit([], c);
+  const big = empty.find(e => e.id === '304/289');
+  assert.ok(big && big.n >= 4, JSON.stringify(big));
+  // след като листът е пълен с един голям, остава по-малко
+  const one = [{ type: '304/289', od: 305, idd: 289, x: 500, y: 500, depth: 0, treeId: 1 }];
+  const after = w.extraFit(one, c).find(e => e.id === '304/289');
+  assert.ok(after.n < big.n, 'заетото място намалява резерва');
+  // дефектна зона намалява още
+  const withZone = w.extraFit(one, Object.assign({}, c, { zones: [{ x: 0, y: 0, w: 500, h: 500 }] }))
+    .find(e => e.id === '304/289');
+  assert.ok(withZone.n < after.n, 'дефектът намалява резерва');
+});
+
+test('прагове: една стъпка връща бройки и резове', () => {
+  const w = boot();
+  const list = w.PARTS.map(p => ({ id: p.id, od: p.od, idd: p.idd, qty: p.qty }));
+  const c = { margin: 5, gap: 2, kerf: 1, nest: 1 };
+  const a = w.thresholdRow(1400, c, list), b = w.thresholdRow(1500, c, list);
+  assert.ok(a.pieces > 0 && b.pieces > a.pieces, a.pieces + ' → ' + b.pieces);
+  assert.ok(a.cuts > 0 && a.cuts <= a.pieces);
+});
+
+test('история: текущата поръчка се вижда веднага, без нищо да е записвано', () => {
+  const w = boot();
+  const L = w.listSaved();
+  assert.equal(L.length, 1);
+  assert.equal(L[0].order, 'R0006489');
+  assert.equal(L[0].sheets, 0);
+});
+
+test('история: списък по поръчки, архив и връщане от архив', () => {
+  const w = boot();
+  w.state.journal.push({ n: 1, date: '2026-09-04', W: 1500, H: 1500, counts: {}, total: 3 });
+  w.saveLS();
+  w._els.oNum.value = 'M0001317'; w.switchOrder(); w.saveLS();
+  const L = w.listSaved();
+  assert.equal(L.length, 2);
+  assert.deepEqual(J(L.map(x => x.order).sort()), ['M0001317', 'R0006489']);
+  const r = L.find(x => x.order === 'R0006489');
+  assert.equal(r.sheets, 1);
+  assert.ok(r.updated, 'има дата на промяна');
+  // архив → изтриване → връщане
+  const arch = w.exportAll();
+  assert.ok(arch.orders['R0006489'] && arch.orders['M0001317']);
+  w.localStorage.removeItem('EMIN_NEST_R0006489');
+  assert.equal(w.listSaved().length, 1);
+  assert.equal(w.importAll(JSON.parse(JSON.stringify(arch))), 2);
+  assert.equal(w.listSaved().length, 2);
+  assert.throws(() => w.importAll({ nonsense: 1 }));
+});
+
+test('историята се рисува и показва текущата поръчка', () => {
+  const w = boot();
+  w.saveLS(); w.renderHistory();
+  assert.match(w._els.histBox.innerHTML, /R0006489/);
+  assert.match(w._els.histBox.innerHTML, /текуща/);
+});
+
+test('машинното време влиза в журнала и в блока за Claude', async () => {
+  const w = boot();
+  w.state.mode = 'one';
+  w.run();
+  await new Promise(r => setTimeout(r, 400));
+  w.commit();
+  const e = w.state.journal[0];
+  assert.ok(e.sec > 0, 'записано време');
+  assert.equal(e.speed, 20);
+  assert.match(w._els.claudeBlock.value, /Машинно време: 1\)/);
+});
+
+test('праговете са монотонни: по-голям лист не дава по-малко', async () => {
+  const w = boot();
+  w._els.thA.value = '1400'; w._els.thB.value = '1500'; w._els.thS.value = '10';
+  w.runThresholds();
+  await new Promise(r => setTimeout(r, 4000));
+  const rows = [...w._els.thBox.innerHTML.matchAll(/<b>(\d+)<\/b>/g)].map(m => +m[1]);
+  assert.ok(rows.length >= 10, 'има редове: ' + rows.length);
+  for (let i = 1; i < rows.length; i++)
+    assert.ok(rows[i] >= rows[i - 1], 'спад при ред ' + i + ': ' + rows[i - 1] + ' → ' + rows[i]);
+  assert.match(w._els.thBox.innerHTML, /Прагове: \d+ скока/);
 });
